@@ -118,7 +118,7 @@ Document these commands in the repository README so humans can reproduce them.
     - Saves uploaded file temporarily with unique identifier
     - Tests for upload validation and error cases
 
-- [ ] **Story 1.3**: Document Format Detection & Classification
+- [x] **Story 1.3**: Document Format Detection & Classification
   - As a system, I want to automatically detect and classify document format from uploaded files, so that the system knows whether to process it as text-based or visual.
   - **Acceptance Criteria**:
     - Detects format from file extension and/or MIME type
@@ -499,7 +499,7 @@ For any story, it is **complete** only when:
 - Implemented stories:
   - [x] Story 1.1: FastAPI Service Bootstrap
   - [x] Story 1.2: Document Upload Endpoint
-  - [ ] Story 1.3: Document Format Detection & Classification
+  - [x] Story 1.3: Document Format Detection & Classification
   - [ ] Story 1.4: Schema Validation
   - [ ] Story 2.1: Text Extraction from Text-Based Documents
   - [ ] Story 2.2: LangChain LLM Integration for Text Extraction
