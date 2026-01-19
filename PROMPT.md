@@ -144,7 +144,7 @@ Document these commands in the repository README so humans can reproduce them.
 
 ### Core Stories - Phase 2 (Text-Based Extraction)
 
-- [ ] **Story 2.1**: Text Extraction from Text-Based Documents
+- [x] **Story 2.1**: Text Extraction from Text-Based Documents
   - As a system, I want to extract raw text from text-based documents, so that I can process them directly without visual conversion.
   - **Acceptance Criteria**:
     - Extracts text from .txt files preserving line breaks and structure
@@ -501,7 +501,7 @@ For any story, it is **complete** only when:
   - [x] Story 1.2: Document Upload Endpoint
   - [x] Story 1.3: Document Format Detection & Classification
   - [x] Story 1.4: Schema Validation
-  - [ ] Story 2.1: Text Extraction from Text-Based Documents
+  - [x] Story 2.1: Text Extraction from Text-Based Documents
   - [ ] Story 2.2: LangChain LLM Integration for Text Extraction
   - [ ] Story 2.3: JSON + Markdown Output (Text Documents)
   - [ ] Story 3.1: Text Extraction from Visual Documents (OCR)
