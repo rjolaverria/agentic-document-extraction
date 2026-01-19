@@ -106,7 +106,7 @@ Document these commands in the repository README so humans can reproduce them.
     - OpenAPI docs available at `/docs`
     - Tests for health endpoint using `httpx`
 
-- [ ] **Story 1.2**: Document Upload Endpoint
+- [x] **Story 1.2**: Document Upload Endpoint
   - As a user, I want to upload a document file along with a JSON schema via API, so that I can trigger the extraction process.
   - **Acceptance Criteria**:
     - `POST /extract` endpoint accepts multipart form data
@@ -498,7 +498,7 @@ For any story, it is **complete** only when:
 
 - Implemented stories:
   - [x] Story 1.1: FastAPI Service Bootstrap
-  - [ ] Story 1.2: Document Upload Endpoint
+  - [x] Story 1.2: Document Upload Endpoint
   - [ ] Story 1.3: Document Format Detection & Classification
   - [ ] Story 1.4: Schema Validation
   - [ ] Story 2.1: Text Extraction from Text-Based Documents
