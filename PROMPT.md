@@ -361,6 +361,7 @@ Document these commands in the repository README so humans can reproduce them.
 - Prefer small, composable functions and modules.
 - Tests must be fast, deterministic, and isolated.
 - **API Framework**: FastAPI with async endpoints where appropriate
+- **Document loading**: Use langchain `Document` and the document loaders for reading data from different sources.
 - **LLM Orchestration**: LangChain with langchain-openai for all LLM/VLM interactions
 - **LLM/VLM Provider**: OpenAI (GPT-4, GPT-4 Turbo, GPT-4V) with reasoning capabilities
 - **Layout Detection**: Open-source models via Hugging Face `transformers` library
@@ -502,7 +503,8 @@ For any story, it is **complete** only when:
   - [x] Story 1.3: Document Format Detection & Classification
   - [x] Story 1.4: Schema Validation
   - [x] Story 2.1: Text Extraction from Text-Based Documents
-  - [ ] Story 2.2: LangChain LLM Integration for Text Extraction
+  - [x] Story 2.1.1: Use LangChain Document Loaders for reading data from different sources.
+  - [ ] Story 2.2: LangChain LLM Integration for Text Extraction --- NEXT ---
   - [ ] Story 2.3: JSON + Markdown Output (Text Documents)
   - [ ] Story 3.1: Text Extraction from Visual Documents (OCR)
   - [ ] Story 3.2: Layout Detection with Hugging Face Transformers

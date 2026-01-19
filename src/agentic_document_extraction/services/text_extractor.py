@@ -1,12 +1,19 @@
 """Text extraction service for text-based documents.
 
 This module provides functionality to extract raw text from text-based documents
-(TXT and CSV files), handling encoding detection and preserving document structure.
+(TXT and CSV files) using LangChain document loaders. It handles encoding detection
+and preserves document structure while providing a unified interface for text
+extraction.
+
+Uses LangChain's TextLoader and CSVLoader for loading documents, following
+the project's technical constraint to use LangChain Document and document loaders
+for reading data from different sources.
 """
 
 import csv
 import io
 import logging
+import tempfile
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -14,6 +21,8 @@ from typing import Any
 
 import chardet
 import pandas as pd
+from langchain_community.document_loaders import CSVLoader, TextLoader
+from langchain_core.documents import Document
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +70,9 @@ class TextExtractionResult:
     metadata: dict[str, Any] = field(default_factory=dict)
     """Additional metadata about the extraction."""
 
+    documents: list[Document] = field(default_factory=list)
+    """LangChain Document objects from the extraction."""
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation.
 
@@ -74,6 +86,10 @@ class TextExtractionResult:
             "line_count": self.line_count,
             "structure_type": self.structure_type.value,
             "metadata": self.metadata,
+            "documents": [
+                {"page_content": doc.page_content, "metadata": doc.metadata}
+                for doc in self.documents
+            ],
         }
 
 
@@ -299,14 +315,14 @@ class TextExtractor:
             ) from e
 
     def _extract_txt(self, content: bytes, source: str | None) -> TextExtractionResult:
-        """Extract text from a TXT file.
+        """Extract text from a TXT file using LangChain TextLoader.
 
         Args:
             content: File content as bytes.
             source: Source identifier for error messages.
 
         Returns:
-            TextExtractionResult with extracted text.
+            TextExtractionResult with extracted text and LangChain documents.
 
         Raises:
             TextExtractionError: If extraction fails.
@@ -325,9 +341,12 @@ class TextExtractor:
         if lines and lines[-1] == "":
             line_count -= 1
 
+        # Use LangChain TextLoader to create Document objects
+        documents = self._load_text_with_langchain(content, encoding, source)
+
         logger.info(
             f"Extracted TXT: {line_count} lines, encoding={encoding}, "
-            f"confidence={confidence:.2f}"
+            f"confidence={confidence:.2f}, documents={len(documents)}"
         )
 
         return TextExtractionResult(
@@ -340,17 +359,72 @@ class TextExtractor:
                 "char_count": len(text),
                 "has_bom": content.startswith(b"\xef\xbb\xbf"),  # UTF-8 BOM
             },
+            documents=documents,
         )
 
+    def _load_text_with_langchain(
+        self,
+        content: bytes,
+        encoding: str,
+        source: str | None,
+    ) -> list[Document]:
+        """Load text content using LangChain TextLoader.
+
+        Args:
+            content: File content as bytes.
+            encoding: Detected encoding.
+            source: Source identifier for metadata.
+
+        Returns:
+            List of LangChain Document objects.
+        """
+        # Write content to a temporary file for TextLoader
+        with tempfile.NamedTemporaryFile(
+            suffix=".txt", delete=False, mode="wb"
+        ) as temp_file:
+            temp_file.write(content)
+            temp_path = temp_file.name
+
+        try:
+            # Use LangChain TextLoader with detected encoding
+            loader = TextLoader(temp_path, encoding=encoding)
+            documents = loader.load()
+
+            # Update document metadata with source information
+            for doc in documents:
+                if source:
+                    doc.metadata["original_source"] = source
+                doc.metadata["encoding"] = encoding
+
+            return documents
+        except Exception as e:
+            logger.warning(
+                f"LangChain TextLoader failed: {e}, creating document manually"
+            )
+            # Fallback: create Document manually if loader fails
+            text = self._decode_content(content, encoding, source)
+            return [
+                Document(
+                    page_content=text,
+                    metadata={
+                        "source": source or "unknown",
+                        "encoding": encoding,
+                    },
+                )
+            ]
+        finally:
+            # Clean up temporary file
+            Path(temp_path).unlink(missing_ok=True)
+
     def _extract_csv(self, content: bytes, source: str | None) -> TextExtractionResult:
-        """Extract text from a CSV file preserving tabular structure.
+        """Extract text from a CSV file using LangChain CSVLoader.
 
         Args:
             content: File content as bytes.
             source: Source identifier for error messages.
 
         Returns:
-            TextExtractionResult with extracted text in tabular format.
+            TextExtractionResult with extracted text in tabular format and LangChain documents.
 
         Raises:
             TextExtractionError: If extraction fails.
@@ -387,6 +461,7 @@ class TextExtractor:
                         has_header=False,
                     ).to_dict(),
                 },
+                documents=[],
             )
         except pd.errors.ParserError as e:
             raise TextExtractionError(
@@ -411,9 +486,15 @@ class TextExtractor:
             has_header=True,  # pandas assumes header by default
         )
 
+        # Use LangChain CSVLoader to create Document objects
+        documents = self._load_csv_with_langchain(
+            content, encoding, delimiter, source, df
+        )
+
         logger.info(
             f"Extracted CSV: {csv_metadata.row_count} rows, "
-            f"{csv_metadata.column_count} columns, delimiter='{delimiter}'"
+            f"{csv_metadata.column_count} columns, delimiter='{delimiter}', "
+            f"documents={len(documents)}"
         )
 
         return TextExtractionResult(
@@ -425,7 +506,76 @@ class TextExtractor:
             metadata={
                 "csv": csv_metadata.to_dict(),
             },
+            documents=documents,
         )
+
+    def _load_csv_with_langchain(
+        self,
+        content: bytes,
+        encoding: str,
+        delimiter: str,
+        source: str | None,
+        df: pd.DataFrame,
+    ) -> list[Document]:
+        """Load CSV content using LangChain CSVLoader.
+
+        Args:
+            content: File content as bytes.
+            encoding: Detected encoding.
+            delimiter: Detected CSV delimiter.
+            source: Source identifier for metadata.
+            df: Parsed DataFrame for fallback.
+
+        Returns:
+            List of LangChain Document objects (one per row).
+        """
+        # Write content to a temporary file for CSVLoader
+        with tempfile.NamedTemporaryFile(
+            suffix=".csv", delete=False, mode="wb"
+        ) as temp_file:
+            temp_file.write(content)
+            temp_path = temp_file.name
+
+        try:
+            # Use LangChain CSVLoader with detected delimiter
+            loader = CSVLoader(
+                file_path=temp_path,
+                csv_args={"delimiter": delimiter},
+                encoding=encoding,
+            )
+            documents = loader.load()
+
+            # Update document metadata with source information
+            for doc in documents:
+                if source:
+                    doc.metadata["original_source"] = source
+                doc.metadata["encoding"] = encoding
+                doc.metadata["delimiter"] = delimiter
+
+            return documents
+        except Exception as e:
+            logger.warning(
+                f"LangChain CSVLoader failed: {e}, creating documents manually"
+            )
+            # Fallback: create Documents manually from DataFrame
+            documents = []
+            for idx, row in df.iterrows():
+                row_content = "\n".join(f"{col}: {val}" for col, val in row.items())
+                documents.append(
+                    Document(
+                        page_content=row_content,
+                        metadata={
+                            "source": source or "unknown",
+                            "row": int(idx) if isinstance(idx, int) else 0,
+                            "encoding": encoding,
+                            "delimiter": delimiter,
+                        },
+                    )
+                )
+            return documents
+        finally:
+            # Clean up temporary file
+            Path(temp_path).unlink(missing_ok=True)
 
     def _detect_csv_delimiter(self, content: str) -> str:
         """Detect the delimiter used in a CSV file.

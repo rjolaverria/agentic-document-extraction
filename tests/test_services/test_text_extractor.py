@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from langchain_core.documents import Document
 
 from agentic_document_extraction.services.text_extractor import (
     CSVMetadata,
@@ -55,6 +56,7 @@ class TestTextExtractionResult:
 
     def test_result_to_dict(self) -> None:
         """Test converting result to dictionary."""
+        doc = Document(page_content="Hello", metadata={"source": "test.txt"})
         result = TextExtractionResult(
             text="Hello",
             encoding="utf-8",
@@ -62,6 +64,7 @@ class TestTextExtractionResult:
             line_count=1,
             structure_type=StructureType.PLAIN_TEXT,
             metadata={"char_count": 5},
+            documents=[doc],
         )
 
         result_dict = result.to_dict()
@@ -72,6 +75,9 @@ class TestTextExtractionResult:
         assert result_dict["line_count"] == 1
         assert result_dict["structure_type"] == "plain_text"
         assert result_dict["metadata"] == {"char_count": 5}
+        assert len(result_dict["documents"]) == 1
+        assert result_dict["documents"][0]["page_content"] == "Hello"
+        assert result_dict["documents"][0]["metadata"]["source"] == "test.txt"
 
 
 class TestCSVMetadata:
@@ -508,3 +514,131 @@ class TestTextExtractorReadingOrder:
 
         csv_meta = result.metadata.get("csv", {})
         assert csv_meta["column_names"] == ["first", "second", "third"]
+
+
+class TestLangChainDocumentIntegration:
+    """Tests for LangChain Document integration."""
+
+    def test_txt_extraction_returns_documents(self, extractor: TextExtractor) -> None:
+        """Test that TXT extraction returns LangChain Documents."""
+        content = b"Hello, World!\nThis is a test."
+        result = extractor.extract_txt(content)
+
+        # Verify documents are returned
+        assert len(result.documents) > 0
+
+        # Check document content
+        doc = result.documents[0]
+        assert isinstance(doc, Document)
+        assert "Hello, World!" in doc.page_content
+
+    def test_txt_documents_contain_metadata(self, extractor: TextExtractor) -> None:
+        """Test that TXT documents contain proper metadata."""
+        content = b"Test content"
+        result = extractor.extract_txt(content)
+
+        doc = result.documents[0]
+        assert "encoding" in doc.metadata
+
+    def test_csv_extraction_returns_documents(self, extractor: TextExtractor) -> None:
+        """Test that CSV extraction returns LangChain Documents."""
+        content = b"name,age\nAlice,30\nBob,25"
+        result = extractor.extract_csv(content)
+
+        # CSV should return one document per row
+        assert len(result.documents) >= 1
+
+        # Check documents are proper Document instances
+        for doc in result.documents:
+            assert isinstance(doc, Document)
+            assert len(doc.page_content) > 0
+
+    def test_csv_documents_contain_metadata(self, extractor: TextExtractor) -> None:
+        """Test that CSV documents contain proper metadata."""
+        content = b"id,value\n1,test"
+        result = extractor.extract_csv(content)
+
+        doc = result.documents[0]
+        assert "encoding" in doc.metadata
+        # CSVLoader adds row information
+        assert "row" in doc.metadata or "source" in doc.metadata
+
+    def test_empty_txt_returns_empty_documents_list(
+        self, extractor: TextExtractor
+    ) -> None:
+        """Test that empty TXT returns documents list."""
+        content = b""
+        result = extractor.extract_txt(content)
+
+        # Should still have documents list
+        assert isinstance(result.documents, list)
+
+    def test_empty_csv_returns_empty_documents_list(
+        self, extractor: TextExtractor
+    ) -> None:
+        """Test that empty CSV returns empty documents list."""
+        content = b""
+        result = extractor.extract_csv(content)
+
+        # Empty CSV should have empty documents
+        assert result.documents == []
+
+    def test_documents_in_to_dict(self, extractor: TextExtractor) -> None:
+        """Test that documents are included in to_dict output."""
+        content = b"Simple text"
+        result = extractor.extract_txt(content)
+
+        result_dict = result.to_dict()
+
+        assert "documents" in result_dict
+        assert len(result_dict["documents"]) > 0
+        assert "page_content" in result_dict["documents"][0]
+        assert "metadata" in result_dict["documents"][0]
+
+    def test_csv_documents_have_row_content(self, extractor: TextExtractor) -> None:
+        """Test that CSV documents contain row data in page_content."""
+        content = b"name,age\nAlice,30"
+        result = extractor.extract_csv(content)
+
+        # Get first data row document
+        doc = result.documents[0]
+        # CSVLoader formats rows as "column: value" pairs
+        assert "name" in doc.page_content.lower() or "alice" in doc.page_content.lower()
+
+    def test_txt_extraction_from_path_returns_documents(
+        self, extractor: TextExtractor
+    ) -> None:
+        """Test that TXT extraction from path returns LangChain Documents."""
+        with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, mode="wb") as f:
+            f.write(b"Test content from file")
+            temp_path = f.name
+
+        try:
+            result = extractor.extract_from_path(temp_path)
+            assert len(result.documents) > 0
+            assert "Test content from file" in result.documents[0].page_content
+        finally:
+            Path(temp_path).unlink()
+
+    def test_csv_extraction_from_path_returns_documents(
+        self, extractor: TextExtractor
+    ) -> None:
+        """Test that CSV extraction from path returns LangChain Documents."""
+        with tempfile.NamedTemporaryFile(suffix=".csv", delete=False, mode="wb") as f:
+            f.write(b"a,b\n1,2")
+            temp_path = f.name
+
+        try:
+            result = extractor.extract_from_path(temp_path)
+            assert len(result.documents) >= 1
+        finally:
+            Path(temp_path).unlink()
+
+    def test_utf8_txt_returns_correct_documents(self, extractor: TextExtractor) -> None:
+        """Test that UTF-8 TXT returns correct LangChain Documents."""
+        content = "Hello, 世界!".encode()
+        result = extractor.extract_txt(content)
+
+        doc = result.documents[0]
+        assert "世界" in doc.page_content
+        assert doc.metadata.get("encoding") == "utf-8"
