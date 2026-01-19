@@ -505,8 +505,8 @@ For any story, it is **complete** only when:
   - [x] Story 2.1: Text Extraction from Text-Based Documents
   - [x] Story 2.1.1: Use LangChain Document Loaders for reading data from different sources.
   - [x] Story 2.2: LangChain LLM Integration for Text Extraction
-  - [ ] Story 2.3: JSON + Markdown Output (Text Documents) --- NEXT ---
-  - [ ] Story 3.1: Text Extraction from Visual Documents (OCR)
+  - [x] Story 2.3: JSON + Markdown Output (Text Documents)
+  - [ ] Story 3.1: Text Extraction from Visual Documents (OCR) --- NEXT ---
   - [ ] Story 3.2: Layout Detection with Hugging Face Transformers
   - [ ] Story 3.3: Reading Order Detection with LLM
   - [ ] Story 3.4: Region-Based Visual Extraction with VLM
