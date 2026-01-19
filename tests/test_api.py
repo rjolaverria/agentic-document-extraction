@@ -374,3 +374,281 @@ class TestExtractEndpoint:
             assert response.status_code == status.HTTP_202_ACCEPTED, (
                 f"Failed for format: {filename}"
             )
+
+
+class TestSchemaValidation:
+    """Tests for JSON Schema validation in the extract endpoint."""
+
+    async def test_valid_schema_accepted(
+        self,
+        client: httpx.AsyncClient,
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that valid JSON schemas are accepted."""
+        valid_schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "age": {"type": "integer"},
+                "active": {"type": "boolean"},
+            },
+            "required": ["name"],
+        }
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("agentic_document_extraction.api.settings.temp_upload_dir", temp_dir),
+        ):
+            response = await client.post(
+                "/extract",
+                files={"file": ("test.txt", sample_file_content, "text/plain")},
+                data={"schema": json.dumps(valid_schema)},
+            )
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+
+    async def test_nested_schema_accepted(
+        self,
+        client: httpx.AsyncClient,
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that nested JSON schemas are accepted."""
+        nested_schema = {
+            "type": "object",
+            "properties": {
+                "user": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "address": {
+                            "type": "object",
+                            "properties": {
+                                "street": {"type": "string"},
+                                "city": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
+        }
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("agentic_document_extraction.api.settings.temp_upload_dir", temp_dir),
+        ):
+            response = await client.post(
+                "/extract",
+                files={"file": ("test.txt", sample_file_content, "text/plain")},
+                data={"schema": json.dumps(nested_schema)},
+            )
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+
+    async def test_array_schema_accepted(
+        self,
+        client: httpx.AsyncClient,
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that array schemas are accepted."""
+        array_schema = {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "integer"},
+                            "name": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        }
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("agentic_document_extraction.api.settings.temp_upload_dir", temp_dir),
+        ):
+            response = await client.post(
+                "/extract",
+                files={"file": ("test.txt", sample_file_content, "text/plain")},
+                data={"schema": json.dumps(array_schema)},
+            )
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+
+    async def test_invalid_type_returns_400(
+        self,
+        client: httpx.AsyncClient,
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that schemas with invalid types return 400."""
+        invalid_schema = {
+            "type": "object",
+            "properties": {
+                "field": {"type": "invalid_type"},
+            },
+        }
+
+        response = await client.post(
+            "/extract",
+            files={"file": ("test.txt", sample_file_content, "text/plain")},
+            data={"schema": json.dumps(invalid_schema)},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        data = response.json()
+        assert "detail" in data
+        assert (
+            "invalid" in data["detail"].lower()
+            or "unsupported" in data["detail"].lower()
+        )
+
+    async def test_malformed_required_returns_400(
+        self,
+        client: httpx.AsyncClient,
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that schemas with malformed 'required' field return 400."""
+        invalid_schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+            "required": "name",  # Should be an array
+        }
+
+        response = await client.post(
+            "/extract",
+            files={"file": ("test.txt", sample_file_content, "text/plain")},
+            data={"schema": json.dumps(invalid_schema)},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        data = response.json()
+        assert "detail" in data
+
+    async def test_non_object_schema_returns_400(
+        self,
+        client: httpx.AsyncClient,
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that non-object schemas return 400."""
+        response = await client.post(
+            "/extract",
+            files={"file": ("test.txt", sample_file_content, "text/plain")},
+            data={"schema": json.dumps("not a schema object")},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        data = response.json()
+        assert "detail" in data
+        assert "object" in data["detail"].lower()
+
+    async def test_draft7_schema_accepted(
+        self,
+        client: httpx.AsyncClient,
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that explicit Draft 7 schemas are accepted."""
+        draft7_schema = {
+            "$schema": "http://json-schema.org/draft-07/schema#",
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+        }
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("agentic_document_extraction.api.settings.temp_upload_dir", temp_dir),
+        ):
+            response = await client.post(
+                "/extract",
+                files={"file": ("test.txt", sample_file_content, "text/plain")},
+                data={"schema": json.dumps(draft7_schema)},
+            )
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+
+    async def test_schema_with_all_common_types(
+        self,
+        client: httpx.AsyncClient,
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that all common JSON Schema types are supported."""
+        comprehensive_schema = {
+            "type": "object",
+            "properties": {
+                "string_field": {"type": "string"},
+                "number_field": {"type": "number"},
+                "integer_field": {"type": "integer"},
+                "boolean_field": {"type": "boolean"},
+                "object_field": {"type": "object"},
+                "array_field": {"type": "array"},
+                "null_field": {"type": "null"},
+                "nullable_string": {"type": ["string", "null"]},
+            },
+        }
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("agentic_document_extraction.api.settings.temp_upload_dir", temp_dir),
+        ):
+            response = await client.post(
+                "/extract",
+                files={"file": ("test.txt", sample_file_content, "text/plain")},
+                data={"schema": json.dumps(comprehensive_schema)},
+            )
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+
+    async def test_empty_schema_accepted(
+        self,
+        client: httpx.AsyncClient,
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that empty schemas are accepted (matches any JSON)."""
+        empty_schema: dict[str, object] = {}
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("agentic_document_extraction.api.settings.temp_upload_dir", temp_dir),
+        ):
+            response = await client.post(
+                "/extract",
+                files={"file": ("test.txt", sample_file_content, "text/plain")},
+                data={"schema": json.dumps(empty_schema)},
+            )
+
+        assert response.status_code == status.HTTP_202_ACCEPTED
+
+    async def test_schema_error_message_is_descriptive(
+        self,
+        client: httpx.AsyncClient,
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that schema validation errors include descriptive details."""
+        invalid_schema = {
+            "type": "object",
+            "properties": {
+                "nested": {
+                    "type": "object",
+                    "properties": {
+                        "field": {"type": "not_a_valid_type"},
+                    },
+                },
+            },
+        }
+
+        response = await client.post(
+            "/extract",
+            files={"file": ("test.txt", sample_file_content, "text/plain")},
+            data={"schema": json.dumps(invalid_schema)},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        data = response.json()
+        # Error should mention the problematic field path
+        assert "nested" in data["detail"] or "not_a_valid_type" in data["detail"]

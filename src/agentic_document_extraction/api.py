@@ -17,6 +17,10 @@ from agentic_document_extraction.models import (
     HealthResponse,
     UploadResponse,
 )
+from agentic_document_extraction.services.schema_validator import (
+    SchemaValidationError,
+    SchemaValidator,
+)
 
 # Configure logging
 logging.basicConfig(
@@ -140,7 +144,7 @@ def create_app() -> FastAPI:
                 f"({settings.max_file_size_bytes} bytes / {settings.max_file_size_mb} MB)",
             )
 
-        # Parse and validate JSON schema
+        # Parse JSON schema
         schema_content: dict[str, Any]
         if schema is not None:
             try:
@@ -163,6 +167,23 @@ def create_app() -> FastAPI:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid JSON in schema file: {e}",
                 ) from e
+
+        # Validate JSON Schema syntax and structure
+        schema_validator = SchemaValidator()
+        try:
+            schema_info = schema_validator.validate(schema_content)
+            logger.info(
+                f"Schema validated: {schema_info.schema_type} with "
+                f"{len(schema_info.required_fields)} required and "
+                f"{len(schema_info.optional_fields)} optional fields"
+            )
+        except SchemaValidationError as e:
+            error_details = "; ".join(e.errors) if e.errors else str(e)
+            logger.warning(f"Schema validation failed: {error_details}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid JSON Schema: {error_details}",
+            ) from e
 
         # Generate unique job ID
         job_id = str(uuid.uuid4())

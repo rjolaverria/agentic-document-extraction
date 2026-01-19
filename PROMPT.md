@@ -131,7 +131,7 @@ Document these commands in the repository README so humans can reproduce them.
     - Uses `python-magic` or similar for robust detection
     - Unit tests for all supported formats
 
-- [ ] **Story 1.4**: Schema Validation
+- [x] **Story 1.4**: Schema Validation
   - As a system, I want to validate the user-provided JSON schema before processing, so that extraction has a valid target structure.
   - **Acceptance Criteria**:
     - Accepts JSON schema in standard JSON Schema format (Draft 7 or later)
@@ -500,7 +500,7 @@ For any story, it is **complete** only when:
   - [x] Story 1.1: FastAPI Service Bootstrap
   - [x] Story 1.2: Document Upload Endpoint
   - [x] Story 1.3: Document Format Detection & Classification
-  - [ ] Story 1.4: Schema Validation
+  - [x] Story 1.4: Schema Validation
   - [ ] Story 2.1: Text Extraction from Text-Based Documents
   - [ ] Story 2.2: LangChain LLM Integration for Text Extraction
   - [ ] Story 2.3: JSON + Markdown Output (Text Documents)
