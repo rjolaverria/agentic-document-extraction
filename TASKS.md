@@ -110,7 +110,7 @@
     - Unit tests with sample PDFs and images
     - Performance considerations for large documents
 
-- [ ] Layout Detection with Hugging Face Transformers
+- [x] Layout Detection with Hugging Face Transformers
   - As a system, I want to detect and segment different layout regions in visual documents using open-source models, so that I can process each region appropriately.
   - **Acceptance Criteria**:
     - Integrates Hugging Face `transformers` library
