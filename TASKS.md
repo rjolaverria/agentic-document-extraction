@@ -124,7 +124,7 @@
     - Model caching for performance
     - Unit tests with sample document layouts
 
-- [ ] Reading Order Detection with LLM
+- [x] Reading Order Detection with LLM
   - As a system, I want to use GPT models to detect the reading order of text elements and layout regions, so that I understand the logical flow of the document.
   - **Acceptance Criteria**:
     - Takes text elements/regions with bounding box coordinates as input
