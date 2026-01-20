@@ -137,7 +137,7 @@
     - Unit tests with mocked LLM responses
     - Integration tests with various layout patterns
 
-- [ ] Region-Based Visual Extraction with VLM
+- [x] Region-Based Visual Extraction with VLM
   - As a system, I want to send individual layout regions to OpenAI's vision models for detailed analysis, so that I can extract information from complex visual elements.
   - **Acceptance Criteria**:
     - Integrates LangChain with OpenAI GPT-4V (Vision)
