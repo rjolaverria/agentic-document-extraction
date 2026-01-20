@@ -98,7 +98,7 @@
 
 ### Core Stories - Phase 3 (Visual Document Processing Pipeline)
 
-- [ ] Text Extraction from Visual Documents (OCR)
+- [x] Text Extraction from Visual Documents (OCR)
   - As a system, I want to extract text from PDFs and images using OCR, so that I have the raw textual content before visual analysis.
   - **Acceptance Criteria**:
     - Extracts text from PDF documents using `pypdf` or `pdfplumber` (multi-page support)
