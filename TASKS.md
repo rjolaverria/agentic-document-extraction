@@ -167,7 +167,7 @@
 
 ### Core Stories - Phase 4 (Agentic Loop with LangChain)
 
-- [ ] Extraction Planning with LangChain Agent
+- [x] Extraction Planning with LangChain Agent
   - As a system, I want to use a LangChain agent to create an extraction plan before starting, so that I can optimize the extraction strategy.
   - **Acceptance Criteria**:
     - Creates LangChain agent with planning capabilities
