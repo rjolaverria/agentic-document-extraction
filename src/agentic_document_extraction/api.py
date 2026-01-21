@@ -7,15 +7,36 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import (
+    BackgroundTasks,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from agentic_document_extraction.config import settings, validate_settings_on_startup
 from agentic_document_extraction.models import (
     ErrorDetail,
+    ExtractionMetadata,
     HealthResponse,
+    JobResultResponse,
+    JobStatus,
+    JobStatusResponse,
     UploadResponse,
+)
+from agentic_document_extraction.services.extraction_processor import (
+    process_extraction_job,
+)
+from agentic_document_extraction.services.job_manager import (
+    JobExpiredError,
+    JobNotFoundError,
+    get_job_manager,
 )
 from agentic_document_extraction.services.schema_validator import (
     SchemaValidationError,
@@ -92,6 +113,7 @@ def create_app() -> FastAPI:
         },
     )
     async def extract_document(
+        background_tasks: BackgroundTasks,
         file: Annotated[UploadFile, File(description="Document file to extract from")],
         schema: Annotated[str | None, Form(description="JSON schema as string")] = None,
         schema_file: Annotated[
@@ -104,13 +126,18 @@ def create_app() -> FastAPI:
         The document will be processed asynchronously and structured information
         will be extracted according to the provided schema.
 
+        For large documents, this endpoint returns immediately with a job ID.
+        Use GET /jobs/{job_id} to check status and GET /jobs/{job_id}/result
+        to retrieve results when processing is complete.
+
         Args:
+            background_tasks: FastAPI background tasks handler
             file: The document file to process
             schema: JSON schema as a string (alternative to schema_file)
             schema_file: JSON schema as a file upload (alternative to schema)
 
         Returns:
-            UploadResponse: Job information including unique job ID
+            UploadResponse: Job information including unique job ID and status
 
         Raises:
             HTTPException: 400 if schema is missing or invalid
@@ -208,16 +235,155 @@ def create_app() -> FastAPI:
         with open(schema_filepath, "w") as f:
             json.dump(schema_content, f)
 
+        # Create job in job manager
+        job_manager = get_job_manager()
+        job_manager.create_job(
+            job_id=job_id,
+            filename=file.filename or "unknown",
+            file_path=str(temp_filepath),
+            schema_path=str(schema_filepath),
+        )
+
         logger.info(
             f"Document uploaded: job_id={job_id}, "
             f"filename={file.filename}, size={file_size}"
         )
 
+        # Start background processing
+        background_tasks.add_task(process_extraction_job, job_id)
+
         return {
             "job_id": job_id,
             "filename": file.filename or "unknown",
             "file_size": file_size,
+            "status": JobStatus.PENDING,
             "message": "Document uploaded successfully. Processing will begin shortly.",
+        }
+
+    @app.get(
+        "/jobs/{job_id}",
+        response_model=JobStatusResponse,
+        tags=["Jobs"],
+        responses={
+            404: {"model": ErrorDetail, "description": "Job not found"},
+            410: {"model": ErrorDetail, "description": "Job expired"},
+        },
+    )
+    async def get_job_status(job_id: str) -> dict[str, Any]:
+        """Get the status of an extraction job.
+
+        Args:
+            job_id: The unique job identifier returned from POST /extract
+
+        Returns:
+            JobStatusResponse: Current job status and metadata
+
+        Raises:
+            HTTPException: 404 if job not found
+            HTTPException: 410 if job has expired
+        """
+        job_manager = get_job_manager()
+
+        try:
+            job = job_manager.get_job(job_id)
+        except JobNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job not found: {job_id}",
+            ) from None
+        except JobExpiredError:
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail=f"Job has expired: {job_id}. Results are only retained for "
+                f"{settings.job_ttl_hours} hours.",
+            ) from None
+
+        return {
+            "job_id": job.job_id,
+            "status": job.status,
+            "filename": job.filename,
+            "created_at": job.created_at,
+            "updated_at": job.updated_at,
+            "progress": job.progress,
+            "error_message": job.error_message,
+        }
+
+    @app.get(
+        "/jobs/{job_id}/result",
+        response_model=JobResultResponse,
+        tags=["Jobs"],
+        responses={
+            404: {"model": ErrorDetail, "description": "Job not found"},
+            410: {"model": ErrorDetail, "description": "Job expired"},
+            425: {"model": ErrorDetail, "description": "Job not yet complete"},
+        },
+    )
+    async def get_job_result(job_id: str) -> dict[str, Any]:
+        """Get the result of a completed extraction job.
+
+        Args:
+            job_id: The unique job identifier returned from POST /extract
+
+        Returns:
+            JobResultResponse: Extraction results including data, markdown,
+                metadata, and quality report
+
+        Raises:
+            HTTPException: 404 if job not found
+            HTTPException: 410 if job has expired
+            HTTPException: 425 if job is not yet complete
+        """
+        job_manager = get_job_manager()
+
+        try:
+            job = job_manager.get_job(job_id)
+        except JobNotFoundError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job not found: {job_id}",
+            ) from None
+        except JobExpiredError:
+            raise HTTPException(
+                status_code=status.HTTP_410_GONE,
+                detail=f"Job has expired: {job_id}. Results are only retained for "
+                f"{settings.job_ttl_hours} hours.",
+            ) from None
+
+        # Check if job is complete
+        if job.status == JobStatus.PENDING:
+            raise HTTPException(
+                status_code=status.HTTP_425_TOO_EARLY,
+                detail=f"Job {job_id} is pending. Check status at GET /jobs/{job_id}",
+            )
+
+        if job.status == JobStatus.PROCESSING:
+            raise HTTPException(
+                status_code=status.HTTP_425_TOO_EARLY,
+                detail=f"Job {job_id} is still processing. "
+                f"Progress: {job.progress or 'Unknown'}. "
+                f"Check status at GET /jobs/{job_id}",
+            )
+
+        # Build response based on job status
+        metadata = None
+        if job.metadata:
+            metadata = ExtractionMetadata(
+                processing_time_seconds=job.metadata.get("processing_time_seconds", 0),
+                model_used=job.metadata.get("model_used", "unknown"),
+                total_tokens=job.metadata.get("total_tokens", 0),
+                iterations_completed=job.metadata.get("iterations_completed", 0),
+                converged=job.metadata.get("converged", False),
+                document_type=job.metadata.get("document_type", "unknown"),
+            )
+
+        return {
+            "job_id": job.job_id,
+            "status": job.status,
+            "extracted_data": job.extracted_data,
+            "markdown_summary": job.markdown_summary,
+            "metadata": metadata,
+            "quality_report": job.quality_report,
+            "error_message": job.error_message,
         }
 
     logger.info("FastAPI application created successfully")

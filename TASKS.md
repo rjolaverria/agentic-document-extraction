@@ -210,7 +210,7 @@
 
 ### Core Stories - Phase 5 (API Enhancement & Production Readiness)
 
-- [ ] Async Processing & Job Management
+- [x] Async Processing & Job Management
   - As a user, I want long-running extractions to be processed asynchronously, so that the API doesn't timeout.
   - **Acceptance Criteria**:
     - `POST /extract` returns immediately with job ID for large documents

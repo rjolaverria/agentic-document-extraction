@@ -1,6 +1,8 @@
 """Pydantic models for API requests and responses."""
 
+from datetime import datetime
 from enum import Enum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -13,13 +15,80 @@ class HealthResponse(BaseModel):
     version: str
 
 
+class JobStatus(str, Enum):
+    """Status of an extraction job."""
+
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class UploadResponse(BaseModel):
     """Response model for document upload endpoint."""
 
     job_id: str = Field(..., description="Unique identifier for the extraction job")
     filename: str = Field(..., description="Original filename of uploaded document")
     file_size: int = Field(..., description="Size of uploaded file in bytes")
+    status: JobStatus = Field(
+        default=JobStatus.PENDING, description="Initial job status"
+    )
     message: str = Field(..., description="Status message")
+
+
+class JobStatusResponse(BaseModel):
+    """Response model for job status endpoint."""
+
+    job_id: str = Field(..., description="Unique identifier for the extraction job")
+    status: JobStatus = Field(..., description="Current job status")
+    filename: str = Field(..., description="Original filename of uploaded document")
+    created_at: datetime = Field(..., description="When the job was created")
+    updated_at: datetime = Field(..., description="When the job was last updated")
+    progress: str | None = Field(
+        default=None, description="Current progress description"
+    )
+    error_message: str | None = Field(
+        default=None, description="Error message if job failed"
+    )
+
+
+class ExtractionMetadata(BaseModel):
+    """Metadata about the extraction process."""
+
+    processing_time_seconds: float = Field(
+        ..., description="Total processing time in seconds"
+    )
+    model_used: str = Field(..., description="LLM model used for extraction")
+    total_tokens: int = Field(..., description="Total tokens used")
+    iterations_completed: int = Field(
+        ..., description="Number of agentic loop iterations"
+    )
+    converged: bool = Field(..., description="Whether quality thresholds were met")
+    document_type: str = Field(
+        ..., description="Processing type (text_based or visual)"
+    )
+
+
+class JobResultResponse(BaseModel):
+    """Response model for job result endpoint."""
+
+    job_id: str = Field(..., description="Unique identifier for the extraction job")
+    status: JobStatus = Field(..., description="Job status")
+    extracted_data: dict[str, Any] | None = Field(
+        default=None, description="Extracted data matching the schema"
+    )
+    markdown_summary: str | None = Field(
+        default=None, description="Markdown summary of extracted data"
+    )
+    metadata: ExtractionMetadata | None = Field(
+        default=None, description="Extraction process metadata"
+    )
+    quality_report: dict[str, Any] | None = Field(
+        default=None, description="Quality verification report"
+    )
+    error_message: str | None = Field(
+        default=None, description="Error message if job failed"
+    )
 
 
 class ErrorDetail(BaseModel):

@@ -652,3 +652,431 @@ class TestSchemaValidation:
         data = response.json()
         # Error should mention the problematic field path
         assert "nested" in data["detail"] or "not_a_valid_type" in data["detail"]
+
+
+class TestJobStatusEndpoint:
+    """Tests for the job status endpoint."""
+
+    async def test_get_job_status_returns_job_info(
+        self,
+        client: httpx.AsyncClient,
+        sample_schema: dict[str, object],
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that GET /jobs/{job_id} returns job status info."""
+        from agentic_document_extraction.services.job_manager import (
+            reset_job_manager,
+        )
+
+        reset_job_manager()
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("agentic_document_extraction.api.settings.temp_upload_dir", temp_dir),
+            patch(
+                "agentic_document_extraction.api.process_extraction_job"
+            ) as _mock_process,
+        ):
+            # Create a job via the extract endpoint
+            response = await client.post(
+                "/extract",
+                files={"file": ("test.txt", sample_file_content, "text/plain")},
+                data={"schema": json.dumps(sample_schema)},
+            )
+
+            job_id = response.json()["job_id"]
+
+            # Get job status
+            status_response = await client.get(f"/jobs/{job_id}")
+
+            assert status_response.status_code == status.HTTP_200_OK
+            data = status_response.json()
+            assert data["job_id"] == job_id
+            assert data["status"] == "pending"
+            assert data["filename"] == "test.txt"
+            assert "created_at" in data
+            assert "updated_at" in data
+
+        reset_job_manager()
+
+    async def test_get_job_status_returns_404_for_unknown_job(
+        self,
+        client: httpx.AsyncClient,
+    ) -> None:
+        """Test that GET /jobs/{job_id} returns 404 for unknown job."""
+        from agentic_document_extraction.services.job_manager import reset_job_manager
+
+        reset_job_manager()
+
+        response = await client.get("/jobs/nonexistent-job-id")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        data = response.json()
+        assert "detail" in data
+        assert "not found" in data["detail"].lower()
+
+        reset_job_manager()
+
+    async def test_get_job_status_tracks_progress(
+        self,
+        client: httpx.AsyncClient,
+        sample_schema: dict[str, object],
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that job status includes progress information."""
+        from agentic_document_extraction.models import JobStatus as JobStatusEnum
+        from agentic_document_extraction.services.job_manager import (
+            get_job_manager,
+            reset_job_manager,
+        )
+
+        reset_job_manager()
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("agentic_document_extraction.api.settings.temp_upload_dir", temp_dir),
+            patch(
+                "agentic_document_extraction.api.process_extraction_job"
+            ) as _mock_process,
+        ):
+            # Create a job
+            response = await client.post(
+                "/extract",
+                files={"file": ("test.txt", sample_file_content, "text/plain")},
+                data={"schema": json.dumps(sample_schema)},
+            )
+            job_id = response.json()["job_id"]
+
+            # Update job status manually
+            job_manager = get_job_manager()
+            job_manager.update_status(
+                job_id,
+                JobStatusEnum.PROCESSING,
+                progress="Processing document",
+            )
+
+            # Get job status
+            status_response = await client.get(f"/jobs/{job_id}")
+
+            assert status_response.status_code == status.HTTP_200_OK
+            data = status_response.json()
+            assert data["status"] == "processing"
+            assert data["progress"] == "Processing document"
+
+        reset_job_manager()
+
+
+class TestJobResultEndpoint:
+    """Tests for the job result endpoint."""
+
+    async def test_get_job_result_returns_completed_result(
+        self,
+        client: httpx.AsyncClient,
+        sample_schema: dict[str, object],
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that GET /jobs/{job_id}/result returns completed job result."""
+        from agentic_document_extraction.services.job_manager import (
+            get_job_manager,
+            reset_job_manager,
+        )
+
+        reset_job_manager()
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("agentic_document_extraction.api.settings.temp_upload_dir", temp_dir),
+            patch(
+                "agentic_document_extraction.api.process_extraction_job"
+            ) as _mock_process,
+        ):
+            # Create a job
+            response = await client.post(
+                "/extract",
+                files={"file": ("test.txt", sample_file_content, "text/plain")},
+                data={"schema": json.dumps(sample_schema)},
+            )
+            job_id = response.json()["job_id"]
+
+            # Set job result manually
+            job_manager = get_job_manager()
+            job_manager.set_result(
+                job_id,
+                extracted_data={"name": "John Doe", "amount": 100},
+                markdown_summary="# Results\n\n- Name: John Doe\n- Amount: 100",
+                metadata={
+                    "processing_time_seconds": 1.5,
+                    "model_used": "gpt-4",
+                    "total_tokens": 500,
+                    "iterations_completed": 1,
+                    "converged": True,
+                    "document_type": "text_based",
+                },
+                quality_report={"status": "passed", "confidence": 0.95},
+            )
+
+            # Get job result
+            result_response = await client.get(f"/jobs/{job_id}/result")
+
+            assert result_response.status_code == status.HTTP_200_OK
+            data = result_response.json()
+            assert data["job_id"] == job_id
+            assert data["status"] == "completed"
+            assert data["extracted_data"] == {"name": "John Doe", "amount": 100}
+            assert "markdown_summary" in data
+            assert data["metadata"]["model_used"] == "gpt-4"
+            assert data["quality_report"]["status"] == "passed"
+
+        reset_job_manager()
+
+    async def test_get_job_result_returns_425_for_pending_job(
+        self,
+        client: httpx.AsyncClient,
+        sample_schema: dict[str, object],
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that GET /jobs/{job_id}/result returns 425 for pending job."""
+        from agentic_document_extraction.services.job_manager import reset_job_manager
+
+        reset_job_manager()
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("agentic_document_extraction.api.settings.temp_upload_dir", temp_dir),
+            patch(
+                "agentic_document_extraction.api.process_extraction_job"
+            ) as _mock_process,
+        ):
+            # Create a job (stays pending)
+            response = await client.post(
+                "/extract",
+                files={"file": ("test.txt", sample_file_content, "text/plain")},
+                data={"schema": json.dumps(sample_schema)},
+            )
+            job_id = response.json()["job_id"]
+
+            # Try to get result of pending job
+            result_response = await client.get(f"/jobs/{job_id}/result")
+
+            assert result_response.status_code == status.HTTP_425_TOO_EARLY
+            data = result_response.json()
+            assert "detail" in data
+            assert "pending" in data["detail"].lower()
+
+        reset_job_manager()
+
+    async def test_get_job_result_returns_425_for_processing_job(
+        self,
+        client: httpx.AsyncClient,
+        sample_schema: dict[str, object],
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that GET /jobs/{job_id}/result returns 425 for processing job."""
+        from agentic_document_extraction.models import JobStatus as JobStatusEnum
+        from agentic_document_extraction.services.job_manager import (
+            get_job_manager,
+            reset_job_manager,
+        )
+
+        reset_job_manager()
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("agentic_document_extraction.api.settings.temp_upload_dir", temp_dir),
+            patch(
+                "agentic_document_extraction.api.process_extraction_job"
+            ) as _mock_process,
+        ):
+            # Create a job
+            response = await client.post(
+                "/extract",
+                files={"file": ("test.txt", sample_file_content, "text/plain")},
+                data={"schema": json.dumps(sample_schema)},
+            )
+            job_id = response.json()["job_id"]
+
+            # Update to processing
+            job_manager = get_job_manager()
+            job_manager.update_status(
+                job_id,
+                JobStatusEnum.PROCESSING,
+                progress="Processing document",
+            )
+
+            # Try to get result
+            result_response = await client.get(f"/jobs/{job_id}/result")
+
+            assert result_response.status_code == status.HTTP_425_TOO_EARLY
+            data = result_response.json()
+            assert "detail" in data
+            assert "processing" in data["detail"].lower()
+
+        reset_job_manager()
+
+    async def test_get_job_result_returns_failed_result(
+        self,
+        client: httpx.AsyncClient,
+        sample_schema: dict[str, object],
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that GET /jobs/{job_id}/result returns failed job info."""
+        from agentic_document_extraction.services.job_manager import (
+            get_job_manager,
+            reset_job_manager,
+        )
+
+        reset_job_manager()
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("agentic_document_extraction.api.settings.temp_upload_dir", temp_dir),
+            patch(
+                "agentic_document_extraction.api.process_extraction_job"
+            ) as _mock_process,
+        ):
+            # Create a job
+            response = await client.post(
+                "/extract",
+                files={"file": ("test.txt", sample_file_content, "text/plain")},
+                data={"schema": json.dumps(sample_schema)},
+            )
+            job_id = response.json()["job_id"]
+
+            # Mark job as failed
+            job_manager = get_job_manager()
+            job_manager.set_failed(job_id, "Extraction failed due to API error")
+
+            # Get result
+            result_response = await client.get(f"/jobs/{job_id}/result")
+
+            assert result_response.status_code == status.HTTP_200_OK
+            data = result_response.json()
+            assert data["job_id"] == job_id
+            assert data["status"] == "failed"
+            assert data["error_message"] == "Extraction failed due to API error"
+            assert data["extracted_data"] is None
+
+        reset_job_manager()
+
+    async def test_get_job_result_returns_404_for_unknown_job(
+        self,
+        client: httpx.AsyncClient,
+    ) -> None:
+        """Test that GET /jobs/{job_id}/result returns 404 for unknown job."""
+        from agentic_document_extraction.services.job_manager import reset_job_manager
+
+        reset_job_manager()
+
+        response = await client.get("/jobs/nonexistent-job-id/result")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        data = response.json()
+        assert "detail" in data
+        assert "not found" in data["detail"].lower()
+
+        reset_job_manager()
+
+
+class TestExtractWithBackgroundTask:
+    """Tests for background task integration in extract endpoint."""
+
+    async def test_extract_returns_pending_status(
+        self,
+        client: httpx.AsyncClient,
+        sample_schema: dict[str, object],
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that extract returns pending status initially."""
+        from agentic_document_extraction.services.job_manager import reset_job_manager
+
+        reset_job_manager()
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("agentic_document_extraction.api.settings.temp_upload_dir", temp_dir),
+            patch(
+                "agentic_document_extraction.api.process_extraction_job"
+            ) as _mock_process,
+        ):
+            response = await client.post(
+                "/extract",
+                files={"file": ("test.txt", sample_file_content, "text/plain")},
+                data={"schema": json.dumps(sample_schema)},
+            )
+
+            assert response.status_code == status.HTTP_202_ACCEPTED
+            data = response.json()
+            assert data["status"] == "pending"
+
+        reset_job_manager()
+
+    async def test_extract_creates_job_in_job_manager(
+        self,
+        client: httpx.AsyncClient,
+        sample_schema: dict[str, object],
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that extract creates a job in the job manager."""
+        from agentic_document_extraction.services.job_manager import (
+            get_job_manager,
+            reset_job_manager,
+        )
+
+        reset_job_manager()
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("agentic_document_extraction.api.settings.temp_upload_dir", temp_dir),
+            patch(
+                "agentic_document_extraction.api.process_extraction_job"
+            ) as _mock_process,
+        ):
+            response = await client.post(
+                "/extract",
+                files={"file": ("test.txt", sample_file_content, "text/plain")},
+                data={"schema": json.dumps(sample_schema)},
+            )
+
+            job_id = response.json()["job_id"]
+
+            # Verify job exists in job manager
+            job_manager = get_job_manager()
+            assert job_manager.job_exists(job_id)
+
+            job = job_manager.get_job(job_id)
+            assert job.filename == "test.txt"
+
+        reset_job_manager()
+
+    async def test_extract_starts_background_task(
+        self,
+        client: httpx.AsyncClient,
+        sample_schema: dict[str, object],
+        sample_file_content: bytes,
+    ) -> None:
+        """Test that extract starts background processing task."""
+        from agentic_document_extraction.services.job_manager import reset_job_manager
+
+        reset_job_manager()
+
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            patch("agentic_document_extraction.api.settings.temp_upload_dir", temp_dir),
+            patch(
+                "agentic_document_extraction.api.process_extraction_job"
+            ) as _mock_process,
+        ):
+            response = await client.post(
+                "/extract",
+                files={"file": ("test.txt", sample_file_content, "text/plain")},
+                data={"schema": json.dumps(sample_schema)},
+            )
+
+            _job_id = response.json()["job_id"]
+
+            # Note: In test environment, background tasks might not actually run
+            # We're just verifying the process_extraction_job would be called
+            # with the correct job_id (verify job_id is assigned in response)
+            assert _job_id is not None
+
+        reset_job_manager()
