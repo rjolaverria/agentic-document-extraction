@@ -15,6 +15,14 @@ from agentic_document_extraction.agents.planner import (
     RegionPriority,
     SchemaComplexity,
 )
+from agentic_document_extraction.agents.refiner import (
+    AgenticLoop,
+    AgenticLoopResult,
+    IterationMetrics,
+    RefinementAgent,
+    RefinementError,
+    RefinementFeedback,
+)
 from agentic_document_extraction.agents.verifier import (
     IssueSeverity,
     IssueType,
@@ -37,6 +45,13 @@ __all__ = [
     "QualityThreshold",
     "RegionPriority",
     "SchemaComplexity",
+    # Refiner
+    "AgenticLoop",
+    "AgenticLoopResult",
+    "IterationMetrics",
+    "RefinementAgent",
+    "RefinementError",
+    "RefinementFeedback",
     # Verifier
     "IssueSeverity",
     "IssueType",
