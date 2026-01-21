@@ -11,7 +11,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, sta
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from agentic_document_extraction.config import settings
+from agentic_document_extraction.config import settings, validate_settings_on_startup
 from agentic_document_extraction.models import (
     ErrorDetail,
     HealthResponse,
@@ -22,9 +22,9 @@ from agentic_document_extraction.services.schema_validator import (
     SchemaValidator,
 )
 
-# Configure logging
+# Configure logging using settings
 logging.basicConfig(
-    level=logging.INFO,
+    level=settings.log_level_int,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -44,14 +44,17 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
     )
 
-    # Configure CORS
+    # Configure CORS using settings
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=settings.cors_origins_list,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Validate settings on startup
+    validate_settings_on_startup(settings)
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(

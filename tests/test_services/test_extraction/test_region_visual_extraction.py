@@ -468,7 +468,7 @@ class TestRegionVisualExtractorInit:
         with patch(
             "agentic_document_extraction.services.extraction.region_visual_extraction.settings"
         ) as mock_settings:
-            mock_settings.openai_api_key = "env-key"
+            mock_settings.get_openai_api_key.return_value = "env-key"
             mock_settings.openai_model = "gpt-4o"
             mock_settings.openai_temperature = 0.0
             mock_settings.openai_max_tokens = 4096

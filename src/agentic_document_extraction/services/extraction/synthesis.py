@@ -291,12 +291,12 @@ Respond with ONLY the JSON structure specified."""
         """Initialize the synthesis service.
 
         Args:
-            api_key: OpenAI API key. Defaults to settings.openai_api_key.
+            api_key: OpenAI API key. Defaults to settings.
             model: Model name to use. Defaults to settings.openai_model.
             temperature: Sampling temperature. Defaults to settings.openai_temperature.
             max_tokens: Maximum tokens for response. Defaults to settings.openai_max_tokens.
         """
-        self.api_key = api_key or settings.openai_api_key
+        self.api_key = api_key or settings.get_openai_api_key()
         self.model = model or settings.openai_model
         self.temperature = (
             temperature if temperature is not None else settings.openai_temperature

@@ -236,7 +236,7 @@
     - Request ID tracking through entire pipeline
     - Unit tests for error scenarios
 
-- [ ] Configuration Management
+- [x] Configuration Management
   - As an operator, I want centralized configuration management, so that I can easily configure the service for different environments.
   - **Acceptance Criteria**:
     - Environment-based configuration using `pydantic-settings`

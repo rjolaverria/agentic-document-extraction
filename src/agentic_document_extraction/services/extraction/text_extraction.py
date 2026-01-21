@@ -187,14 +187,14 @@ Respond with ONLY the extracted JSON data. Ensure all required fields have value
         """Initialize the text extraction service.
 
         Args:
-            api_key: OpenAI API key. Defaults to settings.openai_api_key.
+            api_key: OpenAI API key. Defaults to settings.
             model: Model name to use. Defaults to settings.openai_model.
             temperature: Sampling temperature. Defaults to settings.openai_temperature.
             max_tokens: Maximum tokens for response. Defaults to settings.openai_max_tokens.
             chunk_size: Size of text chunks. Defaults to settings.chunk_size.
             chunk_overlap: Overlap between chunks. Defaults to settings.chunk_overlap.
         """
-        self.api_key = api_key or settings.openai_api_key
+        self.api_key = api_key or settings.get_openai_api_key()
         self.model = model or settings.openai_model
         self.temperature = (
             temperature if temperature is not None else settings.openai_temperature

@@ -97,7 +97,7 @@ Include source references where available."""
             model: Model to use. Defaults to settings.
         """
         self.use_llm = use_llm
-        self.api_key = api_key or settings.openai_api_key
+        self.api_key = api_key or settings.get_openai_api_key()
         self.model = model or settings.openai_model
         self._llm: ChatOpenAI | None = None
 

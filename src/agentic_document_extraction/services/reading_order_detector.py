@@ -276,11 +276,11 @@ Respond with ONLY the JSON structure specified."""
         """Initialize the reading order detector.
 
         Args:
-            api_key: OpenAI API key. Defaults to settings.openai_api_key.
+            api_key: OpenAI API key. Defaults to settings.
             model: Model name to use. Defaults to settings.openai_model.
             temperature: Sampling temperature. Defaults to 0.0 for determinism.
         """
-        self.api_key = api_key or settings.openai_api_key
+        self.api_key = api_key or settings.get_openai_api_key()
         self.model = model or settings.openai_model
         self.temperature = temperature if temperature is not None else 0.0
 

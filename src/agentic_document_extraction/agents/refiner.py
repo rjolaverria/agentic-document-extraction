@@ -269,12 +269,12 @@ Provide an improved extraction addressing the issues above. Respond with ONLY th
         """Initialize the refinement agent.
 
         Args:
-            api_key: OpenAI API key. Defaults to settings.openai_api_key.
+            api_key: OpenAI API key. Defaults to settings.
             model: Model name to use. Defaults to settings.openai_model.
             temperature: Sampling temperature. Defaults to settings.openai_temperature.
             max_tokens: Maximum tokens for response. Defaults to settings.openai_max_tokens.
         """
-        self.api_key = api_key or settings.openai_api_key
+        self.api_key = api_key or settings.get_openai_api_key()
         self.model = model or settings.openai_model
         self.temperature = (
             temperature if temperature is not None else settings.openai_temperature
@@ -747,7 +747,7 @@ class AgenticLoop:
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-        default_max_iterations: int = 3,
+        default_max_iterations: int | None = None,
     ) -> None:
         """Initialize the agentic loop orchestrator.
 
@@ -757,14 +757,19 @@ class AgenticLoop:
             temperature: Sampling temperature.
             max_tokens: Maximum tokens for responses.
             default_max_iterations: Default maximum iterations if not in plan.
+                Defaults to settings.max_refinement_iterations.
         """
-        self.api_key = api_key or settings.openai_api_key
+        self.api_key = api_key or settings.get_openai_api_key()
         self.model = model or settings.openai_model
         self.temperature = (
             temperature if temperature is not None else settings.openai_temperature
         )
         self.max_tokens = max_tokens or settings.openai_max_tokens
-        self.default_max_iterations = default_max_iterations
+        self.default_max_iterations = (
+            default_max_iterations
+            if default_max_iterations is not None
+            else settings.max_refinement_iterations
+        )
 
         # Initialize agents lazily
         self._planner: ExtractionPlanningAgent | None = None

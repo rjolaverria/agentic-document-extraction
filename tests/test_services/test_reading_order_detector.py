@@ -511,7 +511,7 @@ class TestReadingOrderDetectorInit:
         with patch(
             "agentic_document_extraction.services.reading_order_detector.settings"
         ) as mock_settings:
-            mock_settings.openai_api_key = "env-key"
+            mock_settings.get_openai_api_key.return_value = "env-key"
             mock_settings.openai_model = "gpt-4o"
 
             detector = ReadingOrderDetector()

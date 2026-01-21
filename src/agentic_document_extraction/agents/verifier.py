@@ -356,13 +356,19 @@ Analyze the extraction quality and identify any issues. Focus on:
 
 Respond with ONLY the JSON structure specified."""
 
-    # Default quality thresholds
-    DEFAULT_THRESHOLDS = QualityThreshold(
-        min_overall_confidence=0.7,
-        min_field_confidence=0.5,
-        required_field_coverage=0.9,
-        max_iterations=3,
-    )
+    @staticmethod
+    def get_default_thresholds() -> QualityThreshold:
+        """Get default quality thresholds from settings.
+
+        Returns:
+            QualityThreshold with values from configuration.
+        """
+        return QualityThreshold(
+            min_overall_confidence=settings.min_overall_confidence,
+            min_field_confidence=settings.min_field_confidence,
+            required_field_coverage=settings.required_field_coverage,
+            max_iterations=settings.max_refinement_iterations,
+        )
 
     def __init__(
         self,
@@ -374,12 +380,12 @@ Respond with ONLY the JSON structure specified."""
         """Initialize the verification agent.
 
         Args:
-            api_key: OpenAI API key. Defaults to settings.openai_api_key.
+            api_key: OpenAI API key. Defaults to settings.
             model: Model name to use. Defaults to settings.openai_model.
             temperature: Sampling temperature. Defaults to settings.openai_temperature.
             max_tokens: Maximum tokens for response. Defaults to settings.openai_max_tokens.
         """
-        self.api_key = api_key or settings.openai_api_key
+        self.api_key = api_key or settings.get_openai_api_key()
         self.model = model or settings.openai_model
         self.temperature = (
             temperature if temperature is not None else settings.openai_temperature
@@ -429,7 +435,7 @@ Respond with ONLY the JSON structure specified."""
         Args:
             extraction_result: The extraction result to verify.
             schema_info: Schema information for validation.
-            thresholds: Quality thresholds. Defaults to DEFAULT_THRESHOLDS.
+            thresholds: Quality thresholds. Defaults to settings-based thresholds.
             processing_category: Whether text or visual processing was used.
             use_llm_analysis: Whether to use LLM for additional analysis.
 
@@ -440,7 +446,7 @@ Respond with ONLY the JSON structure specified."""
             VerificationError: If verification encounters an error.
         """
         start_time = time.time()
-        thresholds = thresholds or self.DEFAULT_THRESHOLDS
+        thresholds = thresholds or self.get_default_thresholds()
 
         # Perform rule-based checks
         issues = self._perform_rule_based_checks(
@@ -1229,7 +1235,7 @@ Respond with ONLY the JSON structure specified."""
         Args:
             extraction_result: The extraction result to verify.
             schema_info: Schema information for validation.
-            thresholds: Quality thresholds. Defaults to DEFAULT_THRESHOLDS.
+            thresholds: Quality thresholds. Defaults to settings-based thresholds.
 
         Returns:
             VerificationReport with verification results.

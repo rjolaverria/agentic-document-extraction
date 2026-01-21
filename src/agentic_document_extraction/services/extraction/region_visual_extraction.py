@@ -420,12 +420,12 @@ Respond with ONLY valid JSON."""
         """Initialize the region visual extractor.
 
         Args:
-            api_key: OpenAI API key. Defaults to settings.openai_api_key.
+            api_key: OpenAI API key. Defaults to settings.
             model: Model name to use. Defaults to gpt-4o for vision support.
             temperature: Sampling temperature. Defaults to settings.openai_temperature.
             max_tokens: Maximum tokens for response. Defaults to settings.openai_max_tokens.
         """
-        self.api_key = api_key or settings.openai_api_key
+        self.api_key = api_key or settings.get_openai_api_key()
         # Use gpt-4o by default as it has excellent vision capabilities
         self.model = model or settings.openai_model
         self.temperature = (
