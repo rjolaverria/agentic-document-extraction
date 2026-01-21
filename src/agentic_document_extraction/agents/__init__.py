@@ -15,8 +15,19 @@ from agentic_document_extraction.agents.planner import (
     RegionPriority,
     SchemaComplexity,
 )
+from agentic_document_extraction.agents.verifier import (
+    IssueSeverity,
+    IssueType,
+    QualityMetrics,
+    QualityVerificationAgent,
+    VerificationError,
+    VerificationIssue,
+    VerificationReport,
+    VerificationStatus,
+)
 
 __all__ = [
+    # Planner
     "DocumentCharacteristics",
     "ExtractionChallenge",
     "ExtractionPlan",
@@ -26,4 +37,13 @@ __all__ = [
     "QualityThreshold",
     "RegionPriority",
     "SchemaComplexity",
+    # Verifier
+    "IssueSeverity",
+    "IssueType",
+    "QualityMetrics",
+    "QualityVerificationAgent",
+    "VerificationError",
+    "VerificationIssue",
+    "VerificationReport",
+    "VerificationStatus",
 ]
