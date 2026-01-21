@@ -152,7 +152,7 @@
     - Unit tests with mocked VLM responses
     - Integration tests with sample visual elements
 
-- [ ] Visual Document Synthesis
+- [x] Visual Document Synthesis
   - As a system, I want to combine region-level extractions into a coherent document-level extraction using LangChain, so that I can produce final output matching the user's schema.
   - **Acceptance Criteria**:
     - Uses LangChain chains to orchestrate synthesis

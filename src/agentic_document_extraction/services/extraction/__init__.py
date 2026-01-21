@@ -8,6 +8,13 @@ from agentic_document_extraction.services.extraction.region_visual_extraction im
     RegionVisualExtractionError,
     RegionVisualExtractor,
 )
+from agentic_document_extraction.services.extraction.synthesis import (
+    RegionSourceReference,
+    SynthesisError,
+    SynthesisResult,
+    SynthesisService,
+    SynthesizedContent,
+)
 from agentic_document_extraction.services.extraction.text_extraction import (
     ExtractionError,
     ExtractionResult,
@@ -26,4 +33,10 @@ __all__ = [
     "RegionExtractionResult",
     "RegionVisualExtractionError",
     "RegionVisualExtractor",
+    # Synthesis
+    "RegionSourceReference",
+    "SynthesisError",
+    "SynthesisResult",
+    "SynthesisService",
+    "SynthesizedContent",
 ]
