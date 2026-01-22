@@ -1,0 +1,118 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Resume",
+  "description": "Schema for extracting resume/CV information",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Full name of the candidate"
+    },
+    "title": {
+      "type": "string",
+      "description": "Professional title or headline"
+    },
+    "contact": {
+      "type": "object",
+      "description": "Contact information",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Email address"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number"
+        },
+        "location": {
+          "type": "string",
+          "description": "City, State or full address"
+        },
+        "linkedin": {
+          "type": "string",
+          "description": "LinkedIn profile URL"
+        }
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "Professional summary or objective statement"
+    },
+    "experience": {
+      "type": "array",
+      "description": "Work experience history",
+      "items": {
+        "type": "object",
+        "properties": {
+          "company": {
+            "type": "string",
+            "description": "Company name"
+          },
+          "title": {
+            "type": "string",
+            "description": "Job title"
+          },
+          "location": {
+            "type": "string",
+            "description": "Job location"
+          },
+          "start_date": {
+            "type": "string",
+            "description": "Start date of employment"
+          },
+          "end_date": {
+            "type": "string",
+            "description": "End date of employment (or 'Present' if current)"
+          },
+          "responsibilities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "List of responsibilities and achievements"
+          }
+        },
+        "required": ["company", "title"]
+      }
+    },
+    "education": {
+      "type": "array",
+      "description": "Educational background",
+      "items": {
+        "type": "object",
+        "properties": {
+          "institution": {
+            "type": "string",
+            "description": "School or university name"
+          },
+          "degree": {
+            "type": "string",
+            "description": "Degree obtained"
+          },
+          "field": {
+            "type": "string",
+            "description": "Field of study or major"
+          },
+          "graduation_date": {
+            "type": "string",
+            "description": "Graduation date"
+          },
+          "gpa": {
+            "type": "string",
+            "description": "GPA if provided"
+          }
+        },
+        "required": ["institution", "degree"]
+      }
+    },
+    "skills": {
+      "type": "array",
+      "description": "List of skills",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": ["name"]
+}

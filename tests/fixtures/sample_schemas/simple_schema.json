@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Simple Extraction",
+  "description": "A minimal schema for basic document extraction",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Document title or main heading"
+    },
+    "summary": {
+      "type": "string",
+      "description": "Brief summary of the document content"
+    },
+    "key_points": {
+      "type": "array",
+      "description": "Main points or highlights from the document",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": ["title"]
+}

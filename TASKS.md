@@ -252,7 +252,7 @@
     - Sensitive values (API keys) never logged
     - Documentation for all configuration options
 
-- [ ] API Documentation & Examples
+- [x] API Documentation & Examples
   - As a user, I want comprehensive API documentation with examples, so that I can easily integrate the service.
   - **Acceptance Criteria**:
     - OpenAPI/Swagger documentation at `/docs`

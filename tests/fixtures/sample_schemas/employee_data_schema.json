@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Employee Data",
+  "description": "Schema for extracting employee information from CSV/tabular data",
+  "type": "object",
+  "properties": {
+    "employees": {
+      "type": "array",
+      "description": "List of employee records",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Employee full name"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Employee email address"
+          },
+          "department": {
+            "type": "string",
+            "description": "Department name"
+          },
+          "salary": {
+            "type": "number",
+            "description": "Annual salary"
+          },
+          "start_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Employment start date"
+          }
+        },
+        "required": ["name", "email"]
+      }
+    },
+    "total_employees": {
+      "type": "integer",
+      "description": "Total number of employees"
+    },
+    "departments": {
+      "type": "array",
+      "description": "Unique list of departments",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": ["employees"]
+}

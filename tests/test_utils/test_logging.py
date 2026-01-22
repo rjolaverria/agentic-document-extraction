@@ -379,7 +379,8 @@ class TestProgressTracker:
         logger = get_logger("test")
         tracker = ProgressTracker(logger, "Processing", total=10)
         duration = tracker.complete()
-        assert duration > 0
+        # Duration can be 0.0 on fast machines where start and end are the same
+        assert duration >= 0
         mock_info.assert_called_once()
 
 

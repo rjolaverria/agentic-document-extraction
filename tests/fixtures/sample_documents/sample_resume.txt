@@ -1,0 +1,51 @@
+JANE DOE
+Software Engineer
+
+Contact Information:
+Email: jane.doe@email.com
+Phone: (555) 987-6543
+Location: San Francisco, CA
+LinkedIn: linkedin.com/in/janedoe
+
+PROFESSIONAL SUMMARY
+Experienced software engineer with 7+ years of expertise in full-stack development,
+cloud architecture, and team leadership. Passionate about building scalable
+applications and mentoring junior developers.
+
+WORK EXPERIENCE
+
+Senior Software Engineer
+TechCorp Inc., San Francisco, CA
+March 2021 - Present
+- Led development of microservices architecture serving 1M+ daily users
+- Mentored team of 5 junior developers
+- Reduced API response time by 40% through optimization
+- Implemented CI/CD pipelines using GitHub Actions
+
+Software Engineer
+StartupXYZ, Mountain View, CA
+June 2018 - February 2021
+- Built real-time data processing pipeline using Python and Apache Kafka
+- Developed REST APIs using FastAPI and PostgreSQL
+- Collaborated with product team on feature specifications
+
+Junior Developer
+WebAgency LLC, Oakland, CA
+August 2016 - May 2018
+- Created responsive web applications using React and Node.js
+- Participated in code reviews and agile ceremonies
+- Maintained legacy PHP applications
+
+EDUCATION
+
+Bachelor of Science in Computer Science
+University of California, Berkeley
+Graduated: May 2016
+GPA: 3.7/4.0
+
+SKILLS
+- Languages: Python, JavaScript, TypeScript, Go, SQL
+- Frameworks: FastAPI, React, Node.js, Django
+- Cloud: AWS, GCP, Docker, Kubernetes
+- Databases: PostgreSQL, MongoDB, Redis
+- Tools: Git, GitHub Actions, Terraform

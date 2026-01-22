@@ -1,0 +1,130 @@
+# Agentic Document Extraction API - HTTP Test Collection
+#
+# This file can be used with:
+# - VS Code REST Client extension (https://marketplace.visualstudio.com/items?itemName=humao.rest-client)
+# - JetBrains HTTP Client (built into IntelliJ/PyCharm)
+# - httpYac (https://httpyac.github.io/)
+#
+# Variables can be customized below:
+
+@baseUrl = http://localhost:8000
+@contentType = application/json
+
+### ============================================================================
+### Health Check
+### ============================================================================
+
+### Check service health
+# @name healthCheck
+GET {{baseUrl}}/health
+Accept: {{contentType}}
+
+### ============================================================================
+### Document Extraction
+### ============================================================================
+
+### Extract from text file with inline schema
+# @name extractTextWithInlineSchema
+POST {{baseUrl}}/extract
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="sample.txt"
+Content-Type: text/plain
+
+ACME Corporation
+Invoice Number: INV-2024-001
+Date: January 15, 2024
+Total: $1,540.00
+------WebKitFormBoundary
+Content-Disposition: form-data; name="schema"
+
+{"type":"object","properties":{"invoice_number":{"type":"string"},"date":{"type":"string"},"total":{"type":"number"}},"required":["invoice_number"]}
+------WebKitFormBoundary--
+
+### Extract from text file with simple schema
+# @name extractSimple
+POST {{baseUrl}}/extract
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="document.txt"
+Content-Type: text/plain
+
+Project Status Report
+Q4 2024
+
+Key Achievements:
+- Launched new product line
+- Increased revenue by 25%
+- Expanded to 3 new markets
+
+Next Steps:
+- Hire additional staff
+- Develop mobile app
+------WebKitFormBoundary
+Content-Disposition: form-data; name="schema"
+
+{"type":"object","properties":{"title":{"type":"string","description":"Document title"},"summary":{"type":"string","description":"Brief summary"},"key_points":{"type":"array","items":{"type":"string"},"description":"Main points"}},"required":["title"]}
+------WebKitFormBoundary--
+
+### ============================================================================
+### Job Status and Results
+### ============================================================================
+
+### Get job status (replace {job_id} with actual job ID from extract response)
+# @name getJobStatus
+@jobId = 550e8400-e29b-41d4-a716-446655440000
+GET {{baseUrl}}/jobs/{{jobId}}
+Accept: {{contentType}}
+
+### Get job result (replace {job_id} with actual job ID from extract response)
+# @name getJobResult
+GET {{baseUrl}}/jobs/{{jobId}}/result
+Accept: {{contentType}}
+
+### ============================================================================
+### Error Cases (for testing error handling)
+### ============================================================================
+
+### Missing schema - should return 400
+# @name errorMissingSchema
+POST {{baseUrl}}/extract
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="test.txt"
+Content-Type: text/plain
+
+Test content
+------WebKitFormBoundary--
+
+### Invalid JSON schema - should return 400
+# @name errorInvalidJson
+POST {{baseUrl}}/extract
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="file"; filename="test.txt"
+Content-Type: text/plain
+
+Test content
+------WebKitFormBoundary
+Content-Disposition: form-data; name="schema"
+
+{invalid json here}
+------WebKitFormBoundary--
+
+### Job not found - should return 404
+# @name errorJobNotFound
+GET {{baseUrl}}/jobs/nonexistent-job-id
+Accept: {{contentType}}
+
+### ============================================================================
+### OpenAPI Documentation
+### ============================================================================
+
+### Get OpenAPI specification
+# @name openApiSpec
+GET {{baseUrl}}/openapi.json
+Accept: {{contentType}}

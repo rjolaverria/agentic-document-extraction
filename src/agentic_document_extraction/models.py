@@ -16,6 +16,18 @@ class HealthResponse(BaseModel):
     timestamp: str
     version: str
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "status": "healthy",
+                    "timestamp": "2024-01-15T10:30:00.000000+00:00",
+                    "version": "0.1.0",
+                }
+            ]
+        }
+    }
+
 
 class JobStatus(str, Enum):
     """Status of an extraction job."""
@@ -37,6 +49,20 @@ class UploadResponse(BaseModel):
     )
     message: str = Field(..., description="Status message")
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "job_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "filename": "invoice.pdf",
+                    "file_size": 102400,
+                    "status": "pending",
+                    "message": "Document uploaded successfully. Processing will begin shortly.",
+                }
+            ]
+        }
+    }
+
 
 class JobStatusResponse(BaseModel):
     """Response model for job status endpoint."""
@@ -52,6 +78,22 @@ class JobStatusResponse(BaseModel):
     error_message: str | None = Field(
         default=None, description="Error message if job failed"
     )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "job_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "status": "processing",
+                    "filename": "invoice.pdf",
+                    "created_at": "2024-01-15T10:30:00.000000+00:00",
+                    "updated_at": "2024-01-15T10:30:05.000000+00:00",
+                    "progress": "Analyzing document layout (page 2 of 3)",
+                    "error_message": None,
+                }
+            ]
+        }
+    }
 
 
 class ExtractionMetadata(BaseModel):
@@ -69,6 +111,21 @@ class ExtractionMetadata(BaseModel):
     document_type: str = Field(
         ..., description="Processing type (text_based or visual)"
     )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "processing_time_seconds": 12.5,
+                    "model_used": "gpt-4o",
+                    "total_tokens": 2500,
+                    "iterations_completed": 2,
+                    "converged": True,
+                    "document_type": "visual",
+                }
+            ]
+        }
+    }
 
 
 class JobResultResponse(BaseModel):
@@ -91,6 +148,53 @@ class JobResultResponse(BaseModel):
     error_message: str | None = Field(
         default=None, description="Error message if job failed"
     )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "job_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "status": "completed",
+                    "extracted_data": {
+                        "invoice_number": "INV-2024-001",
+                        "date": "2024-01-15",
+                        "total_amount": 1250.00,
+                        "line_items": [
+                            {
+                                "description": "Widget A",
+                                "quantity": 5,
+                                "price": 100.00,
+                            },
+                            {
+                                "description": "Widget B",
+                                "quantity": 10,
+                                "price": 75.00,
+                            },
+                        ],
+                    },
+                    "markdown_summary": "# Invoice Extraction Summary\n\n**Invoice Number:** INV-2024-001\n**Date:** 2024-01-15\n**Total:** $1,250.00",
+                    "metadata": {
+                        "processing_time_seconds": 12.5,
+                        "model_used": "gpt-4o",
+                        "total_tokens": 2500,
+                        "iterations_completed": 2,
+                        "converged": True,
+                        "document_type": "visual",
+                    },
+                    "quality_report": {
+                        "overall_confidence": 0.92,
+                        "field_scores": {
+                            "invoice_number": 0.98,
+                            "date": 0.95,
+                            "total_amount": 0.90,
+                        },
+                        "issues": [],
+                    },
+                    "error_message": None,
+                }
+            ]
+        }
+    }
 
 
 class ErrorDetail(BaseModel):
@@ -116,6 +220,19 @@ class ErrorDetail(BaseModel):
         default=None,
         description="Request ID for error correlation",
     )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "detail": "Either 'schema' (JSON string) or 'schema_file' must be provided",
+                    "error_code": "E1001",
+                    "details": {"field": "schema"},
+                    "request_id": "550e8400-e29b-41d4-a716-446655440000",
+                }
+            ]
+        }
+    }
 
     @classmethod
     def from_error_code(

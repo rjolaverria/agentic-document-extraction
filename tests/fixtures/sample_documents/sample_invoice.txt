@@ -1,0 +1,27 @@
+ACME Corporation
+Invoice
+
+Invoice Number: INV-2024-001
+Date: January 15, 2024
+Due Date: February 15, 2024
+
+Bill To:
+John Smith
+123 Main Street
+Anytown, ST 12345
+
+Description                     Quantity    Unit Price    Total
+-----------------------------------------------------------------
+Widget A - Standard             5           $100.00       $500.00
+Widget B - Premium              10          $75.00        $750.00
+Installation Service            1           $150.00       $150.00
+
+-----------------------------------------------------------------
+                                            Subtotal:     $1,400.00
+                                            Tax (10%):    $140.00
+                                            Total:        $1,540.00
+
+Payment Terms: Net 30
+Thank you for your business!
+
+Contact: billing@acme.com | Phone: (555) 123-4567
