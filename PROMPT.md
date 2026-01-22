@@ -5,7 +5,8 @@ Design and implement a vision-first, agentic document extraction system as a Fas
 
 - Complete the next most important task in `./TASKS.md` according to the objective. It does not have to be the next task in the order.
 - Review the `./AGENT.md` file to understand how to work on this project
-- ONLY complete one task.
+- ONLY complete one task. Do NOT attempt to complete multiple tasks.
+- There is no need to worry about breaking changes and backwards compatibility for this project.
 - The task is not completed until:
   - Tests for the task are comprehensive and passing
   - There are no obvious TODO/FIXME comments left in critical paths for that task
@@ -15,6 +16,7 @@ Design and implement a vision-first, agentic document extraction system as a Fas
   - `uv run mypy src`
   - `uv run pytest` 
   - `uv run pytest --cov=src --cov-report=term-missing`
+  - Run the service locally and manually verify the feature works as expected end-to-end
 - The task must be marked as complete (`[x]`) in `./TASKS.md`
 - The completed task is to be committed to git with a descriptive commit message referencing the task
 
