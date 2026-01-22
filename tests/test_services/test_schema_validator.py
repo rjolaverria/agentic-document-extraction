@@ -772,3 +772,115 @@ class TestSchemaValidatorEdgeCases:
         result = validator.validate(schema)
         # Should use first type from array
         assert result.schema_type == "object"
+
+
+class TestSchemaValidatorFormatSpec:
+    """Tests for format specification extraction."""
+
+    def test_extracts_date_format(self, validator: SchemaValidator) -> None:
+        """Test that date format is extracted from schema."""
+        schema: dict[str, Any] = {
+            "type": "object",
+            "properties": {
+                "invoice_date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Invoice issue date",
+                },
+            },
+        }
+
+        result = validator.validate(schema)
+
+        date_field = result.optional_fields[0]
+        assert date_field.name == "invoice_date"
+        assert date_field.format_spec == "date"
+
+    def test_extracts_email_format(self, validator: SchemaValidator) -> None:
+        """Test that email format is extracted from schema."""
+        schema: dict[str, Any] = {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "format": "email",
+                },
+            },
+        }
+
+        result = validator.validate(schema)
+
+        email_field = result.optional_fields[0]
+        assert email_field.format_spec == "email"
+
+    def test_format_spec_none_when_not_specified(
+        self, validator: SchemaValidator
+    ) -> None:
+        """Test that format_spec is None when not specified in schema."""
+        schema: dict[str, Any] = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+        }
+
+        result = validator.validate(schema)
+
+        name_field = result.optional_fields[0]
+        assert name_field.format_spec is None
+
+    def test_format_spec_in_to_dict(self, validator: SchemaValidator) -> None:
+        """Test that format_spec is included in to_dict output."""
+        schema: dict[str, Any] = {
+            "type": "object",
+            "properties": {
+                "due_date": {
+                    "type": "string",
+                    "format": "date",
+                },
+            },
+        }
+
+        result = validator.validate(schema)
+        field_dict = result.optional_fields[0].to_dict()
+
+        assert "format" in field_dict
+        assert field_dict["format"] == "date"
+
+    def test_format_spec_not_in_to_dict_when_none(
+        self, validator: SchemaValidator
+    ) -> None:
+        """Test that format is not in to_dict when not specified."""
+        schema: dict[str, Any] = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+            },
+        }
+
+        result = validator.validate(schema)
+        field_dict = result.optional_fields[0].to_dict()
+
+        assert "format" not in field_dict
+
+    def test_multiple_fields_with_different_formats(
+        self, validator: SchemaValidator
+    ) -> None:
+        """Test schema with multiple format specifications."""
+        schema: dict[str, Any] = {
+            "type": "object",
+            "properties": {
+                "invoice_date": {"type": "string", "format": "date"},
+                "email": {"type": "string", "format": "email"},
+                "website": {"type": "string", "format": "uri"},
+                "name": {"type": "string"},
+            },
+        }
+
+        result = validator.validate(schema)
+
+        formats = {f.name: f.format_spec for f in result.all_fields}
+        assert formats["invoice_date"] == "date"
+        assert formats["email"] == "email"
+        assert formats["website"] == "uri"
+        assert formats["name"] is None

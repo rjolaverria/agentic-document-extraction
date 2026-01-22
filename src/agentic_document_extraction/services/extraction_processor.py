@@ -14,6 +14,7 @@ from pathlib import Path
 
 from agentic_document_extraction.agents.refiner import AgenticLoop
 from agentic_document_extraction.models import ProcessingCategory
+from agentic_document_extraction.output.json_generator import JsonGenerator
 from agentic_document_extraction.output.markdown_generator import MarkdownGenerator
 from agentic_document_extraction.services.format_detector import FormatDetector
 from agentic_document_extraction.services.job_manager import (
@@ -186,6 +187,16 @@ def process_extraction_job(
                 converged=loop_result.converged,
             )
 
+            # Normalize extracted data through JsonGenerator
+            # This handles format-specific normalization (e.g., dates to ISO format)
+            json_generator = JsonGenerator()
+            json_result = json_generator.generate(
+                loop_result.final_result.extracted_data,
+                schema_info,
+                handle_nulls=True,
+            )
+            normalized_data = json_result.data
+
             # Generate markdown summary
             markdown_generator = MarkdownGenerator()
             markdown_output = markdown_generator.generate(
@@ -215,7 +226,7 @@ def process_extraction_job(
             # Set result on job
             job_manager.set_result(
                 job_id=job_id,
-                extracted_data=loop_result.final_result.extracted_data,
+                extracted_data=normalized_data,
                 markdown_summary=markdown_summary,
                 metadata=metadata,
                 quality_report=quality_report,

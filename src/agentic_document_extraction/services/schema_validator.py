@@ -35,6 +35,7 @@ class FieldInfo:
         description: str | None = None,
         path: str | None = None,
         nested_fields: list["FieldInfo"] | None = None,
+        format_spec: str | None = None,
     ) -> None:
         """Initialize field information.
 
@@ -45,6 +46,7 @@ class FieldInfo:
             description: Optional field description from schema.
             path: JSON path to this field (e.g., "address.city").
             nested_fields: For object types, list of nested field info.
+            format_spec: Optional JSON Schema format (e.g., "date", "email", "uri").
         """
         self.name = name
         self.field_type = field_type
@@ -52,6 +54,7 @@ class FieldInfo:
         self.description = description
         self.path = path or name
         self.nested_fields = nested_fields or []
+        self.format_spec = format_spec
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation.
@@ -69,6 +72,8 @@ class FieldInfo:
             result["description"] = self.description
         if self.nested_fields:
             result["nested_fields"] = [f.to_dict() for f in self.nested_fields]
+        if self.format_spec:
+            result["format"] = self.format_spec
         return result
 
 
@@ -321,6 +326,7 @@ class SchemaValidator:
 
             field_type = field_schema.get("type", "any")
             description = field_schema.get("description")
+            format_spec = field_schema.get("format")
 
             # Handle nested objects
             nested_fields: list[FieldInfo] = []
@@ -350,6 +356,7 @@ class SchemaValidator:
                 description=description,
                 path=field_path,
                 nested_fields=nested_fields,
+                format_spec=format_spec,
             )
 
             if is_required:

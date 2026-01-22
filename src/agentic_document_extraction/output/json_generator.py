@@ -5,7 +5,9 @@ as JSON output according to a user-provided schema.
 """
 
 import logging
+import re
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any
 
 from jsonschema import Draft7Validator
@@ -13,6 +15,90 @@ from jsonschema import Draft7Validator
 from agentic_document_extraction.services.schema_validator import SchemaInfo
 
 logger = logging.getLogger(__name__)
+
+# Common date formats to try when parsing dates
+DATE_FORMATS = [
+    # ISO formats (highest priority)
+    "%Y-%m-%d",
+    "%Y/%m/%d",
+    # Month name formats
+    "%B %d, %Y",  # February 15, 2024
+    "%b %d, %Y",  # Feb 15, 2024
+    "%d %B %Y",  # 15 February 2024
+    "%d %b %Y",  # 15 Feb 2024
+    # Common US formats
+    "%m/%d/%Y",  # 02/15/2024
+    "%m-%d-%Y",  # 02-15-2024
+    # Common EU formats
+    "%d/%m/%Y",  # 15/02/2024
+    "%d-%m-%Y",  # 15-02-2024
+    "%d.%m.%Y",  # 15.02.2024
+    # Short year formats
+    "%m/%d/%y",  # 02/15/24
+    "%d/%m/%y",  # 15/02/24
+    # Other variants
+    "%Y.%m.%d",  # 2024.02.15
+    "%B %d %Y",  # February 15 2024 (no comma)
+    "%b %d %Y",  # Feb 15 2024 (no comma)
+]
+
+
+def parse_date_string(value: str) -> datetime | None:
+    """Try to parse a date string using common formats.
+
+    Args:
+        value: The string value to parse as a date.
+
+    Returns:
+        Parsed datetime or None if parsing fails.
+    """
+    if not value or not isinstance(value, str):
+        return None
+
+    # Clean up the value
+    cleaned = value.strip()
+
+    # Try each format
+    for fmt in DATE_FORMATS:
+        try:
+            return datetime.strptime(cleaned, fmt)
+        except ValueError:
+            continue
+
+    return None
+
+
+def normalize_date(value: Any) -> str | None:
+    """Normalize a date value to ISO format (YYYY-MM-DD).
+
+    Args:
+        value: The value to normalize (can be string or datetime).
+
+    Returns:
+        ISO formatted date string or None if normalization fails.
+    """
+    if value is None:
+        return None
+
+    # If already a datetime, format it
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d")
+
+    if not isinstance(value, str):
+        return None
+
+    # Check if already in ISO format
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", value.strip()):
+        return value.strip()
+
+    # Try to parse the date
+    parsed = parse_date_string(value)
+    if parsed:
+        return parsed.strftime("%Y-%m-%d")
+
+    # Return original value if we can't parse it
+    logger.warning(f"Could not parse date value: {value}")
+    return value
 
 
 class ValidationError(Exception):
@@ -205,7 +291,10 @@ class JsonGenerator:
 
             if value is not None:
                 cleaned[field_name] = self._clean_value(
-                    value, field_info.field_type, handle_nulls
+                    value,
+                    field_info.field_type,
+                    handle_nulls,
+                    format_spec=field_info.format_spec,
                 )
             elif handle_nulls:
                 # Set default values for missing fields
@@ -225,13 +314,15 @@ class JsonGenerator:
         value: Any,
         field_type: str | list[str],
         handle_nulls: bool,
+        format_spec: str | None = None,
     ) -> Any:
-        """Clean a value according to its type.
+        """Clean a value according to its type and format specification.
 
         Args:
             value: Value to clean.
             field_type: Expected type of the value.
             handle_nulls: Whether to handle null values.
+            format_spec: Optional JSON Schema format (e.g., "date", "date-time").
 
         Returns:
             Cleaned value.
@@ -243,6 +334,13 @@ class JsonGenerator:
 
         # Handle type coercion if needed
         expected_type = field_type[0] if isinstance(field_type, list) else field_type
+
+        # Handle format-specific normalization for strings
+        if expected_type == "string" and format_spec == "date":
+            normalized = normalize_date(value)
+            if normalized is not None:
+                return normalized
+            # Fall through to default string handling if normalization fails
 
         if expected_type == "string" and not isinstance(value, str):
             return str(value)

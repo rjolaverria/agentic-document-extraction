@@ -9,6 +9,8 @@ from agentic_document_extraction.output.json_generator import (
     JsonOutputResult,
     ValidationError,
     ValidationResult,
+    normalize_date,
+    parse_date_string,
 )
 from agentic_document_extraction.services.schema_validator import SchemaValidator
 
@@ -403,3 +405,275 @@ class TestValidationError:
         assert len(error.errors) == 2
         assert error.data is not None
         assert "field1" in error.data
+
+
+class TestParseDateString:
+    """Tests for parse_date_string function."""
+
+    def test_parse_iso_format(self) -> None:
+        """Test parsing ISO format date."""
+        result = parse_date_string("2024-02-15")
+        assert result is not None
+        assert result.year == 2024
+        assert result.month == 2
+        assert result.day == 15
+
+    def test_parse_month_name_format(self) -> None:
+        """Test parsing full month name format."""
+        result = parse_date_string("February 15, 2024")
+        assert result is not None
+        assert result.year == 2024
+        assert result.month == 2
+        assert result.day == 15
+
+    def test_parse_abbreviated_month_format(self) -> None:
+        """Test parsing abbreviated month name format."""
+        result = parse_date_string("Feb 15, 2024")
+        assert result is not None
+        assert result.year == 2024
+        assert result.month == 2
+        assert result.day == 15
+
+    def test_parse_us_format(self) -> None:
+        """Test parsing US date format."""
+        result = parse_date_string("02/15/2024")
+        assert result is not None
+        assert result.year == 2024
+        assert result.month == 2
+        assert result.day == 15
+
+    def test_parse_eu_format_slash(self) -> None:
+        """Test parsing EU date format with slash."""
+        result = parse_date_string("15/02/2024")
+        assert result is not None
+        # Note: This will be parsed as EU format
+        assert result.year == 2024
+
+    def test_parse_eu_format_dot(self) -> None:
+        """Test parsing EU date format with dots."""
+        result = parse_date_string("15.02.2024")
+        assert result is not None
+        assert result.year == 2024
+        assert result.month == 2
+        assert result.day == 15
+
+    def test_parse_none_returns_none(self) -> None:
+        """Test that None input returns None."""
+        result = parse_date_string(None)  # type: ignore[arg-type]
+        assert result is None
+
+    def test_parse_empty_string_returns_none(self) -> None:
+        """Test that empty string returns None."""
+        result = parse_date_string("")
+        assert result is None
+
+    def test_parse_invalid_date_returns_none(self) -> None:
+        """Test that invalid date string returns None."""
+        result = parse_date_string("not a date")
+        assert result is None
+
+    def test_parse_whitespace_handling(self) -> None:
+        """Test that whitespace is handled correctly."""
+        result = parse_date_string("  February 15, 2024  ")
+        assert result is not None
+        assert result.year == 2024
+
+    def test_parse_month_name_no_comma(self) -> None:
+        """Test parsing month name format without comma."""
+        result = parse_date_string("February 15 2024")
+        assert result is not None
+        assert result.year == 2024
+
+
+class TestNormalizeDate:
+    """Tests for normalize_date function."""
+
+    def test_normalize_month_name_to_iso(self) -> None:
+        """Test normalizing month name format to ISO."""
+        result = normalize_date("February 15, 2024")
+        assert result == "2024-02-15"
+
+    def test_normalize_already_iso(self) -> None:
+        """Test that ISO format is preserved."""
+        result = normalize_date("2024-02-15")
+        assert result == "2024-02-15"
+
+    def test_normalize_abbreviated_month(self) -> None:
+        """Test normalizing abbreviated month name."""
+        result = normalize_date("Feb 15, 2024")
+        assert result == "2024-02-15"
+
+    def test_normalize_us_format(self) -> None:
+        """Test normalizing US date format."""
+        result = normalize_date("02/15/2024")
+        assert result == "2024-02-15"
+
+    def test_normalize_none_returns_none(self) -> None:
+        """Test that None returns None."""
+        result = normalize_date(None)
+        assert result is None
+
+    def test_normalize_non_string_returns_none(self) -> None:
+        """Test that non-string returns None."""
+        result = normalize_date(12345)  # type: ignore[arg-type]
+        assert result is None
+
+    def test_normalize_unparseable_returns_original(self) -> None:
+        """Test that unparseable string returns original."""
+        result = normalize_date("some random text")
+        assert result == "some random text"
+
+    def test_normalize_eu_format(self) -> None:
+        """Test normalizing EU date format."""
+        result = normalize_date("15.02.2024")
+        assert result == "2024-02-15"
+
+
+class TestJsonGeneratorDateNormalization:
+    """Tests for date normalization in JSON generator."""
+
+    @pytest.fixture
+    def date_schema_info(self) -> Any:
+        """Create a schema info with date format fields."""
+        validator = SchemaValidator()
+        return validator.validate(
+            {
+                "type": "object",
+                "properties": {
+                    "invoice_date": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Invoice issue date",
+                    },
+                    "due_date": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Payment due date",
+                    },
+                    "name": {
+                        "type": "string",
+                        "description": "Customer name",
+                    },
+                },
+                "required": ["invoice_date"],
+            }
+        )
+
+    def test_normalizes_date_field(
+        self,
+        json_generator: JsonGenerator,
+        date_schema_info: Any,
+    ) -> None:
+        """Test that date fields are normalized to ISO format."""
+        data = {
+            "invoice_date": "February 15, 2024",
+            "due_date": "March 1, 2024",
+            "name": "Test Customer",
+        }
+
+        result = json_generator.generate(data, date_schema_info)
+
+        assert result.data["invoice_date"] == "2024-02-15"
+        assert result.data["due_date"] == "2024-03-01"
+        assert result.data["name"] == "Test Customer"  # Non-date field unchanged
+
+    def test_preserves_iso_date(
+        self,
+        json_generator: JsonGenerator,
+        date_schema_info: Any,
+    ) -> None:
+        """Test that ISO format dates are preserved."""
+        data = {
+            "invoice_date": "2024-02-15",
+            "name": "Test Customer",
+        }
+
+        result = json_generator.generate(data, date_schema_info)
+
+        assert result.data["invoice_date"] == "2024-02-15"
+
+    def test_normalizes_various_date_formats(
+        self,
+        json_generator: JsonGenerator,
+        date_schema_info: Any,
+    ) -> None:
+        """Test normalization of various date formats."""
+        test_cases = [
+            ("February 15, 2024", "2024-02-15"),
+            ("Feb 15, 2024", "2024-02-15"),
+            ("02/15/2024", "2024-02-15"),
+            ("2024-02-15", "2024-02-15"),
+            ("15.02.2024", "2024-02-15"),
+        ]
+
+        for input_date, expected in test_cases:
+            data = {"invoice_date": input_date, "name": "Test"}
+            result = json_generator.generate(data, date_schema_info)
+            assert result.data["invoice_date"] == expected, (
+                f"Failed for input: {input_date}"
+            )
+
+    def test_non_date_string_fields_unchanged(
+        self,
+        json_generator: JsonGenerator,
+        date_schema_info: Any,
+    ) -> None:
+        """Test that non-date string fields are not modified."""
+        data = {
+            "invoice_date": "2024-02-15",
+            "name": "February Company Inc.",  # Has month name but not a date field
+        }
+
+        result = json_generator.generate(data, date_schema_info)
+
+        assert result.data["name"] == "February Company Inc."
+
+    def test_handles_null_date_field(
+        self,
+        json_generator: JsonGenerator,
+        date_schema_info: Any,
+    ) -> None:
+        """Test handling of null date fields."""
+        data = {
+            "invoice_date": "2024-02-15",
+            "due_date": None,
+            "name": "Test",
+        }
+
+        result = json_generator.generate(data, date_schema_info, handle_nulls=True)
+
+        assert result.data["invoice_date"] == "2024-02-15"
+        # due_date should be handled according to handle_nulls setting
+
+    def test_invoice_schema_date_normalization(
+        self,
+        json_generator: JsonGenerator,
+    ) -> None:
+        """Test date normalization with invoice-like schema."""
+        validator = SchemaValidator()
+        schema_info = validator.validate(
+            {
+                "type": "object",
+                "properties": {
+                    "invoice_number": {"type": "string"},
+                    "invoice_date": {"type": "string", "format": "date"},
+                    "due_date": {"type": "string", "format": "date"},
+                    "total": {"type": "number"},
+                },
+                "required": ["invoice_number", "invoice_date", "total"],
+            }
+        )
+
+        data = {
+            "invoice_number": "INV-2024-001",
+            "invoice_date": "January 15, 2024",
+            "due_date": "February 15, 2024",
+            "total": 1250.00,
+        }
+
+        result = json_generator.generate(data, schema_info)
+
+        assert result.data["invoice_date"] == "2024-01-15"
+        assert result.data["due_date"] == "2024-02-15"
+        assert result.data["invoice_number"] == "INV-2024-001"
+        assert result.data["total"] == 1250.00
