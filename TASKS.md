@@ -282,3 +282,61 @@
     - No Pydantic warnings
     - Ruff: All checks passed
     - Mypy: No issues found
+
+#### Critical Bugs Found
+
+- [ ] **BUG: PNG/Image File Support Not Working**
+  - **Severity**: Critical
+  - **Error**: `TextExtractionError: Unsupported file extension for text extraction: .png`
+  - **Description**: The API accepts PNG files via the `/extract` endpoint (returns 202 Accepted), but the background processor fails immediately because the text extraction service does not support image files.
+  - **Expected Behavior**: Image files should be routed to the visual extraction pipeline (OCR + layout detection + VLM), not the text extraction pipeline.
+  - **Root Cause**: The extraction processor is not correctly routing image files to the visual processing pipeline.
+  - **Affected Files**: Likely `services/extraction_processor.py` or `services/extraction/text_extraction.py`
+  - **Test Case**: Submit `sample_coupon_code_form.png` with `sample_coupon_code_form_schema.json`
+
+#### Quality Issues Found
+
+- [ ] **ISSUE: Date Format Inconsistency in Invoice Extraction**
+  - **Severity**: Medium
+  - **Description**: The `due_date` field is extracted as "February 15, 2024" instead of the expected ISO format "YYYY-MM-DD" per the schema's `format: date` specification.
+  - **Current Value**: `"February 15, 2024"`
+  - **Expected**: `"2024-02-15"`
+  - **Impact**: Downstream systems expecting ISO dates will need to handle this inconsistency.
+  - **Suggested Fix**: Add date format normalization in the extraction or refinement phase.
+
+- [ ] **ISSUE: Low Confidence Scores Prevent Convergence**
+  - **Severity**: Medium
+  - **Description**: Resume and CSV extractions complete with all data correctly extracted, but the agentic loop does not converge because confidence scores remain below the threshold (0.90).
+  - **Resume**: Confidence 0.70, 4 issues flagged (contact info, phone format, skills format)
+  - **CSV**: Confidence 0.50, 2 issues flagged
+  - **Impact**: Extra iterations are wasted without improving results.
+  - **Suggested Fix**: Review confidence threshold settings or improve confidence scoring logic.
+
+- [ ] **ISSUE: Spurious Null Value Warnings in CSV Extraction**
+  - **Severity**: Low
+  - **Description**: The quality report flags `employees[].name` and `employees[].email` as having null values, but the actual extracted data contains all values correctly.
+  - **Quality Report Issue**:
+    ```json
+    {
+      "issue_type": "null_value",
+      "field_path": "employees[].name",
+      "message": "Nested required field 'employees[].name' has null value"
+    }
+    ```
+  - **Actual Data**: All 5 employees have names and emails correctly populated.
+  - **Impact**: False positive quality warnings reduce trust in the quality report.
+  - **Suggested Fix**: Fix the verifier's array field null-checking logic.
+
+- [ ] **ISSUE: Skills Extracted as Category-Prefixed Strings**
+  - **Severity**: Low
+  - **Description**: Resume skills are extracted as strings like `"Languages: Python, JavaScript, TypeScript, Go, SQL"` instead of individual skill items.
+  - **Schema Expectation**: Array of individual skill strings
+  - **Current Extraction**: Array of category-prefixed strings
+  - **Impact**: Downstream parsing of individual skills is complicated.
+  - **Suggested Fix**: Improve extraction prompt to split skills into individual items.
+
+- [ ] **ISSUE: Phone Number Format Not Standardized**
+  - **Severity**: Low
+  - **Description**: Phone numbers are extracted in various formats like `(555) 987-6543` without standardization to E.164 or another consistent format.
+  - **Impact**: Consistency issues for downstream systems.
+  - **Suggested Fix**: Add optional phone number normalization in post-processing.
