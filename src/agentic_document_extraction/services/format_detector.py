@@ -4,7 +4,6 @@ This module provides functionality to detect document formats from file extensio
 and magic bytes (file content signatures), and classify them into processing categories.
 """
 
-import logging
 from pathlib import Path
 
 import magic
@@ -14,16 +13,19 @@ from agentic_document_extraction.models import (
     FormatInfo,
     ProcessingCategory,
 )
+from agentic_document_extraction.utils.exceptions import UnsupportedFormatError
+from agentic_document_extraction.utils.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-
-class UnsupportedFormatError(Exception):
-    """Raised when a document format is not supported."""
-
-    def __init__(self, message: str, detected_mime: str | None = None) -> None:
-        super().__init__(message)
-        self.detected_mime = detected_mime
+# Re-export for backward compatibility
+__all__ = [
+    "FormatDetector",
+    "UnsupportedFormatError",
+    "EXTENSION_TO_MIME",
+    "MIME_TO_EXTENSION",
+    "SUPPORTED_MIME_TYPES",
+]
 
 
 # Mapping of file extensions to MIME types
@@ -252,8 +254,9 @@ class FormatDetector:
             if mime_from_extension and mime_from_extension != detected_mime:
                 original_ext_differs = original_extension
                 logger.warning(
-                    f"File extension '{original_extension}' does not match "
-                    f"detected MIME type '{detected_mime}'"
+                    "File extension does not match detected MIME type",
+                    extension=original_extension,
+                    detected_mime=detected_mime,
                 )
         elif mime_from_extension and self._is_supported_mime(mime_from_extension):
             # Fall back to extension-based detection
@@ -305,7 +308,11 @@ class FormatDetector:
             detected = self._magic.from_buffer(content)
             return self._normalize_mime_type(detected)
         except Exception as e:
-            logger.warning(f"Magic detection failed: {e}")
+            logger.warning(
+                "Magic detection failed",
+                error=str(e),
+                error_type=type(e).__name__,
+            )
             return None
 
     def _normalize_mime_type(self, mime_type: str) -> str:

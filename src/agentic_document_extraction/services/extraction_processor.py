@@ -10,11 +10,7 @@ This is the entry point for processing extraction jobs in background tasks.
 """
 
 import json
-import logging
-import time
-import traceback
 from pathlib import Path
-from typing import Any
 
 from agentic_document_extraction.agents.refiner import AgenticLoop
 from agentic_document_extraction.models import ProcessingCategory
@@ -27,29 +23,22 @@ from agentic_document_extraction.services.job_manager import (
 )
 from agentic_document_extraction.services.schema_validator import SchemaValidator
 from agentic_document_extraction.services.text_extractor import TextExtractor
+from agentic_document_extraction.utils.exceptions import (
+    ADEFileNotFoundError,
+    DocumentProcessingError,
+)
+from agentic_document_extraction.utils.logging import (
+    LogContext,
+    PerformanceMetrics,
+    get_logger,
+    set_job_id,
+)
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
-class ExtractionProcessorError(Exception):
-    """Raised when extraction processing fails."""
-
-    def __init__(
-        self,
-        message: str,
-        error_type: str = "processing_error",
-        details: dict[str, Any] | None = None,
-    ) -> None:
-        """Initialize with message and error details.
-
-        Args:
-            message: Error message.
-            error_type: Type of error for categorization.
-            details: Optional additional error details.
-        """
-        super().__init__(message)
-        self.error_type = error_type
-        self.details = details or {}
+# Re-export DocumentProcessingError as ExtractionProcessorError for backward compatibility
+ExtractionProcessorError = DocumentProcessingError
 
 
 def process_extraction_job(
@@ -72,161 +61,190 @@ def process_extraction_job(
     if job_manager is None:
         job_manager = get_job_manager()
 
-    start_time = time.time()
+    # Set job ID in context for logging correlation
+    set_job_id(job_id)
+    metrics = PerformanceMetrics(operation="extraction")
 
     try:
         # Get job data
         job = job_manager.get_job(job_id)
-        logger.info(f"Starting extraction for job {job_id}, file={job.filename}")
 
-        # Update status to processing
-        job_manager.update_status(
-            job_id,
-            status=job.status.PROCESSING,
-            progress="Processing started",
-        )
-
-        # Load schema from file
-        schema_path = Path(job.schema_path)
-        if not schema_path.exists():
-            raise ExtractionProcessorError(
-                f"Schema file not found: {schema_path}",
-                error_type="file_not_found",
-            )
-
-        with open(schema_path) as f:
-            schema_content = json.load(f)
-
-        # Validate schema
-        schema_validator = SchemaValidator()
-        schema_info = schema_validator.validate(schema_content)
-        logger.info(f"Job {job_id}: Schema validated")
-
-        job_manager.update_status(
-            job_id,
-            status=job.status.PROCESSING,
-            progress="Schema validated, detecting document format",
-        )
-
-        # Detect document format
-        file_path = Path(job.file_path)
-        if not file_path.exists():
-            raise ExtractionProcessorError(
-                f"Document file not found: {file_path}",
-                error_type="file_not_found",
-            )
-
-        format_detector = FormatDetector()
-        format_info = format_detector.detect_from_path(file_path)
-        logger.info(
-            f"Job {job_id}: Format detected: {format_info.mime_type}, "
-            f"category={format_info.processing_category.value}"
-        )
-
-        job_manager.update_status(
-            job_id,
-            status=job.status.PROCESSING,
-            progress=f"Document format: {format_info.format_family.value}, extracting text",
-        )
-
-        # Extract text based on document type
-        text_extractor = TextExtractor()
-
-        if format_info.processing_category == ProcessingCategory.TEXT_BASED:
-            # Text-based extraction
-            text_extraction_result = text_extractor.extract_from_path(file_path)
-            text = text_extraction_result.text
-            logger.info(f"Job {job_id}: Text extracted, length={len(text)}")
-        else:
-            # Visual document - use OCR and layout detection
-            # For now, extract basic text; visual pipeline can be enhanced later
-            text_extraction_result = text_extractor.extract_from_path(file_path)
-            text = text_extraction_result.text
+        with LogContext(job_id=job_id, filename=job.filename):
             logger.info(
-                f"Job {job_id}: Text extracted from visual doc, length={len(text)}"
+                "Starting extraction",
+                filename=job.filename,
             )
 
-        job_manager.update_status(
-            job_id,
-            status=job.status.PROCESSING,
-            progress="Running agentic extraction loop",
-        )
+            # Update status to processing
+            job_manager.update_status(
+                job_id,
+                status=job.status.PROCESSING,
+                progress="Processing started",
+            )
 
-        # Run agentic extraction loop
-        agentic_loop = AgenticLoop()
+            # Load schema from file
+            schema_path = Path(job.schema_path)
+            if not schema_path.exists():
+                raise ADEFileNotFoundError(
+                    file_path=str(schema_path),
+                    message=f"Schema file not found: {schema_path}",
+                )
 
-        # Import TextExtractionService here to avoid circular imports
-        from agentic_document_extraction.services.extraction.text_extraction import (
-            ExtractionResult,
-            TextExtractionService,
-        )
-        from agentic_document_extraction.services.schema_validator import SchemaInfo
+            with open(schema_path) as f:
+                schema_content = json.load(f)
 
-        text_extraction_service = TextExtractionService()
+            # Validate schema
+            schema_validator = SchemaValidator()
+            schema_info = schema_validator.validate(schema_content)
+            logger.info("Schema validated")
 
-        def extraction_func(t: str, s: SchemaInfo) -> ExtractionResult:
-            return text_extraction_service.extract(t, s)
+            job_manager.update_status(
+                job_id,
+                status=job.status.PROCESSING,
+                progress="Schema validated, detecting document format",
+            )
 
-        loop_result = agentic_loop.run(
-            text=text,
-            schema_info=schema_info,
-            format_info=format_info,
-            extraction_func=extraction_func,
-            use_llm_verification=True,
-        )
+            # Detect document format
+            file_path = Path(job.file_path)
+            if not file_path.exists():
+                raise ADEFileNotFoundError(
+                    file_path=str(file_path),
+                    message=f"Document file not found: {file_path}",
+                )
 
-        logger.info(
-            f"Job {job_id}: Agentic loop completed, "
-            f"iterations={loop_result.iterations_completed}, "
-            f"converged={loop_result.converged}"
-        )
+            format_detector = FormatDetector()
+            format_info = format_detector.detect_from_path(file_path)
+            logger.info(
+                "Format detected",
+                mime_type=format_info.mime_type,
+                category=format_info.processing_category.value,
+            )
 
-        # Generate markdown summary
-        markdown_generator = MarkdownGenerator()
-        markdown_output = markdown_generator.generate(
-            extraction_result=loop_result.final_result,
-            schema_info=schema_info,
-        )
-        markdown_summary = markdown_output.markdown
+            job_manager.update_status(
+                job_id,
+                status=job.status.PROCESSING,
+                progress=f"Document format: {format_info.format_family.value}, extracting text",
+            )
 
-        # Build metadata
-        processing_time = time.time() - start_time
-        metadata = {
-            "processing_time_seconds": processing_time,
-            "model_used": loop_result.final_result.model_used,
-            "total_tokens": loop_result.total_tokens,
-            "iterations_completed": loop_result.iterations_completed,
-            "converged": loop_result.converged,
-            "document_type": format_info.processing_category.value,
-        }
+            # Extract text based on document type
+            text_extractor = TextExtractor()
 
-        # Build quality report
-        quality_report = loop_result.final_verification.to_dict()
+            if format_info.processing_category == ProcessingCategory.TEXT_BASED:
+                # Text-based extraction
+                text_extraction_result = text_extractor.extract_from_path(file_path)
+                text = text_extraction_result.text
+                logger.info("Text extracted", length=len(text))
+            else:
+                # Visual document - use OCR and layout detection
+                # For now, extract basic text; visual pipeline can be enhanced later
+                text_extraction_result = text_extractor.extract_from_path(file_path)
+                text = text_extraction_result.text
+                logger.info(
+                    "Text extracted from visual document",
+                    length=len(text),
+                )
 
-        # Set result on job
-        job_manager.set_result(
-            job_id=job_id,
-            extracted_data=loop_result.final_result.extracted_data,
-            markdown_summary=markdown_summary,
-            metadata=metadata,
-            quality_report=quality_report,
-        )
+            job_manager.update_status(
+                job_id,
+                status=job.status.PROCESSING,
+                progress="Running agentic extraction loop",
+            )
 
-        logger.info(f"Job {job_id}: Completed successfully in {processing_time:.2f}s")
+            # Run agentic extraction loop
+            agentic_loop = AgenticLoop()
+
+            # Import TextExtractionService here to avoid circular imports
+            from agentic_document_extraction.services.extraction.text_extraction import (
+                ExtractionResult,
+                TextExtractionService,
+            )
+            from agentic_document_extraction.services.schema_validator import SchemaInfo
+
+            text_extraction_service = TextExtractionService()
+
+            def extraction_func(t: str, s: SchemaInfo) -> ExtractionResult:
+                return text_extraction_service.extract(t, s)
+
+            loop_result = agentic_loop.run(
+                text=text,
+                schema_info=schema_info,
+                format_info=format_info,
+                extraction_func=extraction_func,
+                use_llm_verification=True,
+            )
+
+            logger.info(
+                "Agentic loop completed",
+                iterations=loop_result.iterations_completed,
+                converged=loop_result.converged,
+            )
+
+            # Generate markdown summary
+            markdown_generator = MarkdownGenerator()
+            markdown_output = markdown_generator.generate(
+                extraction_result=loop_result.final_result,
+                schema_info=schema_info,
+            )
+            markdown_summary = markdown_output.markdown
+
+            # Finish metrics
+            metrics.finish()
+            metrics.tokens_used = loop_result.total_tokens
+            metrics.iterations = loop_result.iterations_completed
+
+            # Build metadata
+            metadata = {
+                "processing_time_seconds": metrics.duration_seconds,
+                "model_used": loop_result.final_result.model_used,
+                "total_tokens": loop_result.total_tokens,
+                "iterations_completed": loop_result.iterations_completed,
+                "converged": loop_result.converged,
+                "document_type": format_info.processing_category.value,
+            }
+
+            # Build quality report
+            quality_report = loop_result.final_verification.to_dict()
+
+            # Set result on job
+            job_manager.set_result(
+                job_id=job_id,
+                extracted_data=loop_result.final_result.extracted_data,
+                markdown_summary=markdown_summary,
+                metadata=metadata,
+                quality_report=quality_report,
+            )
+
+            logger.log_extraction_result(
+                job_id=job_id,
+                success=True,
+                duration_seconds=metrics.duration_seconds,
+                iterations=loop_result.iterations_completed,
+                tokens_used=loop_result.total_tokens,
+                converged=loop_result.converged,
+                confidence=loop_result.final_verification.metrics.overall_confidence,
+            )
 
     except JobNotFoundError:
-        logger.error(f"Job {job_id} not found, cannot process")
+        logger.error("Job not found, cannot process", job_id=job_id)
         raise
 
     except Exception as e:
         error_message = f"{type(e).__name__}: {e}"
-        logger.error(f"Job {job_id} failed: {error_message}")
-        logger.debug(traceback.format_exc())
+        logger.error(
+            "Job failed",
+            job_id=job_id,
+            error=error_message,
+            error_type=type(e).__name__,
+            exc_info=True,
+        )
 
         try:
             job_manager.set_failed(job_id, error_message)
         except JobNotFoundError:
-            logger.error(f"Could not mark job {job_id} as failed - job not found")
+            logger.error(
+                "Could not mark job as failed - job not found",
+                job_id=job_id,
+            )
 
 
 async def process_extraction_job_async(

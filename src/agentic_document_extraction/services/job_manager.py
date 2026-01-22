@@ -11,7 +11,6 @@ Key features:
 - Result storage with quality reports
 """
 
-import logging
 import threading
 import time
 from dataclasses import dataclass, field
@@ -20,8 +19,24 @@ from typing import Any
 
 from agentic_document_extraction.config import settings
 from agentic_document_extraction.models import JobStatus
+from agentic_document_extraction.utils.exceptions import (
+    JobExpiredError,
+    JobNotFoundError,
+)
+from agentic_document_extraction.utils.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
+
+# Re-export for backward compatibility
+__all__ = [
+    "JobData",
+    "JobExpiredError",
+    "JobManager",
+    "JobManagerConfig",
+    "JobNotFoundError",
+    "get_job_manager",
+    "reset_job_manager",
+]
 
 
 @dataclass
@@ -67,32 +82,6 @@ class JobData:
         }
 
 
-class JobNotFoundError(Exception):
-    """Raised when a job is not found."""
-
-    def __init__(self, job_id: str) -> None:
-        """Initialize with job ID.
-
-        Args:
-            job_id: The job ID that was not found.
-        """
-        super().__init__(f"Job not found: {job_id}")
-        self.job_id = job_id
-
-
-class JobExpiredError(Exception):
-    """Raised when a job has expired."""
-
-    def __init__(self, job_id: str) -> None:
-        """Initialize with job ID.
-
-        Args:
-            job_id: The job ID that has expired.
-        """
-        super().__init__(f"Job has expired: {job_id}")
-        self.job_id = job_id
-
-
 @dataclass
 class JobManagerConfig:
     """Configuration for the job manager."""
@@ -136,7 +125,10 @@ class JobManager:
             name="JobManagerCleanup",
         )
         self._cleanup_thread.start()
-        logger.info("Job manager cleanup thread started")
+        logger.info(
+            "Job manager cleanup thread started",
+            cleanup_interval=self.config.cleanup_interval_seconds,
+        )
 
     def _cleanup_loop(self) -> None:
         """Background loop for cleaning up expired jobs."""
@@ -144,7 +136,11 @@ class JobManager:
             try:
                 self.cleanup_expired_jobs()
             except Exception as e:
-                logger.error(f"Error in job cleanup: {e}")
+                logger.error(
+                    "Error in job cleanup",
+                    error=str(e),
+                    error_type=type(e).__name__,
+                )
 
     def stop_cleanup(self) -> None:
         """Stop the background cleanup thread."""
@@ -186,7 +182,7 @@ class JobManager:
         with self._lock:
             self._jobs[job_id] = job
 
-        logger.info(f"Job created: {job_id}, filename={filename}")
+        logger.info("Job created", job_id=job_id, filename=filename)
         return job
 
     def get_job(self, job_id: str) -> JobData:
@@ -268,7 +264,7 @@ class JobManager:
                     time.time() + self.config.ttl_seconds, tz=UTC
                 )
 
-            logger.info(f"Job {job_id} status updated to {status.value}")
+            logger.info("Job status updated", job_id=job_id, status=status.value)
             return job
 
     def set_result(
@@ -307,7 +303,7 @@ class JobManager:
                 time.time() + self.config.ttl_seconds, tz=UTC
             )
 
-            logger.info(f"Job {job_id} completed with results")
+            logger.info("Job completed with results", job_id=job_id)
             return job
 
     def set_failed(
@@ -337,7 +333,7 @@ class JobManager:
                 time.time() + self.config.ttl_seconds, tz=UTC
             )
 
-            logger.error(f"Job {job_id} failed: {error_message}")
+            logger.error("Job failed", job_id=job_id, error_message=error_message)
             return job
 
     def cleanup_expired_jobs(self) -> int:
@@ -361,7 +357,7 @@ class JobManager:
                 removed_count += 1
 
         if removed_count > 0:
-            logger.info(f"Cleaned up {removed_count} expired jobs")
+            logger.info("Cleaned up expired jobs", count=removed_count)
 
         return removed_count
 

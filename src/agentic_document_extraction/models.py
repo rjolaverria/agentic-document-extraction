@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from agentic_document_extraction.utils.exceptions import ErrorCode
+
 
 class HealthResponse(BaseModel):
     """Response model for health check endpoint."""
@@ -92,10 +94,54 @@ class JobResultResponse(BaseModel):
 
 
 class ErrorDetail(BaseModel):
-    """Error detail model for API error responses."""
+    """Error detail model for API error responses.
 
-    detail: str
-    error_code: str | None = None
+    This model provides structured error responses with:
+    - Human-readable error message
+    - Machine-readable error code
+    - Optional additional details for debugging
+    - Optional request ID for correlation
+    """
+
+    detail: str = Field(..., description="Human-readable error message")
+    error_code: str | None = Field(
+        default=None,
+        description="Machine-readable error code (e.g., 'E1001')",
+    )
+    details: dict[str, Any] | None = Field(
+        default=None,
+        description="Additional error details for debugging",
+    )
+    request_id: str | None = Field(
+        default=None,
+        description="Request ID for error correlation",
+    )
+
+    @classmethod
+    def from_error_code(
+        cls,
+        error_code: ErrorCode,
+        detail: str,
+        details: dict[str, Any] | None = None,
+        request_id: str | None = None,
+    ) -> "ErrorDetail":
+        """Create an ErrorDetail from an ErrorCode enum value.
+
+        Args:
+            error_code: The error code enum.
+            detail: Human-readable error message.
+            details: Optional additional details.
+            request_id: Optional request ID.
+
+        Returns:
+            ErrorDetail instance.
+        """
+        return cls(
+            detail=detail,
+            error_code=error_code.value,
+            details=details,
+            request_id=request_id,
+        )
 
 
 class ProcessingCategory(str, Enum):

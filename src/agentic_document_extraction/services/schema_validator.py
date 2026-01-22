@@ -5,27 +5,23 @@ before processing, ensuring they conform to JSON Schema standards (Draft 7+)
 and extracting field information for extraction planning.
 """
 
-import logging
 from typing import Any
 
 from jsonschema import Draft7Validator, SchemaError
 from jsonschema.validators import validator_for
 
-logger = logging.getLogger(__name__)
+from agentic_document_extraction.utils.exceptions import SchemaValidationError
+from agentic_document_extraction.utils.logging import get_logger
 
+logger = get_logger(__name__)
 
-class SchemaValidationError(Exception):
-    """Raised when a JSON schema is invalid."""
-
-    def __init__(self, message: str, errors: list[str] | None = None) -> None:
-        """Initialize with message and optional list of detailed errors.
-
-        Args:
-            message: Main error message.
-            errors: Optional list of specific validation errors.
-        """
-        super().__init__(message)
-        self.errors = errors or []
+# Re-export for backward compatibility
+__all__ = [
+    "FieldInfo",
+    "SchemaInfo",
+    "SchemaValidationError",
+    "SchemaValidator",
+]
 
 
 class FieldInfo:
@@ -178,8 +174,10 @@ class SchemaValidator:
         required_fields, optional_fields = self._extract_fields(schema)
 
         logger.info(
-            f"Schema validated: type={schema_type}, "
-            f"required={len(required_fields)}, optional={len(optional_fields)}"
+            "Schema validated",
+            schema_type=schema_type,
+            required_fields=len(required_fields),
+            optional_fields=len(optional_fields),
         )
 
         return SchemaInfo(

@@ -222,7 +222,7 @@
     - WebSocket endpoint for real-time progress updates (optional)
     - Unit tests for job lifecycle
 
-- [ ] Error Handling & Logging
+- [x] Error Handling & Logging
   - As a user/operator, I want comprehensive error handling and logging, so that I can debug issues and monitor the service.
   - **Acceptance Criteria**:
     - Structured logging with configurable levels (using `structlog` or Python logging)

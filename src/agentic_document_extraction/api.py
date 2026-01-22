@@ -1,7 +1,6 @@
 """FastAPI application for agentic document extraction."""
 
 import json
-import logging
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -42,13 +41,28 @@ from agentic_document_extraction.services.schema_validator import (
     SchemaValidationError,
     SchemaValidator,
 )
-
-# Configure logging using settings
-logging.basicConfig(
-    level=settings.log_level_int,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+from agentic_document_extraction.utils.exceptions import (
+    ADEError,
+    ErrorCode,
+    FileTooLargeError,
+    SchemaParseError,
+    ValidationError,
 )
-logger = logging.getLogger(__name__)
+from agentic_document_extraction.utils.logging import (
+    clear_context,
+    configure_logging,
+    get_logger,
+    get_request_id,
+    set_job_id,
+    set_request_id,
+)
+
+# Configure structured logging using settings
+configure_logging(
+    level=settings.log_level_int,
+    use_structured_formatter=True,
+)
+logger = get_logger(__name__)
 
 
 def create_app() -> FastAPI:
@@ -77,25 +91,111 @@ def create_app() -> FastAPI:
     # Validate settings on startup
     validate_settings_on_startup(settings)
 
+    @app.middleware("http")
+    async def request_id_middleware(request: Request, call_next: Any) -> Any:
+        """Middleware to assign and track request IDs.
+
+        This middleware:
+        1. Generates a unique request ID for each request
+        2. Sets it in context for logging correlation
+        3. Adds it to the response headers
+        4. Clears context after request completes
+        """
+        # Generate or use existing request ID
+        request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+        set_request_id(request_id)
+
+        # Store request ID in request state for access in handlers
+        request.state.request_id = request_id
+
+        try:
+            response = await call_next(request)
+            response.headers["X-Request-ID"] = request_id
+            return response
+        finally:
+            # Clean up context after request
+            clear_context()
+
+    @app.exception_handler(ADEError)
+    async def ade_exception_handler(request: Request, exc: ADEError) -> JSONResponse:
+        """Custom exception handler for ADE exceptions.
+
+        Handles all custom exceptions from the utils.exceptions module
+        and returns structured error responses with error codes.
+        """
+        request_id = getattr(request.state, "request_id", get_request_id())
+        logger.error(
+            f"ADE Error: {exc.message}",
+            error_code=exc.error_code.value,
+            http_status=exc.http_status,
+        )
+        return JSONResponse(
+            status_code=exc.http_status,
+            content=ErrorDetail(
+                detail=exc.message,
+                error_code=exc.error_code.value,
+                details=exc.details if exc.details else None,
+                request_id=request_id,
+            ).model_dump(exclude_none=True),
+        )
+
     @app.exception_handler(HTTPException)
     async def http_exception_handler(
-        _request: Request, exc: HTTPException
+        request: Request, exc: HTTPException
     ) -> JSONResponse:
         """Custom exception handler for HTTP exceptions."""
+        request_id = getattr(request.state, "request_id", get_request_id())
+        logger.warning(
+            f"HTTP Error: {exc.detail}",
+            status_code=exc.status_code,
+        )
         return JSONResponse(
             status_code=exc.status_code,
-            content=ErrorDetail(detail=str(exc.detail)).model_dump(),
+            content=ErrorDetail(
+                detail=str(exc.detail),
+                request_id=request_id,
+            ).model_dump(exclude_none=True),
+        )
+
+    @app.exception_handler(Exception)
+    async def general_exception_handler(
+        request: Request, exc: Exception
+    ) -> JSONResponse:
+        """Catch-all exception handler for unexpected errors.
+
+        Logs the full exception and returns a generic error response
+        to avoid leaking internal details.
+        """
+        request_id = getattr(request.state, "request_id", get_request_id())
+        logger.exception(
+            f"Unexpected error: {type(exc).__name__}",
+            error_type=type(exc).__name__,
+        )
+        # In debug mode, include more details
+        if settings.debug:
+            detail = f"Internal server error: {type(exc).__name__}: {exc}"
+        else:
+            detail = "Internal server error. Please try again later."
+
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ErrorDetail(
+                detail=detail,
+                error_code=ErrorCode.INTERNAL_ERROR.value,
+                request_id=request_id,
+            ).model_dump(exclude_none=True),
         )
 
     @app.get("/health", response_model=HealthResponse, tags=["Health"])
-    async def health_check() -> dict[str, Any]:
+    async def health_check(request: Request) -> dict[str, Any]:
         """Check the health status of the service.
 
         Returns:
             HealthResponse: Service status information including status,
                 timestamp, and version.
         """
-        logger.info("Health check requested")
+        request_id = getattr(request.state, "request_id", None)
+        logger.debug("Health check requested", request_id=request_id)
         return {
             "status": "healthy",
             "timestamp": datetime.now(UTC).isoformat(),
@@ -113,6 +213,7 @@ def create_app() -> FastAPI:
         },
     )
     async def extract_document(
+        request: Request,
         background_tasks: BackgroundTasks,
         file: Annotated[UploadFile, File(description="Document file to extract from")],
         schema: Annotated[str | None, Form(description="JSON schema as string")] = None,
@@ -131,6 +232,7 @@ def create_app() -> FastAPI:
         to retrieve results when processing is complete.
 
         Args:
+            request: FastAPI request object
             background_tasks: FastAPI background tasks handler
             file: The document file to process
             schema: JSON schema as a string (alternative to schema_file)
@@ -143,20 +245,28 @@ def create_app() -> FastAPI:
             HTTPException: 400 if schema is missing or invalid
             HTTPException: 413 if file exceeds size limit
         """
+        request_id = getattr(request.state, "request_id", None)
+
         # Validate that at least one schema input is provided
         if schema is None and (schema_file is None or schema_file.filename == ""):
-            logger.warning("Extract request missing schema")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Either 'schema' (JSON string) or 'schema_file' must be provided",
+            logger.warning(
+                "Extract request missing schema",
+                request_id=request_id,
+            )
+            raise ValidationError(
+                message="Either 'schema' (JSON string) or 'schema_file' must be provided",
+                field="schema",
             )
 
         # Validate file is provided with content
         if file.filename is None or file.filename == "":
-            logger.warning("Extract request missing file")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="A document file must be provided",
+            logger.warning(
+                "Extract request missing file",
+                request_id=request_id,
+            )
+            raise ValidationError(
+                message="A document file must be provided",
+                field="file",
             )
 
         # Read file content to check size
@@ -166,12 +276,14 @@ def create_app() -> FastAPI:
         # Check file size
         if file_size > settings.max_file_size_bytes:
             logger.warning(
-                f"File too large: {file_size} bytes (max: {settings.max_file_size_bytes})"
+                "File too large",
+                file_size=file_size,
+                max_size=settings.max_file_size_bytes,
+                request_id=request_id,
             )
-            raise HTTPException(
-                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                detail=f"File size ({file_size} bytes) exceeds maximum allowed size "
-                f"({settings.max_file_size_bytes} bytes / {settings.max_file_size_mb} MB)",
+            raise FileTooLargeError(
+                file_size=file_size,
+                max_size=settings.max_file_size_bytes,
             )
 
         # Parse JSON schema
@@ -180,10 +292,14 @@ def create_app() -> FastAPI:
             try:
                 schema_content = json.loads(schema)
             except json.JSONDecodeError as e:
-                logger.warning(f"Invalid JSON schema string: {e}")
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid JSON in schema: {e}",
+                logger.warning(
+                    "Invalid JSON schema string",
+                    error=str(e),
+                    request_id=request_id,
+                )
+                raise SchemaParseError(
+                    message=f"Invalid JSON in schema: {e}",
+                    details={"parse_error": str(e)},
                 ) from e
         else:
             # schema_file must be provided (validated above)
@@ -192,10 +308,14 @@ def create_app() -> FastAPI:
             try:
                 schema_content = json.loads(schema_bytes.decode("utf-8"))
             except (json.JSONDecodeError, UnicodeDecodeError) as e:
-                logger.warning(f"Invalid JSON schema file: {e}")
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid JSON in schema file: {e}",
+                logger.warning(
+                    "Invalid JSON schema file",
+                    error=str(e),
+                    request_id=request_id,
+                )
+                raise SchemaParseError(
+                    message=f"Invalid JSON in schema file: {e}",
+                    details={"parse_error": str(e)},
                 ) from e
 
         # Validate JSON Schema syntax and structure
@@ -203,13 +323,19 @@ def create_app() -> FastAPI:
         try:
             schema_info = schema_validator.validate(schema_content)
             logger.info(
-                f"Schema validated: {schema_info.schema_type} with "
-                f"{len(schema_info.required_fields)} required and "
-                f"{len(schema_info.optional_fields)} optional fields"
+                "Schema validated",
+                schema_type=schema_info.schema_type,
+                required_fields=len(schema_info.required_fields),
+                optional_fields=len(schema_info.optional_fields),
+                request_id=request_id,
             )
         except SchemaValidationError as e:
             error_details = "; ".join(e.errors) if e.errors else str(e)
-            logger.warning(f"Schema validation failed: {error_details}")
+            logger.warning(
+                "Schema validation failed",
+                errors=e.errors,
+                request_id=request_id,
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid JSON Schema: {error_details}",
@@ -217,6 +343,9 @@ def create_app() -> FastAPI:
 
         # Generate unique job ID
         job_id = str(uuid.uuid4())
+
+        # Set job ID in context for logging
+        set_job_id(job_id)
 
         # Create temp directory if it doesn't exist
         upload_dir = Path(settings.temp_upload_dir)
@@ -245,8 +374,11 @@ def create_app() -> FastAPI:
         )
 
         logger.info(
-            f"Document uploaded: job_id={job_id}, "
-            f"filename={file.filename}, size={file_size}"
+            "Document uploaded successfully",
+            job_id=job_id,
+            filename=file.filename,
+            file_size=file_size,
+            request_id=request_id,
         )
 
         # Start background processing
@@ -269,10 +401,11 @@ def create_app() -> FastAPI:
             410: {"model": ErrorDetail, "description": "Job expired"},
         },
     )
-    async def get_job_status(job_id: str) -> dict[str, Any]:
+    async def get_job_status(request: Request, job_id: str) -> dict[str, Any]:
         """Get the status of an extraction job.
 
         Args:
+            request: FastAPI request object
             job_id: The unique job identifier returned from POST /extract
 
         Returns:
@@ -282,21 +415,39 @@ def create_app() -> FastAPI:
             HTTPException: 404 if job not found
             HTTPException: 410 if job has expired
         """
+        request_id = getattr(request.state, "request_id", None)
         job_manager = get_job_manager()
 
         try:
             job = job_manager.get_job(job_id)
         except JobNotFoundError:
+            logger.warning(
+                "Job not found",
+                job_id=job_id,
+                request_id=request_id,
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Job not found: {job_id}",
             ) from None
         except JobExpiredError:
+            logger.info(
+                "Job expired",
+                job_id=job_id,
+                request_id=request_id,
+            )
             raise HTTPException(
                 status_code=status.HTTP_410_GONE,
                 detail=f"Job has expired: {job_id}. Results are only retained for "
                 f"{settings.job_ttl_hours} hours.",
             ) from None
+
+        logger.debug(
+            "Job status retrieved",
+            job_id=job_id,
+            status=job.status.value,
+            request_id=request_id,
+        )
 
         return {
             "job_id": job.job_id,
@@ -318,10 +469,11 @@ def create_app() -> FastAPI:
             425: {"model": ErrorDetail, "description": "Job not yet complete"},
         },
     )
-    async def get_job_result(job_id: str) -> dict[str, Any]:
+    async def get_job_result(request: Request, job_id: str) -> dict[str, Any]:
         """Get the result of a completed extraction job.
 
         Args:
+            request: FastAPI request object
             job_id: The unique job identifier returned from POST /extract
 
         Returns:
@@ -333,16 +485,27 @@ def create_app() -> FastAPI:
             HTTPException: 410 if job has expired
             HTTPException: 425 if job is not yet complete
         """
+        request_id = getattr(request.state, "request_id", None)
         job_manager = get_job_manager()
 
         try:
             job = job_manager.get_job(job_id)
         except JobNotFoundError:
+            logger.warning(
+                "Job not found for result retrieval",
+                job_id=job_id,
+                request_id=request_id,
+            )
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Job not found: {job_id}",
             ) from None
         except JobExpiredError:
+            logger.info(
+                "Job expired for result retrieval",
+                job_id=job_id,
+                request_id=request_id,
+            )
             raise HTTPException(
                 status_code=status.HTTP_410_GONE,
                 detail=f"Job has expired: {job_id}. Results are only retained for "
@@ -351,12 +514,23 @@ def create_app() -> FastAPI:
 
         # Check if job is complete
         if job.status == JobStatus.PENDING:
+            logger.debug(
+                "Result requested for pending job",
+                job_id=job_id,
+                request_id=request_id,
+            )
             raise HTTPException(
                 status_code=status.HTTP_425_TOO_EARLY,
                 detail=f"Job {job_id} is pending. Check status at GET /jobs/{job_id}",
             )
 
         if job.status == JobStatus.PROCESSING:
+            logger.debug(
+                "Result requested for processing job",
+                job_id=job_id,
+                progress=job.progress,
+                request_id=request_id,
+            )
             raise HTTPException(
                 status_code=status.HTTP_425_TOO_EARLY,
                 detail=f"Job {job_id} is still processing. "
@@ -375,6 +549,14 @@ def create_app() -> FastAPI:
                 converged=job.metadata.get("converged", False),
                 document_type=job.metadata.get("document_type", "unknown"),
             )
+
+        logger.info(
+            "Job result retrieved",
+            job_id=job_id,
+            status=job.status.value,
+            has_data=job.extracted_data is not None,
+            request_id=request_id,
+        )
 
         return {
             "job_id": job.job_id,
