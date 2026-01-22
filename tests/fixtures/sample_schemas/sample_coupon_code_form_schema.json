@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Coupon Code Registration Form",
+  "description": "Schema for extracting data from a scanned coupon code registration form",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "to": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "from": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "cc": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "brands_applicable": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "media_type": {
+      "type": "string"
+    },
+    "media_name": {
+      "type": "string"
+    },
+    "issue_frequency": {
+      "type": "string"
+    },
+    "space": {
+      "type": "string"
+    },
+    "issue_date": {
+      "type": "string"
+    },
+    "expiration_date": {
+      "type": "string"
+    },
+    "circulation_count": {
+      "type": "integer"
+    },
+    "circulation_dates": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "geographic_distribution": {
+      "type": "string"
+    },
+    "coupon_value": {
+      "type": "string"
+    },
+    "pack_or_carton": {
+      "type": "string"
+    },
+    "creative_title": {
+      "type": "string"
+    },
+    "signed_by": {
+      "type": "string"
+    },
+    "date_initiated": {
+      "type": "string"
+    },
+    "requirements": {
+      "type": "string"
+    },
+    "code_assigned": {
+      "type": "string"
+    }, 
+    "job_number": {
+      "type": "string"
+    },
+    "extimated_redemption_rate": {
+      "type": "string"
+    }
+  },
+  "required": ["brands_applicable", "media_type", "issue_date", "expiration_date", "coupon_value", "code_assigned"]
+}
