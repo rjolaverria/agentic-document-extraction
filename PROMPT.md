@@ -16,7 +16,8 @@ Design and implement a vision-first, agentic document extraction system as a Fas
   - `uv run mypy src`
   - `uv run pytest` 
   - `uv run pytest --cov=src --cov-report=term-missing`
-  - Run the service locally and manually verify the feature works as expected end-to-end
+  - Run the service locally and manually verify the feature works as expected end-to-end use the files in `tests/fixtures/` as needed
+- Log any relevant observations, decisions, or changes made during the task in `./LOG.md` under a new section with the current date and task name.
 - The task must be marked as complete (`[x]`) in `./TASKS.md`
 - The completed task is to be committed to git with a descriptive commit message referencing the task
 
