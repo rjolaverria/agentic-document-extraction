@@ -274,7 +274,7 @@ Provide an improved extraction addressing the issues above. Respond with ONLY th
             temperature: Sampling temperature. Defaults to settings.openai_temperature.
             max_tokens: Maximum tokens for response. Defaults to settings.openai_max_tokens.
         """
-        self.api_key = api_key or settings.get_openai_api_key()
+        self.api_key = api_key if api_key is not None else settings.get_openai_api_key()
         self.model = model or settings.openai_model
         self.temperature = (
             temperature if temperature is not None else settings.openai_temperature
@@ -759,7 +759,7 @@ class AgenticLoop:
             default_max_iterations: Default maximum iterations if not in plan.
                 Defaults to settings.max_refinement_iterations.
         """
-        self.api_key = api_key or settings.get_openai_api_key()
+        self.api_key = api_key if api_key is not None else settings.get_openai_api_key()
         self.model = model or settings.openai_model
         self.temperature = (
             temperature if temperature is not None else settings.openai_temperature

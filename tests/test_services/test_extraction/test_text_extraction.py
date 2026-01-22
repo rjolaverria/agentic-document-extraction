@@ -184,9 +184,11 @@ class TestTextExtractionServiceInit:
 
     def test_default_initialization(self) -> None:
         """Test service initialization with defaults."""
+        from agentic_document_extraction.config import settings
+
         service = TextExtractionService()
 
-        assert service.api_key == ""  # From settings default
+        assert service.api_key == settings.get_openai_api_key()  # From settings
         assert service.model == "gpt-4o"  # From settings default
         assert service.temperature == 0.0
         assert service._llm is None

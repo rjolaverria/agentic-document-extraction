@@ -216,7 +216,9 @@ def create_app() -> FastAPI:
         request: Request,
         background_tasks: BackgroundTasks,
         file: Annotated[UploadFile, File(description="Document file to extract from")],
-        schema: Annotated[str | None, Form(description="JSON schema as string")] = None,
+        extraction_schema: Annotated[
+            str | None, Form(alias="schema", description="JSON schema as string")
+        ] = None,
         schema_file: Annotated[
             UploadFile | None, File(description="JSON schema as file upload")
         ] = None,
@@ -235,7 +237,7 @@ def create_app() -> FastAPI:
             request: FastAPI request object
             background_tasks: FastAPI background tasks handler
             file: The document file to process
-            schema: JSON schema as a string (alternative to schema_file)
+            extraction_schema: JSON schema as a string (alternative to schema_file)
             schema_file: JSON schema as a file upload (alternative to schema)
 
         Returns:
@@ -248,7 +250,9 @@ def create_app() -> FastAPI:
         request_id = getattr(request.state, "request_id", None)
 
         # Validate that at least one schema input is provided
-        if schema is None and (schema_file is None or schema_file.filename == ""):
+        if extraction_schema is None and (
+            schema_file is None or schema_file.filename == ""
+        ):
             logger.warning(
                 "Extract request missing schema",
                 request_id=request_id,
@@ -288,9 +292,9 @@ def create_app() -> FastAPI:
 
         # Parse JSON schema
         schema_content: dict[str, Any]
-        if schema is not None:
+        if extraction_schema is not None:
             try:
-                schema_content = json.loads(schema)
+                schema_content = json.loads(extraction_schema)
             except json.JSONDecodeError as e:
                 logger.warning(
                     "Invalid JSON schema string",

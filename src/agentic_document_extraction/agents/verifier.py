@@ -302,6 +302,8 @@ ANALYSIS GUIDELINES:
 - Consider the context and expected patterns for each field type
 - Flag suspicious values that might be hallucinated
 - Provide specific, actionable feedback for improvements
+- When checking numerical consistency (e.g., sums, totals), calculate the actual values before claiming inconsistency
+- Do NOT report an inconsistency if the values actually match - verify by computing the sum yourself
 
 You must respond with ONLY valid JSON matching this structure:
 {{
@@ -354,6 +356,11 @@ Analyze the extraction quality and identify any issues. Focus on:
 4. Any potential hallucinations or fabricated data
 5. Format and type correctness
 
+IMPORTANT: For numerical fields like totals and subtotals:
+- Calculate the sum yourself before claiming a mismatch
+- Only report an inconsistency if you have verified the numbers actually don't add up
+- If line item totals sum to exactly the subtotal, that is CORRECT, not an inconsistency
+
 Respond with ONLY the JSON structure specified."""
 
     @staticmethod
@@ -385,7 +392,7 @@ Respond with ONLY the JSON structure specified."""
             temperature: Sampling temperature. Defaults to settings.openai_temperature.
             max_tokens: Maximum tokens for response. Defaults to settings.openai_max_tokens.
         """
-        self.api_key = api_key or settings.get_openai_api_key()
+        self.api_key = api_key if api_key is not None else settings.get_openai_api_key()
         self.model = model or settings.openai_model
         self.temperature = (
             temperature if temperature is not None else settings.openai_temperature

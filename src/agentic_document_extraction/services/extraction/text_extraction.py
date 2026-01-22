@@ -194,7 +194,7 @@ Respond with ONLY the extracted JSON data. Ensure all required fields have value
             chunk_size: Size of text chunks. Defaults to settings.chunk_size.
             chunk_overlap: Overlap between chunks. Defaults to settings.chunk_overlap.
         """
-        self.api_key = api_key or settings.get_openai_api_key()
+        self.api_key = api_key if api_key is not None else settings.get_openai_api_key()
         self.model = model or settings.openai_model
         self.temperature = (
             temperature if temperature is not None else settings.openai_temperature
