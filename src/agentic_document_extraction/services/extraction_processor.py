@@ -23,6 +23,9 @@ from agentic_document_extraction.services.job_manager import (
 )
 from agentic_document_extraction.services.schema_validator import SchemaValidator
 from agentic_document_extraction.services.text_extractor import TextExtractor
+from agentic_document_extraction.services.visual_text_extractor import (
+    VisualTextExtractor,
+)
 from agentic_document_extraction.utils.exceptions import (
     ADEFileNotFoundError,
     DocumentProcessingError,
@@ -127,21 +130,25 @@ def process_extraction_job(
             )
 
             # Extract text based on document type
-            text_extractor = TextExtractor()
-
             if format_info.processing_category == ProcessingCategory.TEXT_BASED:
                 # Text-based extraction
+                text_extractor = TextExtractor()
                 text_extraction_result = text_extractor.extract_from_path(file_path)
                 text = text_extraction_result.text
                 logger.info("Text extracted", length=len(text))
             else:
                 # Visual document - use OCR and layout detection
-                # For now, extract basic text; visual pipeline can be enhanced later
-                text_extraction_result = text_extractor.extract_from_path(file_path)
-                text = text_extraction_result.text
+                visual_text_extractor = VisualTextExtractor()
+                visual_extraction_result = visual_text_extractor.extract_from_path(
+                    file_path
+                )
+                text = visual_extraction_result.full_text
                 logger.info(
                     "Text extracted from visual document",
                     length=len(text),
+                    method=visual_extraction_result.extraction_method.value,
+                    pages=visual_extraction_result.total_pages,
+                    confidence=visual_extraction_result.average_confidence,
                 )
 
             job_manager.update_status(
