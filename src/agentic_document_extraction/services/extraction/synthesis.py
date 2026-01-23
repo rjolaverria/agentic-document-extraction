@@ -246,6 +246,14 @@ IMPORTANT RULES:
 8. If information is missing or unclear, use null values
 9. Provide confidence scores for the final extraction
 
+ARRAY HANDLING RULES:
+When extracting into an array of strings (e.g., skills, tags, keywords):
+10. Split comma-separated, semicolon-separated, or line-separated lists into individual array items
+11. Remove category prefixes (e.g., "Languages: Python, JavaScript" becomes ["Python", "JavaScript"])
+12. Remove bullet points, dashes, or other list markers from individual items
+13. Trim whitespace from each item
+14. Each element should be a single, atomic value - not a grouped or prefixed string
+
 You must respond with ONLY valid JSON matching this structure:
 {{
   "extracted_data": {{ ... }},

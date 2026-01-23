@@ -993,3 +993,67 @@ class TestRealAPIIntegration:
         )
         assert name_extraction is not None
         assert name_extraction.value is not None
+
+    def test_extract_skills_as_individual_items(
+        self, service: TextExtractionService
+    ) -> None:
+        """Test that skills with category prefixes are split into individual items.
+
+        This tests the fix for issue #0027: Skills Extracted as Category-Prefixed Strings.
+        Skills like "Languages: Python, JavaScript" should be extracted as
+        ["Python", "JavaScript"] not ["Languages: Python, JavaScript"].
+        """
+        schema = {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Person's full name"},
+                "skills": {
+                    "type": "array",
+                    "description": "List of skills",
+                    "items": {"type": "string"},
+                },
+            },
+            "required": ["name"],
+        }
+
+        validator = SchemaValidator()
+        schema_info = validator.validate(schema)
+
+        text = """
+        JANE DOE
+        Software Engineer
+
+        SKILLS
+        - Languages: Python, JavaScript, TypeScript, Go
+        - Frameworks: FastAPI, React, Node.js
+        - Cloud: AWS, GCP, Docker
+        - Databases: PostgreSQL, MongoDB
+        """
+
+        result = service.extract(text, schema_info)
+
+        assert result.extracted_data is not None
+        assert "skills" in result.extracted_data
+        skills = result.extracted_data["skills"]
+
+        assert isinstance(skills, list)
+        assert len(skills) >= 5  # Should have multiple individual skills
+
+        # Verify skills are individual items, not category-prefixed strings
+        for skill in skills:
+            # Each skill should be a single word or short phrase, not a category group
+            assert ":" not in skill, (
+                f"Skill '{skill}' should not contain category prefix"
+            )
+            # Skills should not contain commas (indicating multiple skills in one item)
+            assert "," not in skill, (
+                f"Skill '{skill}' should be a single item, not a list"
+            )
+
+        # Check that specific individual skills are present
+        skills_lower = [s.lower().strip() for s in skills]
+        expected_skills = ["python", "javascript", "fastapi", "aws", "postgresql"]
+        for expected in expected_skills:
+            assert any(expected in skill for skill in skills_lower), (
+                f"Expected individual skill '{expected}' not found in {skills}"
+            )

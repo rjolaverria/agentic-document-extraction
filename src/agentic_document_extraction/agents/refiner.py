@@ -222,6 +222,14 @@ IMPORTANT RULES:
 6. Only modify fields that had issues
 7. Provide higher confidence scores only when you are more certain
 
+ARRAY HANDLING RULES:
+When extracting into an array of strings (e.g., skills, tags, keywords):
+8. Split comma-separated, semicolon-separated, or line-separated lists into individual array items
+9. Remove category prefixes (e.g., "Languages: Python, JavaScript" becomes ["Python", "JavaScript"])
+10. Remove bullet points, dashes, or other list markers from individual items
+11. Trim whitespace from each item
+12. Each element should be a single, atomic value - not a grouped or prefixed string
+
 REFINEMENT GUIDELINES:
 - For MISSING_REQUIRED_FIELD: Search more carefully for this information
 - For LOW_CONFIDENCE: Re-analyze the source text for this field

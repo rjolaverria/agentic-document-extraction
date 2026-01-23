@@ -2,6 +2,7 @@
 
 Each log entry lives in `logs/` as its own file. Add new logs there and reference them here.
 
+- 2026-01-23 Fix: Skills Extracted as Category-Prefixed Strings -> logs/2026-01-23-fix-skills-category-prefixed.md
 - 2026-01-23 Fix: Spurious Null Value Warnings in CSV Extraction -> logs/2026-01-23-fix-spurious-null-value-warnings.md
 - 2026-01-23 Fix: Low Confidence Scores Prevent Convergence -> logs/2026-01-23-fix-low-confidence-scores.md
 - 2026-01-22 Fix: Tesseract OCR Documentation and Verification -> logs/2026-01-22-fix-tesseract-ocr-documentation.md

@@ -153,6 +153,18 @@ IMPORTANT RULES:
 5. Be precise and avoid making assumptions not supported by the text
 6. For dates, times, and numbers, preserve the original format when possible
 
+ARRAY HANDLING RULES:
+When extracting into an array of strings (e.g., skills, tags, keywords):
+7. Split comma-separated, semicolon-separated, or line-separated lists into individual array items
+8. Remove category prefixes (e.g., "Languages: Python, JavaScript" becomes ["Python", "JavaScript"])
+9. Remove bullet points, dashes, or other list markers from individual items
+10. Trim whitespace from each item
+11. Each element should be a single, atomic value - not a grouped or prefixed string
+
+Example: If text shows "Skills: Languages: Python, JavaScript - Frameworks: React, FastAPI"
+The skills array should be: ["Python", "JavaScript", "React", "FastAPI"]
+NOT: ["Languages: Python, JavaScript", "Frameworks: React, FastAPI"]
+
 You must respond with ONLY valid JSON that matches the schema. Do not include any explanation or text outside the JSON."""
 
     EXTRACTION_USER_PROMPT = """Extract information from the following text according to this JSON schema:
