@@ -14,6 +14,12 @@ Assume:
 - Environment is already bootstrapped with `uv init` and dependencies installed
 - All environment variables (e.g., OpenAI API keys) are set already
 
+## Task & Log Indexes
+
+- Tasks are indexed in `TASKS.md` with individual task files stored in `tasks/`.
+- Logs are indexed in `LOGS.md` with individual log files stored in `logs/`.
+- When updating tasks or logs, add a new file and update the corresponding index.
+
 If any of these tools or configurations are missing, you must:
 1. Add them to `pyproject.toml` with the appropriate `uv` commands.
 2. Generate minimal, working configuration files (e.g. `ruff.toml`, `mypy.ini` or `pyproject.toml` sections).

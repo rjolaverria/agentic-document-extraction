@@ -17,12 +17,12 @@ Design and implement a vision-first, agentic document extraction system as a Fas
   - `uv run pytest` 
   - `uv run pytest --cov=src --cov-report=term-missing`
   - Run the service locally and manually verify the feature works as expected end-to-end use the files in `tests/fixtures/` as needed
-- Log any relevant observations, decisions, or changes made during the task in `./LOG.md` under a new section with the current date and task name.
+- Log any relevant observations, decisions, or changes made during the task by adding a new file in `./logs/` and referencing it in `./LOGS.md`.
 - The task must be marked as complete (`[x]`) in `./TASKS.md`
-- The completed task is to be committed to git with a descriptive commit message referencing the task
+- The completed task is to be committed to git with a descriptive commit message referencing the task and log entry (TASKS.md + LOGS.md), and must include a Co-authored-by trailer for the LLM/agent that wrote the code.
 
 ## Adding New Tasks
-If you determine that a task is missing or needs to be broken down further, please do so in the TASKS.md file.
+If you determine that a task is missing or needs to be broken down further, add a new task file under `tasks/` and index it in `TASKS.md`.
 
 ## Final Completion Criteria
 When all of the tasks in TASKS.md are complete, the project is considered done so output `<promise>COMPLETE</promise>
