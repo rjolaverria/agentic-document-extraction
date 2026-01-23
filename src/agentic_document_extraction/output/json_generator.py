@@ -43,6 +43,9 @@ DATE_FORMATS = [
 ]
 
 
+PHONE_FIELD_HINTS = ("phone", "telephone", "tel", "mobile", "cell")
+
+
 def parse_date_string(value: str) -> datetime | None:
     """Try to parse a date string using common formats.
 
@@ -98,6 +101,46 @@ def normalize_date(value: Any) -> str | None:
 
     # Return original value if we can't parse it
     logger.warning(f"Could not parse date value: {value}")
+    return value
+
+
+def normalize_phone(value: Any) -> str | None:
+    """Normalize a phone number to a best-effort E.164 representation.
+
+    Args:
+        value: The value to normalize (expected to be a string).
+
+    Returns:
+        E.164-formatted phone string or original value if normalization fails.
+    """
+    if value is None:
+        return None
+
+    if not isinstance(value, str):
+        return None
+
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+
+    has_plus = cleaned.startswith("+")
+    digits = re.sub(r"\D", "", cleaned)
+
+    if not digits:
+        return value
+
+    if has_plus:
+        return f"+{digits}"
+
+    if len(digits) == 10:
+        return f"+1{digits}"
+
+    if len(digits) == 11 and digits.startswith("1"):
+        return f"+{digits}"
+
+    if len(digits) >= 11:
+        return f"+{digits}"
+
     return value
 
 
@@ -250,6 +293,7 @@ class JsonGenerator:
         """
         # First, clean and prepare the data
         cleaned_data = self._prepare_data(data, schema_info, handle_nulls)
+        cleaned_data = self._normalize_phone_fields(cleaned_data)
 
         # Validate the data
         validation_result = self.validate(cleaned_data, schema_info)
@@ -308,6 +352,27 @@ class JsonGenerator:
                 cleaned[key] = value
 
         return cleaned
+
+    def _normalize_phone_fields(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Normalize phone fields in nested data structures."""
+        normalized = self._normalize_phone_value(data, field_name=None)
+        return normalized if isinstance(normalized, dict) else data
+
+    def _normalize_phone_value(self, value: Any, field_name: str | None) -> Any:
+        if isinstance(value, dict):
+            return {
+                key: self._normalize_phone_value(val, key) for key, val in value.items()
+            }
+        if isinstance(value, list):
+            return [self._normalize_phone_value(item, field_name) for item in value]
+        if isinstance(value, str) and field_name and self._is_phone_field(field_name):
+            normalized = normalize_phone(value)
+            return normalized if normalized is not None else value
+        return value
+
+    def _is_phone_field(self, field_name: str) -> bool:
+        normalized = field_name.lower()
+        return any(hint in normalized for hint in PHONE_FIELD_HINTS)
 
     def _clean_value(
         self,

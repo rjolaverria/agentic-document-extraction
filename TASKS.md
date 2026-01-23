@@ -29,5 +29,5 @@ Each task lives in `tasks/` as its own file. Add new tasks there and reference t
 - [x] ISSUE: Low Confidence Scores Prevent Convergence -> tasks/0025-issue-low-confidence-scores.md
 - [x] ISSUE: Spurious Null Value Warnings in CSV Extraction -> tasks/0026-issue-spurious-null-value-warnings.md
 - [x] ISSUE: Skills Extracted as Category-Prefixed Strings -> tasks/0027-issue-skills-category-prefixed.md
-- [ ] ISSUE: Phone Number Format Not Standardized -> tasks/0028-issue-phone-number-format.md
+- [x] ISSUE: Phone Number Format Not Standardized -> tasks/0028-issue-phone-number-format.md
 - [x] ISSUE: Tesseract OCR Not Installed - Image Extraction Fails -> tasks/0029-issue-tesseract-ocr-not-installed.md

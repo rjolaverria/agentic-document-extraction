@@ -10,6 +10,7 @@ from agentic_document_extraction.output.json_generator import (
     ValidationError,
     ValidationResult,
     normalize_date,
+    normalize_phone,
     parse_date_string,
 )
 from agentic_document_extraction.services.schema_validator import SchemaValidator
@@ -677,3 +678,54 @@ class TestJsonGeneratorDateNormalization:
         assert result.data["due_date"] == "2024-02-15"
         assert result.data["invoice_number"] == "INV-2024-001"
         assert result.data["total"] == 1250.00
+
+
+class TestJsonGeneratorPhoneNormalization:
+    """Tests for phone normalization helpers."""
+
+    def test_normalize_phone_e164_passthrough(self) -> None:
+        result = normalize_phone("+15551234567")
+        assert result == "+15551234567"
+
+    def test_normalize_phone_us_number(self) -> None:
+        result = normalize_phone("(555) 123-4567")
+        assert result == "+15551234567"
+
+    def test_normalize_phone_invalid_returns_none(self) -> None:
+        result = normalize_phone(None)
+        assert result is None
+
+
+class TestJsonGeneratorPhoneFieldHandling:
+    """Tests for applying phone normalization during output generation."""
+
+    def test_normalizes_nested_phone_fields(
+        self,
+        json_generator: JsonGenerator,
+    ) -> None:
+        validator = SchemaValidator()
+        schema_info = validator.validate(
+            {
+                "type": "object",
+                "properties": {
+                    "contact": {
+                        "type": "object",
+                        "properties": {
+                            "phone": {"type": "string"},
+                            "email": {"type": "string"},
+                        },
+                    }
+                },
+            }
+        )
+
+        data = {
+            "contact": {
+                "phone": "(555) 123-4567",
+                "email": "test@example.com",
+            }
+        }
+
+        result = json_generator.generate(data, schema_info)
+
+        assert result.data["contact"]["phone"] == "+15551234567"
