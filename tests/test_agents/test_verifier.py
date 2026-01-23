@@ -572,6 +572,78 @@ class TestRuleBasedVerification:
         assert len(empty_array_issues) == 1
         assert empty_array_issues[0].field_path == "products"
 
+    def test_verify_array_nested_fields_no_false_nulls(
+        self,
+        default_thresholds: QualityThreshold,
+    ) -> None:
+        """Test array item fields do not trigger null warnings when populated."""
+        schema_info = SchemaInfo(
+            schema={
+                "type": "object",
+                "properties": {
+                    "employees": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "email": {"type": "string"},
+                            },
+                            "required": ["name", "email"],
+                        },
+                    }
+                },
+                "required": ["employees"],
+            },
+            required_fields=[
+                FieldInfo(
+                    name="employees",
+                    path="employees",
+                    field_type="array",
+                    required=True,
+                    nested_fields=[
+                        FieldInfo(
+                            name="name",
+                            path="employees[].name",
+                            field_type="string",
+                            required=True,
+                        ),
+                        FieldInfo(
+                            name="email",
+                            path="employees[].email",
+                            field_type="string",
+                            required=True,
+                        ),
+                    ],
+                )
+            ],
+            optional_fields=[],
+            schema_type="object",
+        )
+
+        extraction_result = ExtractionResult(
+            extracted_data={
+                "employees": [
+                    {"name": "Ada Lovelace", "email": "ada@example.com"},
+                    {"name": "Grace Hopper", "email": "grace@example.com"},
+                ]
+            },
+            field_extractions=[],
+        )
+
+        agent = QualityVerificationAgent(api_key="test-key")
+
+        report = agent.verify_quick(
+            extraction_result=extraction_result,
+            schema_info=schema_info,
+            thresholds=default_thresholds,
+        )
+
+        null_value_issues = [
+            i for i in report.issues if i.issue_type == IssueType.NULL_VALUE
+        ]
+        assert len(null_value_issues) == 0
+
 
 class TestSchemaValidation:
     """Tests for JSON schema validation."""

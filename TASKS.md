@@ -312,7 +312,7 @@
   - **Impact**: Extra iterations are wasted without improving results.
   - **Fix Applied**: Added `_derive_confidence_from_completeness()` method to `QualityVerificationAgent` that derives confidence from completeness metrics (required field coverage, overall field coverage) when no explicit confidence scores exist. Complete extractions now converge on the first iteration with derived confidence of 1.0.
 
-- [ ] **ISSUE: Spurious Null Value Warnings in CSV Extraction**
+- [x] **ISSUE: Spurious Null Value Warnings in CSV Extraction**
   - **Severity**: Low
   - **Description**: The quality report flags `employees[].name` and `employees[].email` as having null values, but the actual extracted data contains all values correctly.
   - **Quality Report Issue**:

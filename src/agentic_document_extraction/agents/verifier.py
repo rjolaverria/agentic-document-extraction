@@ -744,7 +744,15 @@ Respond with ONLY the JSON structure specified."""
             if field_info.nested_fields:
                 for nested_field in field_info.nested_fields:
                     nested_value = self._get_nested_value(data, nested_field.path)
-                    if nested_value is None and nested_field.required:
+                    if not nested_field.required:
+                        continue
+                    if isinstance(nested_value, list):
+                        if not nested_value:
+                            continue
+                        has_null = any(value is None for value in nested_value)
+                    else:
+                        has_null = nested_value is None
+                    if has_null:
                         issues.append(
                             VerificationIssue(
                                 issue_type=IssueType.NULL_VALUE,
@@ -1275,15 +1283,27 @@ Respond with ONLY the JSON structure specified."""
             Value at path or None if not found.
         """
         keys = path.split(".")
-        current = data
 
-        for key in keys:
-            if isinstance(current, dict) and key in current:
-                current = current[key]
-            else:
+        def resolve(current: Any, remaining: list[str]) -> Any:
+            if not remaining:
+                return current
+            key = remaining[0]
+            is_array = key.endswith("[]")
+            base_key = key[:-2] if is_array else key
+
+            if not isinstance(current, dict) or base_key not in current:
                 return None
 
-        return current
+            next_value = current[base_key]
+
+            if is_array:
+                if not isinstance(next_value, list):
+                    return None
+                return [resolve(item, remaining[1:]) for item in next_value]
+
+            return resolve(next_value, remaining[1:])
+
+        return resolve(data, keys)
 
     def verify_quick(
         self,
