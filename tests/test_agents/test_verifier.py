@@ -673,7 +673,17 @@ class TestMetricsComputation:
         simple_schema_info: SchemaInfo,
         default_thresholds: QualityThreshold,
     ) -> None:
-        """Test metrics computation when no confidence scores available."""
+        """Test metrics derived from completeness when no confidence scores available.
+
+        When no explicit field confidence scores exist (initial extraction),
+        confidence is derived from completeness metrics:
+        - 60% weight on required field coverage
+        - 30% weight on overall field coverage
+        - 10% base confidence
+        - +5% bonus for 100% required field coverage
+
+        With 100% coverage, derived confidence should be 1.0 (capped).
+        """
         extraction_result = ExtractionResult(
             extracted_data={"name": "John", "age": 30},
             field_extractions=[
@@ -690,9 +700,63 @@ class TestMetricsComputation:
             thresholds=default_thresholds,
         )
 
-        # Should use defaults when no confidence available
-        assert report.metrics.overall_confidence == 0.5
+        # Derived confidence: 1.0*0.6 + 1.0*0.3 + 0.1 + 0.05 (bonus) = 1.05 → capped at 1.0
+        assert report.metrics.overall_confidence == 1.0
         assert report.metrics.fields_with_low_confidence == 0
+        # Verification should pass since derived confidence (1.0) >= threshold (0.7)
+        assert report.status == VerificationStatus.PASSED
+
+    def test_compute_metrics_derived_confidence_partial_coverage(
+        self,
+        default_thresholds: QualityThreshold,
+    ) -> None:
+        """Test derived confidence with partial field coverage.
+
+        With 50% required field coverage and 50% overall coverage:
+        - Derived confidence = 0.5*0.6 + 0.5*0.3 + 0.1 = 0.55
+        - No bonus (required coverage < 100%)
+        - Should be below 0.7 threshold
+        """
+        # Create a schema with 2 required fields
+        schema_info = SchemaInfo(
+            schema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "email": {"type": "string"},
+                },
+                "required": ["name", "email"],
+            },
+            required_fields=[
+                FieldInfo(name="name", path="name", field_type="string", required=True),
+                FieldInfo(
+                    name="email", path="email", field_type="string", required=True
+                ),
+            ],
+            optional_fields=[],
+            schema_type="object",
+        )
+
+        # Only one field extracted (50% coverage)
+        extraction_result = ExtractionResult(
+            extracted_data={"name": "John", "email": None},
+            field_extractions=[
+                FieldExtraction(field_path="name", value="John"),  # No confidence
+                FieldExtraction(field_path="email", value=None),  # No confidence
+            ],
+        )
+
+        agent = QualityVerificationAgent(api_key="test-key")
+
+        report = agent.verify_quick(
+            extraction_result=extraction_result,
+            schema_info=schema_info,
+            thresholds=default_thresholds,
+        )
+
+        # Derived confidence: 0.5*0.6 + 0.5*0.3 + 0.1 = 0.55
+        assert report.metrics.overall_confidence == pytest.approx(0.55)
+        assert report.metrics.required_field_coverage == 0.5
 
 
 class TestStatusDetermination:

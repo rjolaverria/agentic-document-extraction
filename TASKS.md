@@ -304,13 +304,13 @@
   - **Impact**: Downstream systems expecting ISO dates will need to handle this inconsistency.
   - **Fix Applied**: Added date format normalization in the JSON generator with support for multiple date formats (ISO, US, EU, month names). The `FieldInfo` class now captures `format_spec` from JSON schemas, and dates are normalized to ISO format when `format: date` is specified.
 
-- [ ] **ISSUE: Low Confidence Scores Prevent Convergence**
+- [x] **ISSUE: Low Confidence Scores Prevent Convergence**
   - **Severity**: Medium
   - **Description**: Resume and CSV extractions complete with all data correctly extracted, but the agentic loop does not converge because confidence scores remain below the threshold (0.90).
   - **Resume**: Confidence 0.70, 4 issues flagged (contact info, phone format, skills format)
   - **CSV**: Confidence 0.50, 2 issues flagged
   - **Impact**: Extra iterations are wasted without improving results.
-  - **Suggested Fix**: Review confidence threshold settings or improve confidence scoring logic.
+  - **Fix Applied**: Added `_derive_confidence_from_completeness()` method to `QualityVerificationAgent` that derives confidence from completeness metrics (required field coverage, overall field coverage) when no explicit confidence scores exist. Complete extractions now converge on the first iteration with derived confidence of 1.0.
 
 - [ ] **ISSUE: Spurious Null Value Warnings in CSV Extraction**
   - **Severity**: Low

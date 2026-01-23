@@ -867,9 +867,15 @@ Respond with ONLY the JSON structure specified."""
                 1 for c in confidences if c < thresholds.min_field_confidence
             )
         else:
-            # No confidence scores available - use default
-            overall_confidence = 0.5
-            min_field_confidence = 0.5
+            # No explicit confidence scores available - derive from completeness
+            # This addresses the issue where initial extractions have no confidence
+            # but the data may be complete and correct
+            overall_confidence = self._derive_confidence_from_completeness(
+                required_field_coverage=required_field_coverage,
+                extracted_fields=extracted_fields,
+                total_fields=total_fields,
+            )
+            min_field_confidence = overall_confidence
             fields_with_low_confidence = 0
 
         # Compute completeness score (weighted average of coverage)
@@ -900,6 +906,57 @@ Respond with ONLY the JSON structure specified."""
             total_fields=total_fields,
             extracted_fields=extracted_fields,
         )
+
+    def _derive_confidence_from_completeness(
+        self,
+        required_field_coverage: float,
+        extracted_fields: int,
+        total_fields: int,
+    ) -> float:
+        """Derive a confidence score when no explicit field confidence is available.
+
+        This method addresses the issue where initial extractions have no
+        per-field confidence scores, causing the system to default to 0.5
+        and waste iterations on unnecessary refinement.
+
+        The derived confidence is based on:
+        - Required field coverage (60% weight): Most important for quality
+        - Overall field coverage (30% weight): How many fields have values
+        - Base confidence (10%): Minimum confidence for any extraction
+
+        This ensures that complete, correct extractions can converge on the
+        first iteration if all required fields are present.
+
+        Args:
+            required_field_coverage: Percentage of required fields with values (0-1).
+            extracted_fields: Number of fields with non-null values.
+            total_fields: Total number of fields in schema.
+
+        Returns:
+            Derived confidence score between 0.0 and 1.0.
+        """
+        # Weight required fields heavily - they're the primary quality indicator
+        required_weight = 0.60
+        coverage_weight = 0.30
+        base_weight = 0.10
+
+        # Calculate overall field coverage
+        field_coverage = extracted_fields / total_fields if total_fields > 0 else 0.0
+
+        # Derive confidence from completeness metrics
+        derived_confidence = (
+            required_field_coverage * required_weight
+            + field_coverage * coverage_weight
+            + base_weight
+        )
+
+        # If all required fields are present, boost confidence slightly
+        # This reflects the fact that complete extractions are more trustworthy
+        if required_field_coverage >= 1.0:
+            derived_confidence = min(1.0, derived_confidence + 0.05)
+
+        # Clamp to valid range
+        return max(0.0, min(1.0, derived_confidence))
 
     def _perform_llm_analysis(
         self,
