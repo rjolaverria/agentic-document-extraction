@@ -31,3 +31,10 @@ Each task lives in `tasks/` as its own file. Add new tasks there and reference t
 - [x] ISSUE: Skills Extracted as Category-Prefixed Strings -> tasks/0027-issue-skills-category-prefixed.md
 - [x] ISSUE: Phone Number Format Not Standardized -> tasks/0028-issue-phone-number-format.md
 - [x] ISSUE: Tesseract OCR Not Installed - Image Extraction Fails -> tasks/0029-issue-tesseract-ocr-not-installed.md
+- [ ] ISSUE: Invoice Date Format False Positive in Quality Report -> tasks/0030-issue-invoice-date-format-false-positive.md
+- [ ] ISSUE: Coupon Form Extraction Missing Required Fields -> tasks/0031-issue-coupon-required-fields-missing.md
+- [ ] ISSUE: Optional String Fields Returned as null Trigger Schema Violations -> tasks/0032-issue-null-optionals-schema-violation.md
+- [ ] Replace Direct LLM Invocations with LangChain Agents -> tasks/0033-replace-direct-llm-invocations.md
+- [ ] Refactor Agentic Loops to Use LangChain Agents -> tasks/0034-refactor-agentic-loops-langchain.md
+- [ ] Replace Tesseract with PaddleOCR-VL -> tasks/0035-replace-tesseract-paddleocr-vl.md
+- [ ] Replace Custom Job Manager with Docket -> tasks/0036-replace-job-manager-docket.md

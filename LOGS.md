@@ -11,3 +11,4 @@ Each log entry lives in `logs/` as its own file. Add new logs there and referenc
 - 2026-01-22 Feature: Date Format Normalization -> logs/2026-01-22-feature-date-format-normalization.md
 - 2026-01-22 Bug Fix: PNG/Image File Support -> logs/2026-01-22-bug-fix-png-image-file-support.md
 - 2026-01-22 E2E Testing Results - `/extract` Endpoint -> logs/2026-01-22-e2e-testing-results-extract-endpoint.md
+- 2026-01-24 Local Run: Fixture Extractions -> logs/2026-01-24-local-run-fixtures.md

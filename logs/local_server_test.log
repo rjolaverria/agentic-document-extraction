@@ -1,0 +1,593 @@
+2026-01-24 00:38:11,015 - agentic_document_extraction.config - WARNING - CORS is configured to allow all origins (*). Consider restricting this in production.
+2026-01-24 00:38:11,015 - agentic_document_extraction.config - INFO - Configuration loaded: log_level=INFO, debug=False, max_file_size_mb=10, max_iterations=3
+2026-01-24 00:38:11,018 - agentic_document_extraction.api - INFO - FastAPI application created successfully
+INFO:     Started server process [66227]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     127.0.0.1:58248 - "GET /health HTTP/1.1" 200 OK
+2026-01-24 00:38:27,336 - agentic_document_extraction.services.schema_validator - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b] Schema validated | schema_type=object, required_fields=3, optional_fields=7
+2026-01-24 00:38:27,336 - agentic_document_extraction.api - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b] Schema validated | schema_type=object, required_fields=3, optional_fields=7, request_id=2a61346c-f848-4621-9cb6-815870a5ad7b
+2026-01-24 00:38:27,336 - agentic_document_extraction.services.job_manager - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2] Job manager cleanup thread started | cleanup_interval=300
+2026-01-24 00:38:27,336 - agentic_document_extraction.services.job_manager - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2] Job created | job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2, filename=sample_invoice.txt
+2026-01-24 00:38:27,336 - agentic_document_extraction.api - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2] Document uploaded successfully | job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2, filename=sample_invoice.txt, file_size=862, request_id=2a61346c-f848-4621-9cb6-815870a5ad7b
+INFO:     127.0.0.1:58250 - "POST /extract HTTP/1.1" 202 Accepted
+2026-01-24 00:38:27,337 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Starting extraction | filename=sample_invoice.txt
+2026-01-24 00:38:27,337 - agentic_document_extraction.services.job_manager - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Job status updated | job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2, status=processing
+2026-01-24 00:38:27,337 - agentic_document_extraction.services.schema_validator - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Schema validated | schema_type=object, required_fields=3, optional_fields=7
+2026-01-24 00:38:27,337 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Schema validated
+2026-01-24 00:38:27,337 - agentic_document_extraction.services.job_manager - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Job status updated | job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2, status=processing
+2026-01-24 00:38:27,340 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Format detected | mime_type=text/plain, category=text_based
+2026-01-24 00:38:27,340 - agentic_document_extraction.services.job_manager - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Job status updated | job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2, status=processing
+2026-01-24 00:38:27,340 - agentic_document_extraction.services.text_extractor - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Extracted TXT: 27 lines, encoding=ascii, confidence=1.00, documents=1
+2026-01-24 00:38:27,340 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Text extracted | length=862
+2026-01-24 00:38:27,340 - agentic_document_extraction.services.job_manager - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Job status updated | job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2, status=processing
+2026-01-24 00:38:27,340 - agentic_document_extraction.agents.refiner - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Starting agentic loop: Phase 1 - Planning
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+2026-01-24 00:38:35,079 - httpx - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:38:35,101 - agentic_document_extraction.agents.planner - WARNING - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Unknown challenge type: text_format_variability
+2026-01-24 00:38:35,101 - agentic_document_extraction.agents.planner - WARNING - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Unknown challenge type: missing_optional_fields
+2026-01-24 00:38:35,101 - agentic_document_extraction.agents.planner - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Planning completed: strategy=text_direct, steps=7, challenges=0, tokens=2221, time=7.76s
+2026-01-24 00:38:35,101 - agentic_document_extraction.agents.refiner - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Agentic loop: Iteration 1/3
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+2026-01-24 00:38:37,278 - httpx - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:38:37,281 - agentic_document_extraction.services.extraction.text_extraction - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Extraction completed: model=gpt-4o, tokens=1632, chunks=1, time=2.18s
+2026-01-24 00:38:37,281 - agentic_document_extraction.agents.refiner - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Iteration 1: Verifying extraction
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+2026-01-24 00:38:43,587 - httpx - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:38:43,592 - agentic_document_extraction.agents.verifier - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Verification completed: status=passed, issues=2, confidence=1.00, coverage=1.00, tokens=2293, time=6.31s
+2026-01-24 00:38:43,592 - agentic_document_extraction.agents.refiner - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Iteration 1: status=passed, confidence=1.00, coverage=1.00, issues=2
+2026-01-24 00:38:43,592 - agentic_document_extraction.agents.refiner - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Quality thresholds met at iteration 1
+2026-01-24 00:38:43,592 - agentic_document_extraction.agents.refiner - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Agentic loop completed: iterations=1, converged=True, best_iteration=1, total_tokens=6146, time=16.25s
+2026-01-24 00:38:43,592 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Agentic loop completed | iterations=1, converged=True
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+2026-01-24 00:38:48,938 - httpx - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:38:48,941 - agentic_document_extraction.services.job_manager - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Job completed with results | job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2
+2026-01-24 00:38:48,942 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=2a61346c-f848-4621-9cb6-815870a5ad7b job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 filename=sample_invoice.txt] Extraction completed | job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2, success=True, duration_seconds=21.60, iterations=1, tokens_used=6146, converged=True, confidence=1.000
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2 HTTP/1.1" 200 OK
+2026-01-24 00:38:49,510 - agentic_document_extraction.api - INFO - [request_id=f89b4684-644d-4833-976e-76429d75c7ef] Job result retrieved | job_id=dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2, status=completed, has_data=True, request_id=f89b4684-644d-4833-976e-76429d75c7ef
+INFO:     127.0.0.1:58250 - "GET /jobs/dd0de4b1-a98c-43bb-90b8-788ecc8ef7e2/result HTTP/1.1" 200 OK
+2026-01-24 00:38:49,516 - agentic_document_extraction.services.schema_validator - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2] Schema validated | schema_type=object, required_fields=1, optional_fields=6
+2026-01-24 00:38:49,516 - agentic_document_extraction.api - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2] Schema validated | schema_type=object, required_fields=1, optional_fields=6, request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2
+2026-01-24 00:38:49,517 - agentic_document_extraction.services.job_manager - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81] Job created | job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81, filename=sample_resume.txt
+2026-01-24 00:38:49,517 - agentic_document_extraction.api - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81] Document uploaded successfully | job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81, filename=sample_resume.txt, file_size=1524, request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2
+INFO:     127.0.0.1:58250 - "POST /extract HTTP/1.1" 202 Accepted
+2026-01-24 00:38:49,518 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Starting extraction | filename=sample_resume.txt
+2026-01-24 00:38:49,518 - agentic_document_extraction.services.job_manager - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Job status updated | job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81, status=processing
+2026-01-24 00:38:49,520 - agentic_document_extraction.services.schema_validator - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Schema validated | schema_type=object, required_fields=1, optional_fields=6
+2026-01-24 00:38:49,520 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Schema validated
+2026-01-24 00:38:49,520 - agentic_document_extraction.services.job_manager - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Job status updated | job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81, status=processing
+2026-01-24 00:38:49,526 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Format detected | mime_type=text/plain, category=text_based
+2026-01-24 00:38:49,526 - agentic_document_extraction.services.job_manager - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Job status updated | job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81, status=processing
+2026-01-24 00:38:49,527 - agentic_document_extraction.services.text_extractor - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Extracted TXT: 51 lines, encoding=ascii, confidence=1.00, documents=1
+2026-01-24 00:38:49,527 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Text extracted | length=1524
+2026-01-24 00:38:49,527 - agentic_document_extraction.services.job_manager - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Job status updated | job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81, status=processing
+2026-01-24 00:38:49,527 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Starting agentic loop: Phase 1 - Planning
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+2026-01-24 00:38:59,590 - httpx - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:38:59,602 - agentic_document_extraction.agents.planner - WARNING - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Unknown challenge type: complex_schema
+2026-01-24 00:38:59,603 - agentic_document_extraction.agents.planner - WARNING - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Unknown challenge type: nested_fields
+2026-01-24 00:38:59,603 - agentic_document_extraction.agents.planner - WARNING - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Unknown challenge type: array_extraction
+2026-01-24 00:38:59,603 - agentic_document_extraction.agents.planner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Planning completed: strategy=text_chunked, steps=7, challenges=0, tokens=2230, time=10.08s
+2026-01-24 00:38:59,603 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Agentic loop: Iteration 1/3
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+2026-01-24 00:39:31,952 - httpx - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:39:31,961 - agentic_document_extraction.services.extraction.text_extraction - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Extraction completed: model=gpt-4o, tokens=2099, chunks=1, time=32.36s
+2026-01-24 00:39:31,961 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Iteration 1: Verifying extraction
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+2026-01-24 00:39:37,564 - httpx - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:39:37,566 - agentic_document_extraction.agents.verifier - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Verification completed: status=failed, issues=3, confidence=1.00, coverage=1.00, tokens=2556, time=5.61s
+2026-01-24 00:39:37,567 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Iteration 1: status=failed, confidence=1.00, coverage=1.00, issues=3
+2026-01-24 00:39:37,567 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Iteration 1: Generating refinement
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+2026-01-24 00:39:41,932 - httpx - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:39:41,940 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Refinement completed: fields_focused=3, strategy=text_type_correction, tokens=2870, time=4.37s
+2026-01-24 00:39:41,940 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Agentic loop: Iteration 2/3
+2026-01-24 00:39:41,940 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Iteration 2: Verifying extraction
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+2026-01-24 00:39:48,111 - httpx - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:39:48,117 - agentic_document_extraction.agents.verifier - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Verification completed: status=needs_improvement, issues=4, confidence=0.70, coverage=1.00, tokens=2502, time=6.18s
+2026-01-24 00:39:48,117 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Iteration 2: status=needs_improvement, confidence=0.70, coverage=1.00, issues=4
+2026-01-24 00:39:48,117 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Iteration 2: Generating refinement
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 HTTP/1.1" 200 OK
+2026-01-24 00:39:49,990 - agentic_document_extraction.api - WARNING - [request_id=68bcc2d8-9071-46de-8e14-14b946e27fb5] HTTP Error: Job 3859e00e-e2d3-4f9e-ac36-d183c0b83e81 is still processing. Progress: Running agentic extraction loop. Check status at GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81 | status_code=425
+INFO:     127.0.0.1:58250 - "GET /jobs/3859e00e-e2d3-4f9e-ac36-d183c0b83e81/result HTTP/1.1" 425 Too Early
+2026-01-24 00:39:49,993 - agentic_document_extraction.services.schema_validator - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda] Schema validated | schema_type=object, required_fields=1, optional_fields=2
+2026-01-24 00:39:49,993 - agentic_document_extraction.api - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda] Schema validated | schema_type=object, required_fields=1, optional_fields=2, request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda
+2026-01-24 00:39:49,994 - agentic_document_extraction.services.job_manager - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5] Job created | job_id=690e863e-8778-4b82-8953-d9ece5d420f5, filename=sample_data.csv
+2026-01-24 00:39:49,994 - agentic_document_extraction.api - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5] Document uploaded successfully | job_id=690e863e-8778-4b82-8953-d9ece5d420f5, filename=sample_data.csv, file_size=351, request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda
+INFO:     127.0.0.1:58250 - "POST /extract HTTP/1.1" 202 Accepted
+2026-01-24 00:39:49,995 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Starting extraction | filename=sample_data.csv
+2026-01-24 00:39:49,995 - agentic_document_extraction.services.job_manager - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Job status updated | job_id=690e863e-8778-4b82-8953-d9ece5d420f5, status=processing
+2026-01-24 00:39:49,996 - agentic_document_extraction.services.schema_validator - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Schema validated | schema_type=object, required_fields=1, optional_fields=2
+2026-01-24 00:39:49,996 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Schema validated
+2026-01-24 00:39:49,996 - agentic_document_extraction.services.job_manager - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Job status updated | job_id=690e863e-8778-4b82-8953-d9ece5d420f5, status=processing
+2026-01-24 00:39:49,997 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Format detected | mime_type=text/csv, category=text_based
+2026-01-24 00:39:49,997 - agentic_document_extraction.services.job_manager - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Job status updated | job_id=690e863e-8778-4b82-8953-d9ece5d420f5, status=processing
+2026-01-24 00:39:50,002 - agentic_document_extraction.services.text_extractor - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Extracted CSV: 5 rows, 5 columns, delimiter=',', documents=5
+2026-01-24 00:39:50,002 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Text extracted | length=350
+2026-01-24 00:39:50,002 - agentic_document_extraction.services.job_manager - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Job status updated | job_id=690e863e-8778-4b82-8953-d9ece5d420f5, status=processing
+2026-01-24 00:39:50,002 - agentic_document_extraction.agents.refiner - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Starting agentic loop: Phase 1 - Planning
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+2026-01-24 00:39:51,619 - httpx - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:39:51,629 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Refinement completed: fields_focused=4, strategy=text_confidence_boost, tokens=2927, time=3.51s
+2026-01-24 00:39:51,630 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Agentic loop: Iteration 3/3
+2026-01-24 00:39:51,630 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Iteration 3: Verifying extraction
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+2026-01-24 00:39:57,533 - httpx - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:39:57,536 - agentic_document_extraction.agents.verifier - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Verification completed: status=needs_improvement, issues=5, confidence=0.70, coverage=1.00, tokens=2529, time=5.91s
+2026-01-24 00:39:57,536 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Iteration 3: status=needs_improvement, confidence=0.70, coverage=1.00, issues=5
+2026-01-24 00:39:57,536 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Max iterations (3) reached without convergence
+2026-01-24 00:39:57,536 - agentic_document_extraction.agents.refiner - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Agentic loop completed: iterations=3, converged=False, best_iteration=2, total_tokens=11916, time=68.01s
+2026-01-24 00:39:57,536 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Agentic loop completed | iterations=3, converged=False
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+2026-01-24 00:39:58,430 - httpx - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:39:58,450 - agentic_document_extraction.agents.planner - WARNING - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Unknown challenge type: delimiter detection
+2026-01-24 00:39:58,450 - agentic_document_extraction.agents.planner - WARNING - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Unknown challenge type: schema mapping
+2026-01-24 00:39:58,451 - agentic_document_extraction.agents.planner - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Planning completed: strategy=text_chunked, steps=5, challenges=0, tokens=1660, time=8.45s
+2026-01-24 00:39:58,451 - agentic_document_extraction.agents.refiner - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Agentic loop: Iteration 1/3
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+2026-01-24 00:40:00,269 - httpx - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:40:00,271 - agentic_document_extraction.services.extraction.text_extraction - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Extraction completed: model=gpt-4o, tokens=1153, chunks=1, time=1.82s
+2026-01-24 00:40:00,271 - agentic_document_extraction.agents.refiner - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Iteration 1: Verifying extraction
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+2026-01-24 00:40:05,700 - httpx - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:40:05,709 - agentic_document_extraction.agents.verifier - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Verification completed: status=passed, issues=0, confidence=1.00, coverage=1.00, tokens=1519, time=5.44s
+2026-01-24 00:40:05,710 - agentic_document_extraction.agents.refiner - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Iteration 1: status=passed, confidence=1.00, coverage=1.00, issues=0
+2026-01-24 00:40:05,710 - agentic_document_extraction.agents.refiner - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Quality thresholds met at iteration 1
+2026-01-24 00:40:05,710 - agentic_document_extraction.agents.refiner - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Agentic loop completed: iterations=1, converged=True, best_iteration=1, total_tokens=4332, time=15.71s
+2026-01-24 00:40:05,710 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Agentic loop completed | iterations=1, converged=True
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+2026-01-24 00:40:06,645 - httpx - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:40:06,647 - agentic_document_extraction.services.job_manager - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Job completed with results | job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81
+2026-01-24 00:40:06,647 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=57e9ec23-e5e5-49e5-ba08-6502fb27bea2 job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81 filename=sample_resume.txt] Extraction completed | job_id=3859e00e-e2d3-4f9e-ac36-d183c0b83e81, success=True, duration_seconds=77.13, iterations=3, tokens_used=11916, converged=False, confidence=0.700
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+2026-01-24 00:40:13,090 - httpx - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:40:13,092 - agentic_document_extraction.services.job_manager - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Job completed with results | job_id=690e863e-8778-4b82-8953-d9ece5d420f5
+2026-01-24 00:40:13,092 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=15d566f7-d4c0-468b-8248-c0b1be8f7bda job_id=690e863e-8778-4b82-8953-d9ece5d420f5 filename=sample_data.csv] Extraction completed | job_id=690e863e-8778-4b82-8953-d9ece5d420f5, success=True, duration_seconds=23.10, iterations=1, tokens_used=4332, converged=True, confidence=1.000
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5 HTTP/1.1" 200 OK
+2026-01-24 00:40:13,182 - agentic_document_extraction.api - INFO - [request_id=28746ece-5eed-41dd-b70e-b00e12b8fc3a] Job result retrieved | job_id=690e863e-8778-4b82-8953-d9ece5d420f5, status=completed, has_data=True, request_id=28746ece-5eed-41dd-b70e-b00e12b8fc3a
+INFO:     127.0.0.1:58250 - "GET /jobs/690e863e-8778-4b82-8953-d9ece5d420f5/result HTTP/1.1" 200 OK
+2026-01-24 00:40:13,186 - agentic_document_extraction.services.schema_validator - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc] Schema validated | schema_type=object, required_fields=6, optional_fields=17
+2026-01-24 00:40:13,186 - agentic_document_extraction.api - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc] Schema validated | schema_type=object, required_fields=6, optional_fields=17, request_id=f653c380-b234-440d-8243-de358d21dddc
+2026-01-24 00:40:13,187 - agentic_document_extraction.services.job_manager - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2] Job created | job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2, filename=sample_coupon_code_form.png
+2026-01-24 00:40:13,187 - agentic_document_extraction.api - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2] Document uploaded successfully | job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2, filename=sample_coupon_code_form.png, file_size=68731, request_id=f653c380-b234-440d-8243-de358d21dddc
+INFO:     127.0.0.1:58250 - "POST /extract HTTP/1.1" 202 Accepted
+2026-01-24 00:40:13,188 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Starting extraction | filename=sample_coupon_code_form.png
+2026-01-24 00:40:13,188 - agentic_document_extraction.services.job_manager - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Job status updated | job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2, status=processing
+2026-01-24 00:40:13,190 - agentic_document_extraction.services.schema_validator - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Schema validated | schema_type=object, required_fields=6, optional_fields=17
+2026-01-24 00:40:13,190 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Schema validated
+2026-01-24 00:40:13,190 - agentic_document_extraction.services.job_manager - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Job status updated | job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2, status=processing
+2026-01-24 00:40:13,190 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Format detected | mime_type=image/png, category=visual
+2026-01-24 00:40:13,190 - agentic_document_extraction.services.job_manager - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Job status updated | job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2, status=processing
+2026-01-24 00:40:13,936 - agentic_document_extraction.services.visual_text_extractor - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Extracted image: 88 elements, avg_confidence=0.67
+2026-01-24 00:40:13,936 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Text extracted from visual document | length=636, method=ocr, pages=1, confidence=0.6668181818181819
+2026-01-24 00:40:13,936 - agentic_document_extraction.services.job_manager - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Job status updated | job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2, status=processing
+2026-01-24 00:40:13,937 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Starting agentic loop: Phase 1 - Planning
+INFO:     127.0.0.1:58250 - "GET /jobs/830b7a49-24e2-429d-b8ef-f327a176b9c2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/830b7a49-24e2-429d-b8ef-f327a176b9c2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/830b7a49-24e2-429d-b8ef-f327a176b9c2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/830b7a49-24e2-429d-b8ef-f327a176b9c2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/830b7a49-24e2-429d-b8ef-f327a176b9c2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/830b7a49-24e2-429d-b8ef-f327a176b9c2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/830b7a49-24e2-429d-b8ef-f327a176b9c2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/830b7a49-24e2-429d-b8ef-f327a176b9c2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/830b7a49-24e2-429d-b8ef-f327a176b9c2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/830b7a49-24e2-429d-b8ef-f327a176b9c2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/830b7a49-24e2-429d-b8ef-f327a176b9c2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58250 - "GET /jobs/830b7a49-24e2-429d-b8ef-f327a176b9c2 HTTP/1.1" 200 OK
+2026-01-24 00:40:25,458 - httpx - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:40:25,474 - agentic_document_extraction.agents.planner - WARNING - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Unknown challenge type: complex layout
+2026-01-24 00:40:25,474 - agentic_document_extraction.agents.planner - WARNING - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Unknown challenge type: unknown page count
+2026-01-24 00:40:25,474 - agentic_document_extraction.agents.planner - WARNING - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Unknown challenge type: no detected regions
+2026-01-24 00:40:25,474 - agentic_document_extraction.agents.planner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Planning completed: strategy=visual_vlm_enhanced, steps=5, challenges=0, tokens=2155, time=11.54s
+2026-01-24 00:40:25,474 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Agentic loop: Iteration 1/3
+INFO:     127.0.0.1:58250 - "GET /jobs/830b7a49-24e2-429d-b8ef-f327a176b9c2 HTTP/1.1" 200 OK
+2026-01-24 00:40:28,144 - httpx - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:40:28,149 - agentic_document_extraction.services.extraction.text_extraction - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Extraction completed: model=gpt-4o, tokens=1492, chunks=1, time=2.67s
+2026-01-24 00:40:28,149 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Iteration 1: Verifying extraction
+2026-01-24 00:40:36,240 - httpx - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:40:36,245 - agentic_document_extraction.agents.verifier - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Verification completed: status=failed, issues=8, confidence=0.77, coverage=0.83, tokens=2304, time=8.10s
+2026-01-24 00:40:36,245 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Iteration 1: status=failed, confidence=0.77, coverage=0.83, issues=8
+2026-01-24 00:40:36,245 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Iteration 1: Generating refinement
+2026-01-24 00:40:38,295 - httpx - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:40:38,305 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Refinement completed: fields_focused=6, strategy=visual_region_reprocessing, tokens=2092, time=2.06s
+2026-01-24 00:40:38,305 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Agentic loop: Iteration 2/3
+2026-01-24 00:40:38,305 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Iteration 2: Verifying extraction
+2026-01-24 00:40:46,161 - agentic_document_extraction.services.schema_validator - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb] Schema validated | schema_type=object, required_fields=3, optional_fields=7
+2026-01-24 00:40:46,161 - agentic_document_extraction.api - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb] Schema validated | schema_type=object, required_fields=3, optional_fields=7, request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb
+2026-01-24 00:40:46,161 - agentic_document_extraction.services.job_manager - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785] Job created | job_id=a83113ac-b9b1-4497-8817-bed3c47a3785, filename=sample_invoice.txt
+2026-01-24 00:40:46,161 - agentic_document_extraction.api - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785] Document uploaded successfully | job_id=a83113ac-b9b1-4497-8817-bed3c47a3785, filename=sample_invoice.txt, file_size=862, request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb
+INFO:     127.0.0.1:58268 - "POST /extract HTTP/1.1" 202 Accepted
+2026-01-24 00:40:46,162 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Starting extraction | filename=sample_invoice.txt
+2026-01-24 00:40:46,162 - agentic_document_extraction.services.job_manager - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Job status updated | job_id=a83113ac-b9b1-4497-8817-bed3c47a3785, status=processing
+2026-01-24 00:40:46,162 - agentic_document_extraction.services.schema_validator - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Schema validated | schema_type=object, required_fields=3, optional_fields=7
+2026-01-24 00:40:46,162 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Schema validated
+2026-01-24 00:40:46,162 - agentic_document_extraction.services.job_manager - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Job status updated | job_id=a83113ac-b9b1-4497-8817-bed3c47a3785, status=processing
+2026-01-24 00:40:46,164 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Format detected | mime_type=text/plain, category=text_based
+2026-01-24 00:40:46,165 - agentic_document_extraction.services.job_manager - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Job status updated | job_id=a83113ac-b9b1-4497-8817-bed3c47a3785, status=processing
+2026-01-24 00:40:46,165 - agentic_document_extraction.services.text_extractor - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Extracted TXT: 27 lines, encoding=ascii, confidence=1.00, documents=1
+2026-01-24 00:40:46,165 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Text extracted | length=862
+2026-01-24 00:40:46,165 - agentic_document_extraction.services.job_manager - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Job status updated | job_id=a83113ac-b9b1-4497-8817-bed3c47a3785, status=processing
+2026-01-24 00:40:46,165 - agentic_document_extraction.agents.refiner - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Starting agentic loop: Phase 1 - Planning
+2026-01-24 00:40:46,787 - httpx - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:40:46,793 - agentic_document_extraction.agents.verifier - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Verification completed: status=failed, issues=13, confidence=0.68, coverage=0.83, tokens=2347, time=8.49s
+2026-01-24 00:40:46,793 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Iteration 2: status=failed, confidence=0.68, coverage=0.83, issues=13
+2026-01-24 00:40:46,793 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Iteration 2: Generating refinement
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+2026-01-24 00:40:48,434 - httpx - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:40:48,436 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Refinement completed: fields_focused=10, strategy=visual_region_reprocessing, tokens=2339, time=1.64s
+2026-01-24 00:40:48,436 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Agentic loop: Iteration 3/3
+2026-01-24 00:40:48,436 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Iteration 3: Verifying extraction
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+2026-01-24 00:40:54,083 - httpx - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:40:54,100 - agentic_document_extraction.agents.planner - WARNING - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Unknown challenge type: inconsistent formatting
+2026-01-24 00:40:54,100 - agentic_document_extraction.agents.planner - WARNING - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Unknown challenge type: missing optional fields
+2026-01-24 00:40:54,100 - agentic_document_extraction.agents.planner - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Planning completed: strategy=text_direct, steps=7, challenges=0, tokens=2239, time=7.94s
+2026-01-24 00:40:54,101 - agentic_document_extraction.agents.refiner - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Agentic loop: Iteration 1/3
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+2026-01-24 00:40:56,434 - httpx - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:40:56,442 - agentic_document_extraction.agents.verifier - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Verification completed: status=failed, issues=16, confidence=0.69, coverage=0.83, tokens=2401, time=8.01s
+2026-01-24 00:40:56,442 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Iteration 3: status=failed, confidence=0.69, coverage=0.83, issues=16
+2026-01-24 00:40:56,442 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Max iterations (3) reached without convergence
+2026-01-24 00:40:56,443 - agentic_document_extraction.agents.refiner - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Agentic loop completed: iterations=3, converged=False, best_iteration=1, total_tokens=10699, time=42.51s
+2026-01-24 00:40:56,443 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Agentic loop completed | iterations=3, converged=False
+2026-01-24 00:40:56,443 - agentic_document_extraction.output.json_generator - WARNING - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Validation failed: 10 errors, 1 missing required fields
+2026-01-24 00:40:56,925 - httpx - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:40:56,928 - agentic_document_extraction.services.extraction.text_extraction - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Extraction completed: model=gpt-4o, tokens=1632, chunks=1, time=2.83s
+2026-01-24 00:40:56,928 - agentic_document_extraction.agents.refiner - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Iteration 1: Verifying extraction
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+2026-01-24 00:41:01,225 - httpx - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:41:01,227 - agentic_document_extraction.agents.verifier - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Verification completed: status=passed, issues=1, confidence=1.00, coverage=1.00, tokens=2261, time=4.30s
+2026-01-24 00:41:01,227 - agentic_document_extraction.agents.refiner - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Iteration 1: status=passed, confidence=1.00, coverage=1.00, issues=1
+2026-01-24 00:41:01,227 - agentic_document_extraction.agents.refiner - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Quality thresholds met at iteration 1
+2026-01-24 00:41:01,227 - agentic_document_extraction.agents.refiner - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Agentic loop completed: iterations=1, converged=True, best_iteration=1, total_tokens=6132, time=15.06s
+2026-01-24 00:41:01,227 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Agentic loop completed | iterations=1, converged=True
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+2026-01-24 00:41:02,595 - httpx - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:41:02,602 - agentic_document_extraction.services.job_manager - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Job completed with results | job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2
+2026-01-24 00:41:02,602 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=f653c380-b234-440d-8243-de358d21dddc job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2 filename=sample_coupon_code_form.png] Extraction completed | job_id=830b7a49-24e2-429d-b8ef-f327a176b9c2, success=True, duration_seconds=49.41, iterations=3, tokens_used=10699, converged=False, confidence=0.770
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+2026-01-24 00:41:06,671 - httpx - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:41:06,677 - agentic_document_extraction.services.job_manager - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Job completed with results | job_id=a83113ac-b9b1-4497-8817-bed3c47a3785
+2026-01-24 00:41:06,677 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=26e29328-abbd-4f7d-b4b7-9492e74de9cb job_id=a83113ac-b9b1-4497-8817-bed3c47a3785 filename=sample_invoice.txt] Extraction completed | job_id=a83113ac-b9b1-4497-8817-bed3c47a3785, success=True, duration_seconds=20.52, iterations=1, tokens_used=6132, converged=True, confidence=1.000
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785 HTTP/1.1" 200 OK
+2026-01-24 00:41:07,397 - agentic_document_extraction.api - INFO - [request_id=4cd60810-1e1c-4e5e-8fe9-1dbf6bc1ac56] Job result retrieved | job_id=a83113ac-b9b1-4497-8817-bed3c47a3785, status=completed, has_data=True, request_id=4cd60810-1e1c-4e5e-8fe9-1dbf6bc1ac56
+INFO:     127.0.0.1:58268 - "GET /jobs/a83113ac-b9b1-4497-8817-bed3c47a3785/result HTTP/1.1" 200 OK
+2026-01-24 00:41:07,402 - agentic_document_extraction.services.schema_validator - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11] Schema validated | schema_type=object, required_fields=1, optional_fields=6
+2026-01-24 00:41:07,402 - agentic_document_extraction.api - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11] Schema validated | schema_type=object, required_fields=1, optional_fields=6, request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11
+2026-01-24 00:41:07,404 - agentic_document_extraction.services.job_manager - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d] Job created | job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d, filename=sample_resume.txt
+2026-01-24 00:41:07,404 - agentic_document_extraction.api - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d] Document uploaded successfully | job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d, filename=sample_resume.txt, file_size=1524, request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11
+INFO:     127.0.0.1:58268 - "POST /extract HTTP/1.1" 202 Accepted
+2026-01-24 00:41:07,404 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Starting extraction | filename=sample_resume.txt
+2026-01-24 00:41:07,404 - agentic_document_extraction.services.job_manager - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Job status updated | job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d, status=processing
+2026-01-24 00:41:07,406 - agentic_document_extraction.services.schema_validator - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Schema validated | schema_type=object, required_fields=1, optional_fields=6
+2026-01-24 00:41:07,406 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Schema validated
+2026-01-24 00:41:07,406 - agentic_document_extraction.services.job_manager - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Job status updated | job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d, status=processing
+2026-01-24 00:41:07,411 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Format detected | mime_type=text/plain, category=text_based
+2026-01-24 00:41:07,412 - agentic_document_extraction.services.job_manager - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Job status updated | job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d, status=processing
+2026-01-24 00:41:07,412 - agentic_document_extraction.services.text_extractor - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Extracted TXT: 51 lines, encoding=ascii, confidence=1.00, documents=1
+2026-01-24 00:41:07,412 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Text extracted | length=1524
+2026-01-24 00:41:07,412 - agentic_document_extraction.services.job_manager - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Job status updated | job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d, status=processing
+2026-01-24 00:41:07,413 - agentic_document_extraction.agents.refiner - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Starting agentic loop: Phase 1 - Planning
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+2026-01-24 00:41:22,117 - httpx - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:41:22,128 - agentic_document_extraction.agents.planner - WARNING - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Unknown challenge type: complex_schema
+2026-01-24 00:41:22,129 - agentic_document_extraction.agents.planner - WARNING - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Unknown challenge type: nested_fields
+2026-01-24 00:41:22,129 - agentic_document_extraction.agents.planner - WARNING - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Unknown challenge type: array_extraction
+2026-01-24 00:41:22,129 - agentic_document_extraction.agents.planner - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Planning completed: strategy=text_chunked, steps=7, challenges=0, tokens=2212, time=14.72s
+2026-01-24 00:41:22,129 - agentic_document_extraction.agents.refiner - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Agentic loop: Iteration 1/3
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+2026-01-24 00:41:27,040 - httpx - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:41:27,049 - agentic_document_extraction.services.extraction.text_extraction - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Extraction completed: model=gpt-4o, tokens=2098, chunks=1, time=4.92s
+2026-01-24 00:41:27,049 - agentic_document_extraction.agents.refiner - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Iteration 1: Verifying extraction
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+2026-01-24 00:41:30,684 - httpx - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:41:30,694 - agentic_document_extraction.agents.verifier - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Verification completed: status=passed, issues=0, confidence=1.00, coverage=1.00, tokens=2426, time=3.64s
+2026-01-24 00:41:30,694 - agentic_document_extraction.agents.refiner - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Iteration 1: status=passed, confidence=1.00, coverage=1.00, issues=0
+2026-01-24 00:41:30,694 - agentic_document_extraction.agents.refiner - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Quality thresholds met at iteration 1
+2026-01-24 00:41:30,694 - agentic_document_extraction.agents.refiner - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Agentic loop completed: iterations=1, converged=True, best_iteration=1, total_tokens=6736, time=23.28s
+2026-01-24 00:41:30,694 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Agentic loop completed | iterations=1, converged=True
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+2026-01-24 00:41:35,121 - httpx - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:41:35,123 - agentic_document_extraction.services.job_manager - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Job completed with results | job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d
+2026-01-24 00:41:35,123 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=a5127af5-ddbf-4c60-be4a-30b1692f2c11 job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d filename=sample_resume.txt] Extraction completed | job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d, success=True, duration_seconds=27.72, iterations=1, tokens_used=6736, converged=True, confidence=1.000
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d HTTP/1.1" 200 OK
+2026-01-24 00:41:35,681 - agentic_document_extraction.api - INFO - [request_id=d1e921cf-0081-4116-b474-c425c8ae5302] Job result retrieved | job_id=28ab00e8-3db5-4b79-8179-9bb16fac148d, status=completed, has_data=True, request_id=d1e921cf-0081-4116-b474-c425c8ae5302
+INFO:     127.0.0.1:58268 - "GET /jobs/28ab00e8-3db5-4b79-8179-9bb16fac148d/result HTTP/1.1" 200 OK
+2026-01-24 00:41:35,684 - agentic_document_extraction.services.schema_validator - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69] Schema validated | schema_type=object, required_fields=1, optional_fields=2
+2026-01-24 00:41:35,684 - agentic_document_extraction.api - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69] Schema validated | schema_type=object, required_fields=1, optional_fields=2, request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69
+2026-01-24 00:41:35,684 - agentic_document_extraction.services.job_manager - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2] Job created | job_id=150c0825-f714-45ff-9cb9-f6feba4995e2, filename=sample_data.csv
+2026-01-24 00:41:35,684 - agentic_document_extraction.api - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2] Document uploaded successfully | job_id=150c0825-f714-45ff-9cb9-f6feba4995e2, filename=sample_data.csv, file_size=351, request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69
+INFO:     127.0.0.1:58268 - "POST /extract HTTP/1.1" 202 Accepted
+2026-01-24 00:41:35,685 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Starting extraction | filename=sample_data.csv
+2026-01-24 00:41:35,685 - agentic_document_extraction.services.job_manager - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Job status updated | job_id=150c0825-f714-45ff-9cb9-f6feba4995e2, status=processing
+2026-01-24 00:41:35,686 - agentic_document_extraction.services.schema_validator - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Schema validated | schema_type=object, required_fields=1, optional_fields=2
+2026-01-24 00:41:35,686 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Schema validated
+2026-01-24 00:41:35,686 - agentic_document_extraction.services.job_manager - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Job status updated | job_id=150c0825-f714-45ff-9cb9-f6feba4995e2, status=processing
+2026-01-24 00:41:35,686 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Format detected | mime_type=text/csv, category=text_based
+2026-01-24 00:41:35,686 - agentic_document_extraction.services.job_manager - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Job status updated | job_id=150c0825-f714-45ff-9cb9-f6feba4995e2, status=processing
+2026-01-24 00:41:35,689 - agentic_document_extraction.services.text_extractor - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Extracted CSV: 5 rows, 5 columns, delimiter=',', documents=5
+2026-01-24 00:41:35,689 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Text extracted | length=350
+2026-01-24 00:41:35,689 - agentic_document_extraction.services.job_manager - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Job status updated | job_id=150c0825-f714-45ff-9cb9-f6feba4995e2, status=processing
+2026-01-24 00:41:35,689 - agentic_document_extraction.agents.refiner - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Starting agentic loop: Phase 1 - Planning
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+2026-01-24 00:41:49,864 - httpx - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:41:49,874 - agentic_document_extraction.agents.planner - WARNING - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Unknown challenge type: unknown page count
+2026-01-24 00:41:49,874 - agentic_document_extraction.agents.planner - WARNING - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Unknown challenge type: potential data parsing errors
+2026-01-24 00:41:49,874 - agentic_document_extraction.agents.planner - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Planning completed: strategy=text_chunked, steps=5, challenges=0, tokens=1672, time=14.19s
+2026-01-24 00:41:49,874 - agentic_document_extraction.agents.refiner - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Agentic loop: Iteration 1/3
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+2026-01-24 00:41:52,448 - httpx - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:41:52,455 - agentic_document_extraction.services.extraction.text_extraction - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Extraction completed: model=gpt-4o, tokens=1153, chunks=1, time=2.58s
+2026-01-24 00:41:52,455 - agentic_document_extraction.agents.refiner - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Iteration 1: Verifying extraction
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+2026-01-24 00:41:56,317 - httpx - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:41:56,321 - agentic_document_extraction.agents.verifier - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Verification completed: status=passed, issues=0, confidence=1.00, coverage=1.00, tokens=1523, time=3.87s
+2026-01-24 00:41:56,321 - agentic_document_extraction.agents.refiner - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Iteration 1: status=passed, confidence=1.00, coverage=1.00, issues=0
+2026-01-24 00:41:56,321 - agentic_document_extraction.agents.refiner - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Quality thresholds met at iteration 1
+2026-01-24 00:41:56,321 - agentic_document_extraction.agents.refiner - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Agentic loop completed: iterations=1, converged=True, best_iteration=1, total_tokens=4348, time=20.63s
+2026-01-24 00:41:56,321 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Agentic loop completed | iterations=1, converged=True
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+2026-01-24 00:42:02,443 - httpx - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:42:02,448 - agentic_document_extraction.services.job_manager - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Job completed with results | job_id=150c0825-f714-45ff-9cb9-f6feba4995e2
+2026-01-24 00:42:02,448 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=cd2c9d9a-f74c-4fd3-b12e-780afcad3e69 job_id=150c0825-f714-45ff-9cb9-f6feba4995e2 filename=sample_data.csv] Extraction completed | job_id=150c0825-f714-45ff-9cb9-f6feba4995e2, success=True, duration_seconds=26.76, iterations=1, tokens_used=4348, converged=True, confidence=1.000
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2 HTTP/1.1" 200 OK
+2026-01-24 00:42:02,979 - agentic_document_extraction.api - INFO - [request_id=ded70b08-7966-44bf-9136-bcae18f56af1] Job result retrieved | job_id=150c0825-f714-45ff-9cb9-f6feba4995e2, status=completed, has_data=True, request_id=ded70b08-7966-44bf-9136-bcae18f56af1
+INFO:     127.0.0.1:58268 - "GET /jobs/150c0825-f714-45ff-9cb9-f6feba4995e2/result HTTP/1.1" 200 OK
+2026-01-24 00:42:02,984 - agentic_document_extraction.services.schema_validator - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083] Schema validated | schema_type=object, required_fields=6, optional_fields=17
+2026-01-24 00:42:02,985 - agentic_document_extraction.api - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083] Schema validated | schema_type=object, required_fields=6, optional_fields=17, request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083
+2026-01-24 00:42:02,985 - agentic_document_extraction.services.job_manager - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194] Job created | job_id=a3535a8f-929b-484e-a994-88e6402c4194, filename=sample_coupon_code_form.png
+2026-01-24 00:42:02,986 - agentic_document_extraction.api - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194] Document uploaded successfully | job_id=a3535a8f-929b-484e-a994-88e6402c4194, filename=sample_coupon_code_form.png, file_size=68731, request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083
+INFO:     127.0.0.1:58268 - "POST /extract HTTP/1.1" 202 Accepted
+2026-01-24 00:42:02,986 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Starting extraction | filename=sample_coupon_code_form.png
+2026-01-24 00:42:02,986 - agentic_document_extraction.services.job_manager - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Job status updated | job_id=a3535a8f-929b-484e-a994-88e6402c4194, status=processing
+2026-01-24 00:42:02,988 - agentic_document_extraction.services.schema_validator - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Schema validated | schema_type=object, required_fields=6, optional_fields=17
+2026-01-24 00:42:02,988 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Schema validated
+2026-01-24 00:42:02,988 - agentic_document_extraction.services.job_manager - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Job status updated | job_id=a3535a8f-929b-484e-a994-88e6402c4194, status=processing
+2026-01-24 00:42:02,988 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Format detected | mime_type=image/png, category=visual
+2026-01-24 00:42:02,988 - agentic_document_extraction.services.job_manager - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Job status updated | job_id=a3535a8f-929b-484e-a994-88e6402c4194, status=processing
+2026-01-24 00:42:03,456 - agentic_document_extraction.services.visual_text_extractor - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Extracted image: 88 elements, avg_confidence=0.67
+2026-01-24 00:42:03,456 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Text extracted from visual document | length=636, method=ocr, pages=1, confidence=0.6668181818181819
+2026-01-24 00:42:03,456 - agentic_document_extraction.services.job_manager - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Job status updated | job_id=a3535a8f-929b-484e-a994-88e6402c4194, status=processing
+2026-01-24 00:42:03,456 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Starting agentic loop: Phase 1 - Planning
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+2026-01-24 00:42:20,996 - httpx - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:42:21,007 - agentic_document_extraction.agents.planner - WARNING - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Unknown challenge type: unknown page count
+2026-01-24 00:42:21,007 - agentic_document_extraction.agents.planner - WARNING - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Unknown challenge type: no detected regions
+2026-01-24 00:42:21,007 - agentic_document_extraction.agents.planner - WARNING - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Unknown challenge type: complex schema with arrays
+2026-01-24 00:42:21,008 - agentic_document_extraction.agents.planner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Planning completed: strategy=visual_vlm_enhanced, steps=5, challenges=0, tokens=2184, time=17.55s
+2026-01-24 00:42:21,008 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Agentic loop: Iteration 1/3
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+2026-01-24 00:42:23,837 - httpx - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:42:23,841 - agentic_document_extraction.services.extraction.text_extraction - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Extraction completed: model=gpt-4o, tokens=1492, chunks=1, time=2.83s
+2026-01-24 00:42:23,841 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Iteration 1: Verifying extraction
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+2026-01-24 00:42:31,338 - httpx - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:42:31,341 - agentic_document_extraction.agents.verifier - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Verification completed: status=failed, issues=8, confidence=0.77, coverage=0.83, tokens=2298, time=7.50s
+2026-01-24 00:42:31,341 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Iteration 1: status=failed, confidence=0.77, coverage=0.83, issues=8
+2026-01-24 00:42:31,341 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Iteration 1: Generating refinement
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+2026-01-24 00:42:33,489 - httpx - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:42:33,493 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Refinement completed: fields_focused=6, strategy=visual_region_reprocessing, tokens=2096, time=2.15s
+2026-01-24 00:42:33,493 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Agentic loop: Iteration 2/3
+2026-01-24 00:42:33,493 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Iteration 2: Verifying extraction
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+2026-01-24 00:42:42,089 - httpx - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:42:42,092 - agentic_document_extraction.agents.verifier - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Verification completed: status=failed, issues=12, confidence=0.68, coverage=0.83, tokens=2328, time=8.60s
+2026-01-24 00:42:42,092 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Iteration 2: status=failed, confidence=0.68, coverage=0.83, issues=12
+2026-01-24 00:42:42,092 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Iteration 2: Generating refinement
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+2026-01-24 00:42:44,443 - httpx - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:42:44,449 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Refinement completed: fields_focused=9, strategy=visual_region_reprocessing, tokens=2274, time=2.36s
+2026-01-24 00:42:44,450 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Agentic loop: Iteration 3/3
+2026-01-24 00:42:44,450 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Iteration 3: Verifying extraction
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+2026-01-24 00:42:52,229 - httpx - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:42:52,231 - agentic_document_extraction.agents.verifier - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Verification completed: status=failed, issues=14, confidence=0.69, coverage=0.83, tokens=2305, time=7.78s
+2026-01-24 00:42:52,231 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Iteration 3: status=failed, confidence=0.69, coverage=0.83, issues=14
+2026-01-24 00:42:52,231 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Max iterations (3) reached without convergence
+2026-01-24 00:42:52,232 - agentic_document_extraction.agents.refiner - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Agentic loop completed: iterations=3, converged=False, best_iteration=3, total_tokens=10607, time=48.78s
+2026-01-24 00:42:52,232 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Agentic loop completed | iterations=3, converged=False
+2026-01-24 00:42:52,232 - agentic_document_extraction.output.json_generator - WARNING - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Validation failed: 8 errors, 1 missing required fields
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+2026-01-24 00:42:57,166 - httpx - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-01-24 00:42:57,173 - agentic_document_extraction.services.job_manager - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Job completed with results | job_id=a3535a8f-929b-484e-a994-88e6402c4194
+2026-01-24 00:42:57,173 - agentic_document_extraction.services.extraction_processor - INFO - [request_id=9ecc837e-c8fb-48c2-acf0-4f2c17931083 job_id=a3535a8f-929b-484e-a994-88e6402c4194 filename=sample_coupon_code_form.png] Extraction completed | job_id=a3535a8f-929b-484e-a994-88e6402c4194, success=True, duration_seconds=54.19, iterations=3, tokens_used=10607, converged=False, confidence=0.686
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194 HTTP/1.1" 200 OK
+2026-01-24 00:42:57,575 - agentic_document_extraction.api - INFO - [request_id=3be8824c-5171-47d6-a6af-a6eb72d59e20] Job result retrieved | job_id=a3535a8f-929b-484e-a994-88e6402c4194, status=completed, has_data=True, request_id=3be8824c-5171-47d6-a6af-a6eb72d59e20
+INFO:     127.0.0.1:58268 - "GET /jobs/a3535a8f-929b-484e-a994-88e6402c4194/result HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [66227]
