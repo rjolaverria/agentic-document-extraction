@@ -1,6 +1,6 @@
 # ISSUE: Invoice Date Format False Positive in Quality Report
 
-- [ ] **ISSUE: Invoice Date Format False Positive in Quality Report**
+- [x] **ISSUE: Invoice Date Format False Positive in Quality Report**
   - **Severity**: Medium
   - **Discovered**: 2026-01-24 via local run with `sample_invoice.txt`
   - **Reproduction**: POST `/extract` with `tests/fixtures/sample_documents/sample_invoice.txt` + `tests/fixtures/sample_schemas/invoice_schema.json`, then inspect `quality_report.issues` in `/jobs/{job_id}/result`.

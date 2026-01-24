@@ -11,6 +11,7 @@ This is the entry point for processing extraction jobs in background tasks.
 
 import json
 from pathlib import Path
+from typing import Any
 
 from agentic_document_extraction.agents.refiner import AgenticLoop
 from agentic_document_extraction.models import ProcessingCategory
@@ -39,6 +40,40 @@ from agentic_document_extraction.utils.logging import (
 )
 
 logger = get_logger(__name__)
+
+
+def _get_nested_value(data: dict[str, Any], path: str) -> Any:
+    """Get a value from nested dictionary using dot notation.
+
+    Args:
+        data: Dictionary to get value from.
+        path: Dot-separated path (e.g., 'address.city').
+
+    Returns:
+        Value at path or None if not found.
+    """
+    keys = path.split(".")
+    current: Any = data
+
+    for key in keys:
+        is_array = key.endswith("[]")
+        base_key = key[:-2] if is_array else key
+
+        if not isinstance(current, dict) or base_key not in current:
+            return None
+
+        current = current[base_key]
+
+        if is_array:
+            if not isinstance(current, list):
+                return None
+            # For array paths, return the first element's value
+            if current:
+                current = current[0]
+            else:
+                return None
+
+    return current
 
 
 # Re-export DocumentProcessingError as ExtractionProcessorError for backward compatibility
@@ -222,6 +257,21 @@ def process_extraction_job(
 
             # Build quality report
             quality_report = loop_result.final_verification.to_dict()
+
+            # Update quality report issues with normalized values
+            # The verification happened before normalization, so current_value
+            # may reflect un-normalized data (e.g., "January 15, 2024" instead
+            # of "2024-01-15" for dates). Update to show actual final values.
+            if quality_report.get("issues"):
+                for issue in quality_report["issues"]:
+                    field_path = issue.get("field_path", "")
+                    if field_path:
+                        # Get normalized value using dot notation path
+                        normalized_value = _get_nested_value(
+                            normalized_data, field_path
+                        )
+                        if normalized_value is not None:
+                            issue["current_value"] = normalized_value
 
             # Set result on job
             job_manager.set_result(

@@ -1312,3 +1312,267 @@ class TestConfigurableThresholds:
             i for i in report.issues if i.issue_type == IssueType.LOW_CONFIDENCE
         ]
         assert len(low_conf_issues) == 2  # Both fields below 0.8 threshold
+
+
+class TestLLMIssueEnrichment:
+    """Tests for enriching LLM-reported issues with current values."""
+
+    def test_llm_issues_include_current_value(
+        self,
+        simple_schema_info: SchemaInfo,
+        default_thresholds: QualityThreshold,
+    ) -> None:
+        """Test that LLM-reported issues are enriched with current_value.
+
+        This addresses the bug where format_error issues from the LLM
+        had current_value=null even when the extracted data had a value.
+        """
+        extraction_result = ExtractionResult(
+            extracted_data={"name": "John Doe", "age": 30},
+            field_extractions=[
+                FieldExtraction(field_path="name", value="John Doe", confidence=0.9),
+                FieldExtraction(field_path="age", value=30, confidence=0.9),
+            ],
+        )
+
+        # LLM reports an issue but doesn't include current_value
+        llm_response = {
+            "consistency_score": 0.8,
+            "issues": [
+                {
+                    "issue_type": "format_error",
+                    "field_path": "name",
+                    "message": "Some format concern",
+                    "severity": "low",
+                    "suggestion": "Consider reformatting",
+                }
+            ],
+            "passed_checks": [],
+            "recommendations": [],
+            "analysis": "Minor formatting concern.",
+        }
+
+        mock_response = MagicMock()
+        mock_response.content = json.dumps(llm_response)
+        mock_response.usage_metadata = {"input_tokens": 300, "output_tokens": 100}
+
+        agent = QualityVerificationAgent(api_key="test-key")
+        agent._llm = MagicMock()
+        agent._llm.invoke.return_value = mock_response
+
+        report = agent.verify(
+            extraction_result=extraction_result,
+            schema_info=simple_schema_info,
+            thresholds=default_thresholds,
+            use_llm_analysis=True,
+        )
+
+        # Find the format_error issue from LLM
+        format_issues = [
+            i for i in report.issues if i.issue_type == IssueType.FORMAT_ERROR
+        ]
+        assert len(format_issues) == 1
+
+        # The issue should have current_value populated from extraction result
+        assert format_issues[0].current_value == "John Doe"
+
+    def test_llm_issue_current_value_overrides_wrong_llm_value(
+        self,
+        simple_schema_info: SchemaInfo,
+        default_thresholds: QualityThreshold,
+    ) -> None:
+        """Test that actual extracted value overrides wrong LLM-reported value.
+
+        This addresses the case where the LLM confuses the extracted value
+        with another representation (e.g., markdown formatted vs ISO date).
+        """
+        extraction_result = ExtractionResult(
+            extracted_data={"name": "2024-01-15", "age": 30},  # ISO date as name
+            field_extractions=[
+                FieldExtraction(field_path="name", value="2024-01-15", confidence=0.9),
+                FieldExtraction(field_path="age", value=30, confidence=0.9),
+            ],
+        )
+
+        # LLM reports wrong current_value (e.g., from markdown representation)
+        llm_response = {
+            "consistency_score": 0.8,
+            "issues": [
+                {
+                    "issue_type": "format_error",
+                    "field_path": "name",
+                    "message": "Date format is wrong",
+                    "severity": "high",
+                    "current_value": "January 15, 2024",  # Wrong! LLM confused
+                    "suggestion": "Use ISO format",
+                }
+            ],
+            "passed_checks": [],
+            "recommendations": [],
+            "analysis": "Date format issue.",
+        }
+
+        mock_response = MagicMock()
+        mock_response.content = json.dumps(llm_response)
+        mock_response.usage_metadata = {"input_tokens": 300, "output_tokens": 100}
+
+        agent = QualityVerificationAgent(api_key="test-key")
+        agent._llm = MagicMock()
+        agent._llm.invoke.return_value = mock_response
+
+        report = agent.verify(
+            extraction_result=extraction_result,
+            schema_info=simple_schema_info,
+            thresholds=default_thresholds,
+            use_llm_analysis=True,
+        )
+
+        format_issues = [
+            i for i in report.issues if i.issue_type == IssueType.FORMAT_ERROR
+        ]
+        assert len(format_issues) == 1
+
+        # Should use actual extracted value, not the wrong LLM-reported value
+        assert format_issues[0].current_value == "2024-01-15"
+
+    def test_llm_issues_nested_field_current_value(
+        self,
+        complex_schema_info: SchemaInfo,
+        complex_extraction_result: ExtractionResult,
+        default_thresholds: QualityThreshold,
+    ) -> None:
+        """Test that nested field paths get correct current_value."""
+        llm_response = {
+            "consistency_score": 0.9,
+            "issues": [
+                {
+                    "issue_type": "format_error",
+                    "field_path": "company.name",
+                    "message": "Name format concern",
+                    "severity": "low",
+                }
+            ],
+            "passed_checks": [],
+            "recommendations": [],
+            "analysis": "Analysis.",
+        }
+
+        mock_response = MagicMock()
+        mock_response.content = json.dumps(llm_response)
+        mock_response.usage_metadata = {"input_tokens": 300, "output_tokens": 100}
+
+        agent = QualityVerificationAgent(api_key="test-key")
+        agent._llm = MagicMock()
+        agent._llm.invoke.return_value = mock_response
+
+        report = agent.verify(
+            extraction_result=complex_extraction_result,
+            schema_info=complex_schema_info,
+            thresholds=default_thresholds,
+            use_llm_analysis=True,
+        )
+
+        format_issues = [
+            i for i in report.issues if i.issue_type == IssueType.FORMAT_ERROR
+        ]
+        assert len(format_issues) == 1
+        # Should resolve nested path company.name to "Acme Corp"
+        assert format_issues[0].current_value == "Acme Corp"
+
+
+class TestDateFormatValidation:
+    """Tests for date format validation to prevent false positives."""
+
+    def test_valid_iso_date_no_false_positive(self) -> None:
+        """Test that valid ISO 8601 dates don't trigger false positive format errors.
+
+        This is a regression test for the invoice_date false positive issue
+        where dates like '2024-01-15' were incorrectly flagged.
+        """
+        schema_info = SchemaInfo(
+            schema={
+                "type": "object",
+                "properties": {
+                    "invoice_date": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Invoice date in YYYY-MM-DD format",
+                    },
+                    "invoice_number": {"type": "string"},
+                },
+                "required": ["invoice_date", "invoice_number"],
+            },
+            required_fields=[
+                FieldInfo(
+                    name="invoice_date",
+                    path="invoice_date",
+                    field_type="string",
+                    required=True,
+                ),
+                FieldInfo(
+                    name="invoice_number",
+                    path="invoice_number",
+                    field_type="string",
+                    required=True,
+                ),
+            ],
+            optional_fields=[],
+            schema_type="object",
+        )
+
+        extraction_result = ExtractionResult(
+            extracted_data={
+                "invoice_date": "2024-01-15",
+                "invoice_number": "INV-2024-001",
+            },
+            field_extractions=[
+                FieldExtraction(
+                    field_path="invoice_date", value="2024-01-15", confidence=0.95
+                ),
+                FieldExtraction(
+                    field_path="invoice_number", value="INV-2024-001", confidence=0.95
+                ),
+            ],
+        )
+
+        # LLM returns no issues for valid date format
+        llm_response = {
+            "consistency_score": 1.0,
+            "issues": [],
+            "passed_checks": [
+                "All date fields use valid ISO 8601 format (YYYY-MM-DD)",
+                "All required fields present",
+            ],
+            "recommendations": [],
+            "analysis": "Invoice extraction is complete and accurate.",
+        }
+
+        mock_response = MagicMock()
+        mock_response.content = json.dumps(llm_response)
+        mock_response.usage_metadata = {"input_tokens": 400, "output_tokens": 150}
+
+        agent = QualityVerificationAgent(api_key="test-key")
+        agent._llm = MagicMock()
+        agent._llm.invoke.return_value = mock_response
+
+        report = agent.verify(
+            extraction_result=extraction_result,
+            schema_info=schema_info,
+            use_llm_analysis=True,
+        )
+
+        # Should pass with no format errors
+        assert report.status == VerificationStatus.PASSED
+        format_issues = [
+            i for i in report.issues if i.issue_type == IssueType.FORMAT_ERROR
+        ]
+        assert len(format_issues) == 0
+
+    def test_system_prompt_includes_date_format_guidance(self) -> None:
+        """Verify the system prompt includes guidance about valid date formats."""
+        agent = QualityVerificationAgent(api_key="test-key")
+
+        # Check that the prompt includes date format guidance
+        assert "YYYY-MM-DD" in agent.VERIFICATION_SYSTEM_PROMPT
+        assert "format_error" in agent.VERIFICATION_SYSTEM_PROMPT.lower()
+        assert "date" in agent.VERIFICATION_SYSTEM_PROMPT.lower()

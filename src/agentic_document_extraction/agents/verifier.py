@@ -305,6 +305,13 @@ ANALYSIS GUIDELINES:
 - When checking numerical consistency (e.g., sums, totals), calculate the actual values before claiming inconsistency
 - Do NOT report an inconsistency if the values actually match - verify by computing the sum yourself
 
+DATE FORMAT RULES (CRITICAL - DO NOT FLAG VALID DATES):
+- JSON Schema "format": "date" expects ISO 8601 date format: YYYY-MM-DD (e.g., "2024-01-15")
+- Do NOT flag a format_error for date fields that correctly use YYYY-MM-DD format
+- Examples of VALID date formats: "2024-01-15", "2023-12-31", "2025-06-01"
+- Examples of INVALID date formats: "January 15, 2024", "01/15/2024", "15-01-2024"
+- Only report format_error for dates if they are genuinely malformed or use wrong format
+
 You must respond with ONLY valid JSON matching this structure:
 {{
     "consistency_score": 0.0-1.0,
@@ -1003,6 +1010,15 @@ Respond with ONLY the JSON structure specified."""
 
             result = self._parse_llm_response(content)
 
+            # Populate current_value from extraction result for LLM-reported issues
+            # This ensures issues show what value was actually extracted for context
+            for issue in result["issues"]:
+                actual_value = self._get_nested_value(
+                    extraction_result.extracted_data, issue.field_path
+                )
+                if actual_value is not None:
+                    issue.current_value = actual_value
+
             # Extract token usage
             usage_metadata = getattr(response, "usage_metadata", None) or {}
             prompt_tokens = usage_metadata.get("input_tokens", 0)
@@ -1159,6 +1175,7 @@ Respond with ONLY the JSON structure specified."""
                         field_path=issue_data.get("field_path", "unknown"),
                         message=issue_data.get("message", "Unknown issue"),
                         severity=severity,
+                        current_value=issue_data.get("current_value"),
                         suggestion=issue_data.get("suggestion"),
                     )
                 )
