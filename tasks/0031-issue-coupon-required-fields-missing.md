@@ -1,6 +1,6 @@
 # ISSUE: Coupon Form Extraction Missing Required Fields
 
-- [ ] **ISSUE: Coupon Form Extraction Missing Required Fields**
+- [x] **ISSUE: Coupon Form Extraction Missing Required Fields**
   - **Severity**: High
   - **Discovered**: 2026-01-24 via local run with `sample_coupon_code_form.png`
   - **Reproduction**: POST `/extract` with `tests/fixtures/sample_documents/sample_coupon_code_form.png` + `tests/fixtures/sample_schemas/sample_coupon_code_form_schema.json`, then inspect `quality_report` in `/jobs/{job_id}/result`.

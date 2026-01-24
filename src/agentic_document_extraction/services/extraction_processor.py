@@ -196,17 +196,40 @@ def process_extraction_job(
             # Run agentic extraction loop
             agentic_loop = AgenticLoop()
 
-            # Import TextExtractionService here to avoid circular imports
+            # Import extraction services here to avoid circular imports
             from agentic_document_extraction.services.extraction.text_extraction import (
                 ExtractionResult,
                 TextExtractionService,
             )
+            from agentic_document_extraction.services.extraction.visual_document_extraction import (
+                VisualDocumentExtractionService,
+            )
             from agentic_document_extraction.services.schema_validator import SchemaInfo
 
-            text_extraction_service = TextExtractionService()
+            # Use VLM-based extraction for visual documents to handle OCR limitations
+            if format_info.processing_category == ProcessingCategory.VISUAL:
+                visual_extraction_service = VisualDocumentExtractionService()
 
-            def extraction_func(t: str, s: SchemaInfo) -> ExtractionResult:
-                return text_extraction_service.extract(t, s)
+                # Capture file_path and text (OCR) in closure for visual extraction
+                captured_file_path = file_path
+                captured_ocr_text = text
+
+                def extraction_func(
+                    t: str,  # noqa: ARG001
+                    s: SchemaInfo,
+                ) -> ExtractionResult:
+                    # For visual documents, use VLM to extract directly from image
+                    # The text parameter (t) is ignored but we pass OCR text as reference
+                    return visual_extraction_service.extract(
+                        image_source=captured_file_path,
+                        schema_info=s,
+                        ocr_text=captured_ocr_text,
+                    )
+            else:
+                text_extraction_service = TextExtractionService()
+
+                def extraction_func(t: str, s: SchemaInfo) -> ExtractionResult:
+                    return text_extraction_service.extract(t, s)
 
             loop_result = agentic_loop.run(
                 text=text,
