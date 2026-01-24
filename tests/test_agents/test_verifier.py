@@ -1576,3 +1576,453 @@ class TestDateFormatValidation:
         assert "YYYY-MM-DD" in agent.VERIFICATION_SYSTEM_PROMPT
         assert "format_error" in agent.VERIFICATION_SYSTEM_PROMPT.lower()
         assert "date" in agent.VERIFICATION_SYSTEM_PROMPT.lower()
+
+
+class TestNullOptionalFieldsHandling:
+    """Tests for handling null values in optional fields.
+
+    This addresses the issue where optional string fields returned as null
+    trigger schema violations because the schema type is 'string' without
+    null allowance.
+    """
+
+    def test_null_optional_fields_stripped_before_validation(self) -> None:
+        """Test that null optional fields are stripped before schema validation.
+
+        When an LLM returns null for optional fields it can't extract,
+        these should be omitted from the data before schema validation
+        to avoid spurious schema_violation issues.
+        """
+        schema_info = SchemaInfo(
+            schema={
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "signed_by": {"type": "string"},
+                    "media_name": {"type": "string"},
+                },
+                "required": ["title"],
+            },
+            required_fields=[
+                FieldInfo(
+                    name="title", path="title", field_type="string", required=True
+                )
+            ],
+            optional_fields=[
+                FieldInfo(
+                    name="signed_by",
+                    path="signed_by",
+                    field_type="string",
+                    required=False,
+                ),
+                FieldInfo(
+                    name="media_name",
+                    path="media_name",
+                    field_type="string",
+                    required=False,
+                ),
+            ],
+            schema_type="object",
+        )
+
+        # LLM returned null for optional fields it couldn't extract
+        extraction_result = ExtractionResult(
+            extracted_data={
+                "title": "Coupon Form",
+                "signed_by": None,
+                "media_name": None,
+            },
+            field_extractions=[
+                FieldExtraction(
+                    field_path="title", value="Coupon Form", confidence=0.9
+                ),
+                FieldExtraction(field_path="signed_by", value=None, confidence=0.0),
+                FieldExtraction(field_path="media_name", value=None, confidence=0.0),
+            ],
+        )
+
+        agent = QualityVerificationAgent(api_key="test-key")
+
+        report = agent.verify_quick(
+            extraction_result=extraction_result,
+            schema_info=schema_info,
+        )
+
+        # Should NOT have schema violations for null optional fields
+        schema_violations = [
+            i for i in report.issues if i.issue_type == IssueType.SCHEMA_VIOLATION
+        ]
+        assert len(schema_violations) == 0
+        assert "Schema validation passed" in report.passed_checks
+
+    def test_null_required_fields_still_fail_validation(self) -> None:
+        """Test that null required fields still trigger validation issues.
+
+        Stripping null optional fields should not affect required field validation.
+        """
+        schema_info = SchemaInfo(
+            schema={
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "code": {"type": "string"},
+                },
+                "required": ["title", "code"],
+            },
+            required_fields=[
+                FieldInfo(
+                    name="title", path="title", field_type="string", required=True
+                ),
+                FieldInfo(name="code", path="code", field_type="string", required=True),
+            ],
+            optional_fields=[],
+            schema_type="object",
+        )
+
+        # Required field is null
+        extraction_result = ExtractionResult(
+            extracted_data={
+                "title": "Coupon Form",
+                "code": None,  # Required field is null
+            },
+            field_extractions=[
+                FieldExtraction(
+                    field_path="title", value="Coupon Form", confidence=0.9
+                ),
+                FieldExtraction(field_path="code", value=None, confidence=0.0),
+            ],
+        )
+
+        agent = QualityVerificationAgent(api_key="test-key")
+
+        report = agent.verify_quick(
+            extraction_result=extraction_result,
+            schema_info=schema_info,
+        )
+
+        # Should have issues for missing required field
+        missing_issues = [
+            i for i in report.issues if i.issue_type == IssueType.MISSING_REQUIRED_FIELD
+        ]
+        assert len(missing_issues) == 1
+        assert missing_issues[0].field_path == "code"
+
+    def test_strip_null_optional_preserves_non_null_values(self) -> None:
+        """Test that stripping null optionals doesn't affect non-null optional values."""
+        schema_info = SchemaInfo(
+            schema={
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "signed_by": {"type": "string"},
+                    "media_name": {"type": "string"},
+                },
+                "required": ["title"],
+            },
+            required_fields=[
+                FieldInfo(
+                    name="title", path="title", field_type="string", required=True
+                )
+            ],
+            optional_fields=[
+                FieldInfo(
+                    name="signed_by",
+                    path="signed_by",
+                    field_type="string",
+                    required=False,
+                ),
+                FieldInfo(
+                    name="media_name",
+                    path="media_name",
+                    field_type="string",
+                    required=False,
+                ),
+            ],
+            schema_type="object",
+        )
+
+        # One optional field has a value, one is null
+        # All fields have high confidence for those that have values
+        extraction_result = ExtractionResult(
+            extracted_data={
+                "title": "Coupon Form",
+                "signed_by": "John Doe",  # Has value
+                "media_name": None,  # Null
+            },
+            field_extractions=[
+                FieldExtraction(
+                    field_path="title", value="Coupon Form", confidence=0.9
+                ),
+                FieldExtraction(
+                    field_path="signed_by", value="John Doe", confidence=0.85
+                ),
+                # Don't include field extraction for null field - realistic scenario
+            ],
+        )
+
+        agent = QualityVerificationAgent(api_key="test-key")
+
+        report = agent.verify_quick(
+            extraction_result=extraction_result,
+            schema_info=schema_info,
+        )
+
+        # Should have no schema violations
+        schema_violations = [
+            i for i in report.issues if i.issue_type == IssueType.SCHEMA_VIOLATION
+        ]
+        assert len(schema_violations) == 0
+        # Schema validation should pass
+        assert "Schema validation passed" in report.passed_checks
+
+    def test_strip_null_optional_helper_method(self) -> None:
+        """Test the _strip_null_optional_fields helper method directly."""
+        schema_info = SchemaInfo(
+            schema={
+                "type": "object",
+                "properties": {
+                    "required_field": {"type": "string"},
+                    "optional_with_value": {"type": "string"},
+                    "optional_null": {"type": "string"},
+                },
+                "required": ["required_field"],
+            },
+            required_fields=[
+                FieldInfo(
+                    name="required_field",
+                    path="required_field",
+                    field_type="string",
+                    required=True,
+                )
+            ],
+            optional_fields=[
+                FieldInfo(
+                    name="optional_with_value",
+                    path="optional_with_value",
+                    field_type="string",
+                    required=False,
+                ),
+                FieldInfo(
+                    name="optional_null",
+                    path="optional_null",
+                    field_type="string",
+                    required=False,
+                ),
+            ],
+            schema_type="object",
+        )
+
+        data = {
+            "required_field": "value",
+            "optional_with_value": "has value",
+            "optional_null": None,
+        }
+
+        agent = QualityVerificationAgent(api_key="test-key")
+        cleaned = agent._strip_null_optional_fields(data, schema_info)
+
+        # Should remove optional_null but keep other fields
+        assert "required_field" in cleaned
+        assert cleaned["required_field"] == "value"
+        assert "optional_with_value" in cleaned
+        assert cleaned["optional_with_value"] == "has value"
+        assert "optional_null" not in cleaned
+
+        # Original data should be unchanged
+        assert "optional_null" in data
+        assert data["optional_null"] is None
+
+    def test_metrics_still_count_null_optional_fields(self) -> None:
+        """Test that metrics computation still sees null optional fields.
+
+        The stripping should only affect schema validation, not metrics
+        like optional_field_coverage.
+        """
+        schema_info = SchemaInfo(
+            schema={
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "optional1": {"type": "string"},
+                    "optional2": {"type": "string"},
+                },
+                "required": ["title"],
+            },
+            required_fields=[
+                FieldInfo(
+                    name="title", path="title", field_type="string", required=True
+                )
+            ],
+            optional_fields=[
+                FieldInfo(
+                    name="optional1",
+                    path="optional1",
+                    field_type="string",
+                    required=False,
+                ),
+                FieldInfo(
+                    name="optional2",
+                    path="optional2",
+                    field_type="string",
+                    required=False,
+                ),
+            ],
+            schema_type="object",
+        )
+
+        # One optional has value, one is null
+        extraction_result = ExtractionResult(
+            extracted_data={
+                "title": "Test",
+                "optional1": "value",
+                "optional2": None,
+            },
+            field_extractions=[
+                FieldExtraction(field_path="title", value="Test", confidence=0.9),
+                FieldExtraction(field_path="optional1", value="value", confidence=0.8),
+                FieldExtraction(field_path="optional2", value=None, confidence=0.0),
+            ],
+        )
+
+        agent = QualityVerificationAgent(api_key="test-key")
+
+        report = agent.verify_quick(
+            extraction_result=extraction_result,
+            schema_info=schema_info,
+        )
+
+        # Optional field coverage should be 50% (1 of 2 optional fields)
+        assert report.metrics.optional_field_coverage == 0.5
+        # Schema coverage: 2 of 3 fields have values
+        assert report.metrics.schema_coverage == pytest.approx(2 / 3)
+
+    def test_coupon_form_scenario(self) -> None:
+        """Test the exact scenario from the bug report.
+
+        POST /extract with sample_coupon_code_form.png + schema should not
+        produce schema_violation issues for optional null fields.
+        """
+        schema_info = SchemaInfo(
+            schema={
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "brands_applicable": {"type": "array", "items": {"type": "string"}},
+                    "media_type": {"type": "string"},
+                    "media_name": {"type": "string"},
+                    "issue_frequency": {"type": "string"},
+                    "issue_date": {"type": "string"},
+                    "expiration_date": {"type": "string"},
+                    "coupon_value": {"type": "string"},
+                    "signed_by": {"type": "string"},
+                    "code_assigned": {"type": "string"},
+                },
+                "required": [
+                    "brands_applicable",
+                    "media_type",
+                    "issue_date",
+                    "expiration_date",
+                    "coupon_value",
+                    "code_assigned",
+                ],
+            },
+            required_fields=[
+                FieldInfo(
+                    name="brands_applicable",
+                    path="brands_applicable",
+                    field_type="array",
+                    required=True,
+                ),
+                FieldInfo(
+                    name="media_type",
+                    path="media_type",
+                    field_type="string",
+                    required=True,
+                ),
+                FieldInfo(
+                    name="issue_date",
+                    path="issue_date",
+                    field_type="string",
+                    required=True,
+                ),
+                FieldInfo(
+                    name="expiration_date",
+                    path="expiration_date",
+                    field_type="string",
+                    required=True,
+                ),
+                FieldInfo(
+                    name="coupon_value",
+                    path="coupon_value",
+                    field_type="string",
+                    required=True,
+                ),
+                FieldInfo(
+                    name="code_assigned",
+                    path="code_assigned",
+                    field_type="string",
+                    required=True,
+                ),
+            ],
+            optional_fields=[
+                FieldInfo(
+                    name="title", path="title", field_type="string", required=False
+                ),
+                FieldInfo(
+                    name="media_name",
+                    path="media_name",
+                    field_type="string",
+                    required=False,
+                ),
+                FieldInfo(
+                    name="issue_frequency",
+                    path="issue_frequency",
+                    field_type="string",
+                    required=False,
+                ),
+                FieldInfo(
+                    name="signed_by",
+                    path="signed_by",
+                    field_type="string",
+                    required=False,
+                ),
+            ],
+            schema_type="object",
+        )
+
+        # Simulated extraction with required fields present and optional nulls
+        extraction_result = ExtractionResult(
+            extracted_data={
+                "brands_applicable": ["KOOL", "SALEM"],
+                "media_type": "FSI",
+                "issue_date": "2024-03-15",
+                "expiration_date": "2024-06-15",
+                "coupon_value": "$0.75",
+                "code_assigned": "ABC123",
+                "title": "Coupon Registration Form",
+                # Optional fields are null
+                "media_name": None,
+                "issue_frequency": None,
+                "signed_by": None,
+            },
+            field_extractions=[],
+        )
+
+        agent = QualityVerificationAgent(api_key="test-key")
+
+        report = agent.verify_quick(
+            extraction_result=extraction_result,
+            schema_info=schema_info,
+        )
+
+        # Should NOT have schema violations for null optional fields
+        schema_violations = [
+            i for i in report.issues if i.issue_type == IssueType.SCHEMA_VIOLATION
+        ]
+        assert len(schema_violations) == 0
+
+        # All required fields are present
+        assert report.metrics.required_field_coverage == 1.0
+
+        # Should pass verification
+        assert report.status == VerificationStatus.PASSED

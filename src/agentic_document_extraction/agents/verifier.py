@@ -778,6 +778,43 @@ Respond with ONLY the JSON structure specified."""
 
         return issues
 
+    def _strip_null_optional_fields(
+        self,
+        data: dict[str, Any],
+        schema_info: SchemaInfo,
+    ) -> dict[str, Any]:
+        """Strip null values from optional fields before schema validation.
+
+        This addresses the issue where LLMs return null for optional fields
+        they can't extract, but the schema doesn't allow null (e.g., type: string).
+        Rather than failing schema validation, we omit these optional null fields.
+
+        Args:
+            data: Extracted data to clean.
+            schema_info: Schema information with optional field definitions.
+
+        Returns:
+            Copy of data with null optional fields removed.
+        """
+        import copy
+
+        # Get set of optional field paths (top-level only for now)
+        optional_paths = {f.path for f in schema_info.optional_fields}
+
+        # Create a deep copy to avoid modifying original
+        cleaned = copy.deepcopy(data)
+
+        # Remove null values for optional top-level fields
+        keys_to_remove = []
+        for key, value in cleaned.items():
+            if key in optional_paths and value is None:
+                keys_to_remove.append(key)
+
+        for key in keys_to_remove:
+            del cleaned[key]
+
+        return cleaned
+
     def _validate_against_schema(
         self,
         data: dict[str, Any],
@@ -794,8 +831,12 @@ Respond with ONLY the JSON structure specified."""
         """
         issues: list[VerificationIssue] = []
 
+        # Strip null optional fields before validation to avoid spurious
+        # schema violations when LLM returns null for fields it can't extract
+        cleaned_data = self._strip_null_optional_fields(data, schema_info)
+
         try:
-            jsonschema.validate(instance=data, schema=schema_info.schema)
+            jsonschema.validate(instance=cleaned_data, schema=schema_info.schema)
         except jsonschema.ValidationError as e:
             # Extract field path from the error
             field_path = ".".join(str(p) for p in e.absolute_path) or "root"
