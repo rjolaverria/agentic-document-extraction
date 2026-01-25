@@ -4,6 +4,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from langchain_core.messages import AIMessage
 
 from agentic_document_extraction.output.json_generator import (
     JsonGenerator,
@@ -414,16 +415,17 @@ class TestOutputServiceTokenTracking:
         """Test token tracking includes markdown LLM usage."""
         # Create generator with mock LLM
         markdown_gen = MarkdownGenerator(use_llm=True, api_key="test")
-        mock_llm = MagicMock()
-        mock_response = MagicMock()
-        mock_response.content = "# Summary"
-        mock_response.usage_metadata = {
-            "input_tokens": 50,
-            "output_tokens": 25,
-            "total_tokens": 75,
-        }
-        mock_llm.invoke.return_value = mock_response
-        markdown_gen._llm = mock_llm
+        mock_response = AIMessage(
+            content="# Summary",
+            usage_metadata={
+                "input_tokens": 50,
+                "output_tokens": 25,
+                "total_tokens": 75,
+            },
+        )
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        markdown_gen._agent = mock_agent
 
         service = OutputService(
             markdown_generator=markdown_gen,

@@ -4,6 +4,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+from langchain_core.messages import AIMessage
 
 from agentic_document_extraction.output.markdown_generator import (
     MarkdownGenerator,
@@ -389,17 +390,18 @@ class TestMarkdownGeneratorLLM:
         """Test generating Markdown with mocked LLM."""
         generator = MarkdownGenerator(use_llm=True, api_key="test-key")
 
-        # Create mock LLM
-        mock_llm = MagicMock()
-        mock_response = MagicMock()
-        mock_response.content = "# Generated Summary\n\n**Name:** John Doe"
-        mock_response.usage_metadata = {
-            "input_tokens": 100,
-            "output_tokens": 50,
-            "total_tokens": 150,
-        }
-        mock_llm.invoke.return_value = mock_response
-        generator._llm = mock_llm
+        # Create mock agent
+        mock_response = AIMessage(
+            content="# Generated Summary\n\n**Name:** John Doe",
+            usage_metadata={
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+            },
+        )
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        generator._agent = mock_agent
 
         result = generator.generate(extraction_result, simple_schema_info)
 
@@ -415,10 +417,10 @@ class TestMarkdownGeneratorLLM:
         """Test fallback to template when LLM fails."""
         generator = MarkdownGenerator(use_llm=True, api_key="test-key")
 
-        # Create mock LLM that raises exception
-        mock_llm = MagicMock()
-        mock_llm.invoke.side_effect = Exception("LLM error")
-        generator._llm = mock_llm
+        # Create mock agent that raises exception
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = Exception("LLM error")
+        generator._agent = mock_agent
 
         result = generator.generate(extraction_result, simple_schema_info)
 

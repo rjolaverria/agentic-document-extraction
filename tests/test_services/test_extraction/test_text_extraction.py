@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from langchain_core.documents import Document
+from langchain_core.messages import AIMessage
 
 from agentic_document_extraction.services.extraction.text_extraction import (
     ExtractionError,
@@ -83,22 +84,22 @@ def nested_schema_info(nested_schema: dict[str, Any]) -> SchemaInfo:
 
 
 @pytest.fixture
-def mock_llm_response() -> MagicMock:
+def mock_llm_response() -> AIMessage:
     """Create a mock LLM response."""
-    response = MagicMock()
-    response.content = json.dumps(
-        {
-            "name": "John Doe",
-            "age": 30,
-            "email": "john@example.com",
-        }
+    return AIMessage(
+        content=json.dumps(
+            {
+                "name": "John Doe",
+                "age": 30,
+                "email": "john@example.com",
+            }
+        ),
+        usage_metadata={
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        },
     )
-    response.usage_metadata = {
-        "input_tokens": 100,
-        "output_tokens": 50,
-        "total_tokens": 150,
-    }
-    return response
 
 
 class TestFieldExtraction:
@@ -289,15 +290,15 @@ class TestTextExtractionServiceExtract:
     def test_extract_simple_text(
         self,
         simple_schema_info: SchemaInfo,
-        mock_llm_response: MagicMock,
+        mock_llm_response: AIMessage,
     ) -> None:
         """Test extracting from simple text."""
         service = TextExtractionService(api_key="test-key")
 
-        # Create mock LLM and set it directly
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_llm_response
-        service._llm = mock_llm
+        # Create mock agent and set it directly
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_llm_response]}
+        service._agent = mock_agent
 
         text = (
             "My name is John Doe and I am 30 years old. Contact me at john@example.com."
@@ -319,23 +320,24 @@ class TestTextExtractionServiceExtract:
         """Test extraction with missing optional field."""
         service = TextExtractionService(api_key="test-key")
 
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(
-            {
-                "name": "Jane Doe",
-                "age": 25,
-                "email": None,  # Optional field is null
-            }
+        mock_response = AIMessage(
+            content=json.dumps(
+                {
+                    "name": "Jane Doe",
+                    "age": 25,
+                    "email": None,  # Optional field is null
+                }
+            ),
+            usage_metadata={
+                "input_tokens": 80,
+                "output_tokens": 40,
+                "total_tokens": 120,
+            },
         )
-        mock_response.usage_metadata = {
-            "input_tokens": 80,
-            "output_tokens": 40,
-            "total_tokens": 120,
-        }
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        service._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        service._agent = mock_agent
 
         text = "Jane Doe is 25 years old."
 
@@ -348,14 +350,14 @@ class TestTextExtractionServiceExtract:
     def test_extract_records_token_usage(
         self,
         simple_schema_info: SchemaInfo,
-        mock_llm_response: MagicMock,
+        mock_llm_response: AIMessage,
     ) -> None:
         """Test that token usage is recorded."""
         service = TextExtractionService(api_key="test-key")
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_llm_response
-        service._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_llm_response]}
+        service._agent = mock_agent
 
         result = service.extract("Test text", simple_schema_info)
 
@@ -378,7 +380,7 @@ class TestTextExtractionServiceChunking:
 
         # Create responses for chunks
         chunk_responses = [
-            MagicMock(
+            AIMessage(
                 content=json.dumps({"name": "John Doe", "age": 30, "email": None}),
                 usage_metadata={
                     "input_tokens": 50,
@@ -386,7 +388,7 @@ class TestTextExtractionServiceChunking:
                     "total_tokens": 75,
                 },
             ),
-            MagicMock(
+            AIMessage(
                 content=json.dumps(
                     {"name": None, "age": None, "email": "john@example.com"}
                 ),
@@ -398,9 +400,11 @@ class TestTextExtractionServiceChunking:
             ),
         ]
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.side_effect = chunk_responses
-        service._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = [
+            {"messages": [response]} for response in chunk_responses
+        ]
+        service._agent = mock_agent
 
         # Create long text that will be chunked (needs to exceed 16000 chars to trigger)
         # The _needs_chunking threshold is estimated_tokens > 4000, which is ~16000 chars
@@ -617,14 +621,14 @@ class TestTextExtractionServiceExtractFromDocuments:
     def test_extract_from_documents(
         self,
         simple_schema_info: SchemaInfo,
-        mock_llm_response: MagicMock,
+        mock_llm_response: AIMessage,
     ) -> None:
         """Test extracting from LangChain documents."""
         service = TextExtractionService(api_key="test-key")
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_llm_response
-        service._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_llm_response]}
+        service._agent = mock_agent
 
         documents = [
             Document(page_content="My name is John Doe.", metadata={"source": "doc1"}),
@@ -693,28 +697,29 @@ class TestIntegrationScenarios:
         validator = SchemaValidator()
         schema_info = validator.validate(invoice_schema)
 
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(
-            {
-                "invoice_number": "INV-2024-001",
-                "date": "2024-01-15",
-                "total_amount": 1500.00,
-                "vendor": "Acme Corp",
-                "items": [
-                    {"description": "Widget A", "quantity": 10, "price": 100.00},
-                    {"description": "Widget B", "quantity": 5, "price": 100.00},
-                ],
-            }
+        mock_response = AIMessage(
+            content=json.dumps(
+                {
+                    "invoice_number": "INV-2024-001",
+                    "date": "2024-01-15",
+                    "total_amount": 1500.00,
+                    "vendor": "Acme Corp",
+                    "items": [
+                        {"description": "Widget A", "quantity": 10, "price": 100.00},
+                        {"description": "Widget B", "quantity": 5, "price": 100.00},
+                    ],
+                }
+            ),
+            usage_metadata={
+                "input_tokens": 200,
+                "output_tokens": 100,
+                "total_tokens": 300,
+            },
         )
-        mock_response.usage_metadata = {
-            "input_tokens": 200,
-            "output_tokens": 100,
-            "total_tokens": 300,
-        }
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        service._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        service._agent = mock_agent
 
         text = """
         INVOICE
@@ -755,25 +760,26 @@ class TestIntegrationScenarios:
         validator = SchemaValidator()
         schema_info = validator.validate(contact_schema)
 
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(
-            {
-                "full_name": "Alice Smith",
-                "email": "alice.smith@techcorp.com",
-                "phone": "+1-555-123-4567",
-                "company": "TechCorp Inc.",
-                "title": "Senior Engineer",
-            }
+        mock_response = AIMessage(
+            content=json.dumps(
+                {
+                    "full_name": "Alice Smith",
+                    "email": "alice.smith@techcorp.com",
+                    "phone": "+1-555-123-4567",
+                    "company": "TechCorp Inc.",
+                    "title": "Senior Engineer",
+                }
+            ),
+            usage_metadata={
+                "input_tokens": 150,
+                "output_tokens": 80,
+                "total_tokens": 230,
+            },
         )
-        mock_response.usage_metadata = {
-            "input_tokens": 150,
-            "output_tokens": 80,
-            "total_tokens": 230,
-        }
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        service._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        service._agent = mock_agent
 
         text = """
         Contact Card:

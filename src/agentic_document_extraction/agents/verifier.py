@@ -33,6 +33,12 @@ from agentic_document_extraction.services.extraction.text_extraction import (
     FieldExtraction,
 )
 from agentic_document_extraction.services.schema_validator import FieldInfo, SchemaInfo
+from agentic_document_extraction.utils.agent_helpers import (
+    build_agent,
+    get_message_content,
+    get_usage_metadata,
+    invoke_agent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -408,6 +414,7 @@ Respond with ONLY the JSON structure specified."""
         self.max_tokens = max_tokens or settings.openai_max_tokens
 
         self._llm: ChatOpenAI | None = None
+        self._agent: Any | None = None
 
     @property
     def llm(self) -> ChatOpenAI:
@@ -436,6 +443,16 @@ Respond with ONLY the JSON structure specified."""
             )
 
         return self._llm
+
+    @property
+    def agent(self) -> Any:
+        """Get or create the LangChain agent for verification."""
+        if self._agent is None:
+            self._agent = build_agent(
+                model=self.llm,
+                name="verification-agent",
+            )
+        return self._agent
 
     def verify(
         self,
@@ -1092,12 +1109,18 @@ Respond with ONLY the JSON structure specified."""
 
         try:
             messages = prompt.format_messages()
-            response = self.llm.invoke(messages)
+            response = invoke_agent(
+                self.agent,
+                messages,
+                metadata={
+                    "component": "verification_agent",
+                    "agent_name": "verification-agent",
+                    "model": self.model,
+                },
+            )
 
             # Parse response
-            content = response.content
-            if not isinstance(content, str):
-                content = str(content)
+            content = get_message_content(response)
 
             result = self._parse_llm_response(content)
 
@@ -1111,7 +1134,7 @@ Respond with ONLY the JSON structure specified."""
                     issue.current_value = actual_value
 
             # Extract token usage
-            usage_metadata = getattr(response, "usage_metadata", None) or {}
+            usage_metadata = get_usage_metadata(response)
             prompt_tokens = usage_metadata.get("input_tokens", 0)
             completion_tokens = usage_metadata.get("output_tokens", 0)
             total_tokens = prompt_tokens + completion_tokens

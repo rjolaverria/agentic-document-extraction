@@ -27,6 +27,11 @@ from agentic_document_extraction.services.layout_detector import (
     PageLayoutResult,
     RegionType,
 )
+from agentic_document_extraction.utils.agent_helpers import (
+    build_agent,
+    get_message_content,
+    invoke_agent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -243,19 +248,19 @@ LAYOUT TYPE DETECTION:
 - "complex": Non-standard layout requiring special handling
 
 You must respond with ONLY valid JSON matching this structure:
-{
+{{
   "layout_type": "single_column|multi_column|mixed|complex",
   "ordered_regions": [
-    {
+    {{
       "region_id": "string",
       "order_index": 0,
       "confidence": 0.95,
       "reasoning": "brief explanation",
       "skip_in_reading": false
-    }
+    }}
   ],
   "overall_confidence": 0.9
-}"""
+}}"""
 
     USER_PROMPT_TEMPLATE = """Analyze the following document regions and determine their reading order.
 
@@ -285,6 +290,7 @@ Respond with ONLY the JSON structure specified."""
         self.temperature = temperature if temperature is not None else 0.0
 
         self._llm: ChatOpenAI | None = None
+        self._agent: Any | None = None
 
     @property
     def llm(self) -> ChatOpenAI:
@@ -311,6 +317,16 @@ Respond with ONLY the JSON structure specified."""
             )
 
         return self._llm
+
+    @property
+    def agent(self) -> Any:
+        """Get or create the LangChain agent for reading order detection."""
+        if self._agent is None:
+            self._agent = build_agent(
+                model=self.llm,
+                name="reading-order-agent",
+            )
+        return self._agent
 
     def _format_regions_for_prompt(self, regions: list[LayoutRegion]) -> str:
         """Format regions as JSON for the LLM prompt.
@@ -458,13 +474,20 @@ Respond with ONLY the JSON structure specified."""
 
         # Call the LLM
         try:
-            chain = prompt | self.llm
-            response = chain.invoke(
-                {
-                    "page_width": page_result.page_width,
-                    "page_height": page_result.page_height,
-                    "regions_json": regions_json,
-                }
+            messages = prompt.format_messages(
+                page_width=page_result.page_width,
+                page_height=page_result.page_height,
+                regions_json=regions_json,
+            )
+            response = invoke_agent(
+                self.agent,
+                messages,
+                metadata={
+                    "component": "reading_order_detector",
+                    "agent_name": "reading-order-agent",
+                    "model": self.model,
+                    "page_number": page_result.page_number,
+                },
             )
         except Exception as e:
             raise ReadingOrderError(
@@ -474,9 +497,7 @@ Respond with ONLY the JSON structure specified."""
             ) from e
 
         # Parse the response
-        response_text = response.content
-        if not isinstance(response_text, str):
-            response_text = str(response_text)
+        response_text = get_message_content(response)
 
         ordered_regions, layout_type, overall_confidence = self._parse_llm_response(
             response_text, page_result.regions

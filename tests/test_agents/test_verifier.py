@@ -4,6 +4,7 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
+from langchain_core.messages import AIMessage
 
 from agentic_document_extraction.agents.planner import QualityThreshold
 from agentic_document_extraction.agents.verifier import (
@@ -941,16 +942,19 @@ class TestLLMAnalysis:
             "analysis": "The extraction looks accurate and complete.",
         }
 
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(llm_response)
-        mock_response.usage_metadata = {
-            "input_tokens": 500,
-            "output_tokens": 200,
-        }
+        mock_response = AIMessage(
+            content=json.dumps(llm_response),
+            usage_metadata={
+                "input_tokens": 500,
+                "output_tokens": 200,
+                "total_tokens": 700,
+            },
+        )
 
         agent = QualityVerificationAgent(api_key="test-key")
-        agent._llm = MagicMock()
-        agent._llm.invoke.return_value = mock_response
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        agent._agent = mock_agent
 
         report = agent.verify(
             extraction_result=good_extraction_result,
@@ -998,13 +1002,19 @@ class TestLLMAnalysis:
             "analysis": "Several inconsistencies detected.",
         }
 
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(llm_response)
-        mock_response.usage_metadata = {"input_tokens": 400, "output_tokens": 150}
+        mock_response = AIMessage(
+            content=json.dumps(llm_response),
+            usage_metadata={
+                "input_tokens": 400,
+                "output_tokens": 150,
+                "total_tokens": 550,
+            },
+        )
 
         agent = QualityVerificationAgent(api_key="test-key")
-        agent._llm = MagicMock()
-        agent._llm.invoke.return_value = mock_response
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        agent._agent = mock_agent
 
         report = agent.verify(
             extraction_result=good_extraction_result,
@@ -1030,8 +1040,9 @@ class TestLLMAnalysis:
     ) -> None:
         """Test that verification continues when LLM fails."""
         agent = QualityVerificationAgent(api_key="test-key")
-        agent._llm = MagicMock()
-        agent._llm.invoke.side_effect = Exception("LLM API error")
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = Exception("LLM API error")
+        agent._agent = mock_agent
 
         # Should not raise - falls back to rule-based only
         report = agent.verify(
@@ -1078,13 +1089,19 @@ class TestVerificationStrategies:
             "analysis": "Visual document extraction looks good.",
         }
 
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(llm_response)
-        mock_response.usage_metadata = {"input_tokens": 300, "output_tokens": 100}
+        mock_response = AIMessage(
+            content=json.dumps(llm_response),
+            usage_metadata={
+                "input_tokens": 300,
+                "output_tokens": 100,
+                "total_tokens": 400,
+            },
+        )
 
         agent = QualityVerificationAgent(api_key="test-key")
-        agent._llm = MagicMock()
-        agent._llm.invoke.return_value = mock_response
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        agent._agent = mock_agent
 
         report = agent.verify(
             extraction_result=good_extraction_result,
@@ -1352,13 +1369,19 @@ class TestLLMIssueEnrichment:
             "analysis": "Minor formatting concern.",
         }
 
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(llm_response)
-        mock_response.usage_metadata = {"input_tokens": 300, "output_tokens": 100}
+        mock_response = AIMessage(
+            content=json.dumps(llm_response),
+            usage_metadata={
+                "input_tokens": 300,
+                "output_tokens": 100,
+                "total_tokens": 400,
+            },
+        )
 
         agent = QualityVerificationAgent(api_key="test-key")
-        agent._llm = MagicMock()
-        agent._llm.invoke.return_value = mock_response
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        agent._agent = mock_agent
 
         report = agent.verify(
             extraction_result=extraction_result,
@@ -1412,13 +1435,19 @@ class TestLLMIssueEnrichment:
             "analysis": "Date format issue.",
         }
 
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(llm_response)
-        mock_response.usage_metadata = {"input_tokens": 300, "output_tokens": 100}
+        mock_response = AIMessage(
+            content=json.dumps(llm_response),
+            usage_metadata={
+                "input_tokens": 300,
+                "output_tokens": 100,
+                "total_tokens": 400,
+            },
+        )
 
         agent = QualityVerificationAgent(api_key="test-key")
-        agent._llm = MagicMock()
-        agent._llm.invoke.return_value = mock_response
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        agent._agent = mock_agent
 
         report = agent.verify(
             extraction_result=extraction_result,
@@ -1457,13 +1486,19 @@ class TestLLMIssueEnrichment:
             "analysis": "Analysis.",
         }
 
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(llm_response)
-        mock_response.usage_metadata = {"input_tokens": 300, "output_tokens": 100}
+        mock_response = AIMessage(
+            content=json.dumps(llm_response),
+            usage_metadata={
+                "input_tokens": 300,
+                "output_tokens": 100,
+                "total_tokens": 400,
+            },
+        )
 
         agent = QualityVerificationAgent(api_key="test-key")
-        agent._llm = MagicMock()
-        agent._llm.invoke.return_value = mock_response
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        agent._agent = mock_agent
 
         report = agent.verify(
             extraction_result=complex_extraction_result,
@@ -1547,13 +1582,19 @@ class TestDateFormatValidation:
             "analysis": "Invoice extraction is complete and accurate.",
         }
 
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(llm_response)
-        mock_response.usage_metadata = {"input_tokens": 400, "output_tokens": 150}
+        mock_response = AIMessage(
+            content=json.dumps(llm_response),
+            usage_metadata={
+                "input_tokens": 400,
+                "output_tokens": 150,
+                "total_tokens": 550,
+            },
+        )
 
         agent = QualityVerificationAgent(api_key="test-key")
-        agent._llm = MagicMock()
-        agent._llm.invoke.return_value = mock_response
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        agent._agent = mock_agent
 
         report = agent.verify(
             extraction_result=extraction_result,

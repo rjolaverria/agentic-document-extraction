@@ -2,9 +2,10 @@
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
+from langchain_core.messages import AIMessage
 from PIL import Image
 
 from agentic_document_extraction.services.extraction.text_extraction import (
@@ -196,31 +197,32 @@ class TestVisualDocumentExtractionService:
         assert service._get_nested_value(data, "level1.level2") == {"value": "found"}
         assert service._get_nested_value(data, "nonexistent") is None
 
-    @patch.object(VisualDocumentExtractionService, "llm", new_callable=MagicMock)
     def test_extract_success(
         self,
-        mock_llm: MagicMock,
         sample_image: Image.Image,
         sample_schema_info: SchemaInfo,
     ) -> None:
         """Test successful extraction from image."""
         # Mock response
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(
-            {
-                "brand": "OLD GOLD",
-                "media_type": "DIRECT MAIL",
-                "issue_date": "10/4/99",
-            }
+        mock_response = AIMessage(
+            content=json.dumps(
+                {
+                    "brand": "OLD GOLD",
+                    "media_type": "DIRECT MAIL",
+                    "issue_date": "10/4/99",
+                }
+            ),
+            usage_metadata={
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+            },
         )
-        mock_response.usage_metadata = {
-            "input_tokens": 100,
-            "output_tokens": 50,
-            "total_tokens": 150,
-        }
-        mock_llm.invoke.return_value = mock_response
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
 
         service = VisualDocumentExtractionService(api_key="test-key")
+        service._agent = mock_agent
         result = service.extract(sample_image, sample_schema_info)
 
         assert isinstance(result, ExtractionResult)
@@ -228,20 +230,18 @@ class TestVisualDocumentExtractionService:
         assert result.extracted_data["media_type"] == "DIRECT MAIL"
         assert result.total_tokens == 150
 
-    @patch.object(VisualDocumentExtractionService, "llm", new_callable=MagicMock)
     def test_extract_with_ocr_text(
         self,
-        mock_llm: MagicMock,
         sample_image: Image.Image,
         sample_schema_info: SchemaInfo,
     ) -> None:
         """Test extraction includes OCR text in prompt."""
-        mock_response = MagicMock()
-        mock_response.content = '{"brand": "Test", "media_type": "Email"}'
-        mock_response.usage_metadata = {}
-        mock_llm.invoke.return_value = mock_response
+        mock_response = AIMessage(content='{"brand": "Test", "media_type": "Email"}')
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
 
         service = VisualDocumentExtractionService(api_key="test-key")
+        service._agent = mock_agent
         service.extract(
             sample_image,
             sample_schema_info,
@@ -249,25 +249,25 @@ class TestVisualDocumentExtractionService:
         )
 
         # Verify OCR text was included in the prompt
-        call_args = mock_llm.invoke.call_args
-        messages = call_args[0][0]
+        call_args = mock_agent.invoke.call_args
+        messages = call_args[0][0]["messages"]
         # The second message is the HumanMessage with the prompt
         human_msg = messages[1]
         # Content is a list with text and image_url
         text_content = human_msg.content[0]["text"]
         assert "Some OCR extracted text" in text_content
 
-    @patch.object(VisualDocumentExtractionService, "llm", new_callable=MagicMock)
     def test_extract_llm_error(
         self,
-        mock_llm: MagicMock,
         sample_image: Image.Image,
         sample_schema_info: SchemaInfo,
     ) -> None:
         """Test extraction handles LLM errors."""
-        mock_llm.invoke.side_effect = Exception("API error")
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = Exception("API error")
 
         service = VisualDocumentExtractionService(api_key="test-key")
+        service._agent = mock_agent
         with pytest.raises(VisualExtractionError) as exc_info:
             service.extract(sample_image, sample_schema_info)
 

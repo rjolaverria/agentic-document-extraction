@@ -24,6 +24,12 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from agentic_document_extraction.config import settings
 from agentic_document_extraction.services.schema_validator import SchemaInfo
+from agentic_document_extraction.utils.agent_helpers import (
+    build_agent,
+    get_message_content,
+    get_usage_metadata,
+    invoke_agent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +222,7 @@ Respond with ONLY the extracted JSON data. Ensure all required fields have value
         self.chunk_overlap = chunk_overlap or settings.chunk_overlap
 
         self._llm: ChatOpenAI | None = None
+        self._agent: Any | None = None
         self._text_splitter: RecursiveCharacterTextSplitter | None = None
 
     @property
@@ -245,6 +252,16 @@ Respond with ONLY the extracted JSON data. Ensure all required fields have value
             )
 
         return self._llm
+
+    @property
+    def agent(self) -> Any:
+        """Get or create the LangChain agent for extraction."""
+        if self._agent is None:
+            self._agent = build_agent(
+                model=self.llm,
+                name="text-extraction-agent",
+            )
+        return self._agent
 
     @property
     def text_splitter(self) -> RecursiveCharacterTextSplitter:
@@ -344,17 +361,23 @@ Respond with ONLY the extracted JSON data. Ensure all required fields have value
         try:
             # Format the prompt into actual messages
             messages = prompt.format_messages()
-            response = self.llm.invoke(messages)
+            response = invoke_agent(
+                self.agent,
+                messages,
+                metadata={
+                    "component": "text_extraction",
+                    "agent_name": "text-extraction-agent",
+                    "model": self.model,
+                },
+            )
 
             # Parse response
-            content = response.content
-            if not isinstance(content, str):
-                content = str(content)
+            content = get_message_content(response)
 
             extracted_data = self._parse_json_response(content, schema_info)
 
             # Extract token usage from response
-            usage_metadata = getattr(response, "usage_metadata", None) or {}
+            usage_metadata = get_usage_metadata(response)
             prompt_tokens = usage_metadata.get("input_tokens", 0)
             completion_tokens = usage_metadata.get("output_tokens", 0)
             total_tokens = usage_metadata.get(

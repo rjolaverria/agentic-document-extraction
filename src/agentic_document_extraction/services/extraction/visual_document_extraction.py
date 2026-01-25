@@ -30,6 +30,12 @@ from agentic_document_extraction.services.extraction.text_extraction import (
     FieldExtraction,
 )
 from agentic_document_extraction.services.schema_validator import SchemaInfo
+from agentic_document_extraction.utils.agent_helpers import (
+    build_agent,
+    get_message_content,
+    get_usage_metadata,
+    invoke_agent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +134,7 @@ Respond with ONLY the extracted JSON data. Ensure all required fields have value
         self.max_tokens = max_tokens or settings.openai_max_tokens
 
         self._llm: ChatOpenAI | None = None
+        self._agent: Any | None = None
 
     @property
     def llm(self) -> ChatOpenAI:
@@ -155,6 +162,16 @@ Respond with ONLY the extracted JSON data. Ensure all required fields have value
             )
 
         return self._llm
+
+    @property
+    def agent(self) -> Any:
+        """Get or create the LangChain agent for visual extraction."""
+        if self._agent is None:
+            self._agent = build_agent(
+                model=self.llm,
+                name="visual-extraction-agent",
+            )
+        return self._agent
 
     def _encode_image_to_base64(self, image: Image.Image) -> str:
         """Encode a PIL Image to base64 string.
@@ -284,19 +301,25 @@ Note: The OCR text above may have missed some values. Always verify against the 
         ]
 
         try:
-            # Call the VLM
-            response = self.llm.invoke(messages)
+            # Call the VLM via agent abstraction
+            response = invoke_agent(
+                self.agent,
+                messages,
+                metadata={
+                    "component": "visual_extraction",
+                    "agent_name": "visual-extraction-agent",
+                    "model": self.model,
+                },
+            )
 
             # Extract response content
-            content = response.content
-            if not isinstance(content, str):
-                content = str(content)
+            content = get_message_content(response)
 
             # Parse JSON response
             extracted_data = self._parse_json_response(content, schema_info)
 
             # Extract token usage
-            usage_metadata = getattr(response, "usage_metadata", None) or {}
+            usage_metadata = get_usage_metadata(response)
             prompt_tokens = usage_metadata.get("input_tokens", 0)
             completion_tokens = usage_metadata.get("output_tokens", 0)
             total_tokens = usage_metadata.get(

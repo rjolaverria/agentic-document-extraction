@@ -5,6 +5,7 @@ Each log entry lives in `logs/` as its own file. Add new logs there and referenc
 - 2026-01-24 Fix: Null Optional Fields Schema Violation -> logs/2026-01-24-fix-null-optionals-schema-violation.md
 - 2026-01-24 Fix: Coupon Form Extraction Missing Required Fields -> logs/2026-01-24-fix-coupon-required-fields-missing.md
 - 2026-01-24 Fix: Invoice Date Format False Positive -> logs/2026-01-24-fix-invoice-date-format-false-positive.md
+- 2026-01-24 Feature: LangChain Agent Abstraction -> logs/2026-01-24-feature-langchain-agent-abstraction.md
 - 2026-01-23 Fix: Skills Extracted as Category-Prefixed Strings -> logs/2026-01-23-fix-skills-category-prefixed.md
 - 2026-01-23 Fix: Phone Number Normalization -> logs/2026-01-23-fix-phone-number-normalization.md
 - 2026-01-23 Fix: Spurious Null Value Warnings in CSV Extraction -> logs/2026-01-23-fix-spurious-null-value-warnings.md

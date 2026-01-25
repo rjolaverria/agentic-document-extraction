@@ -4,6 +4,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+from langchain_core.messages import AIMessage
 
 from agentic_document_extraction.services.extraction.region_visual_extraction import (
     DocumentRegionExtractionResult,
@@ -835,16 +836,18 @@ class TestSynthesisServiceSynthesize:
         mock_synthesis_response: str,
     ) -> None:
         """Test successful synthesis."""
-        mock_response = MagicMock()
-        mock_response.content = mock_synthesis_response
-        mock_response.usage_metadata = {
-            "input_tokens": 200,
-            "output_tokens": 100,
-        }
+        mock_response = AIMessage(
+            content=mock_synthesis_response,
+            usage_metadata={
+                "input_tokens": 200,
+                "output_tokens": 100,
+                "total_tokens": 300,
+            },
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        service._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        service._agent = mock_agent
 
         result = service.synthesize(
             sample_region_extraction, sample_reading_order, sample_schema_info
@@ -904,9 +907,9 @@ class TestSynthesisServiceSynthesize:
         sample_schema_info: SchemaInfo,
     ) -> None:
         """Test error handling when LLM call fails."""
-        mock_llm = MagicMock()
-        mock_llm.invoke.side_effect = Exception("API Error")
-        service._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = Exception("API Error")
+        service._agent = mock_agent
 
         with pytest.raises(SynthesisError) as exc_info:
             service.synthesize(
@@ -925,13 +928,14 @@ class TestSynthesisServiceSynthesize:
         mock_synthesis_response: str,
     ) -> None:
         """Test that source references are built correctly."""
-        mock_response = MagicMock()
-        mock_response.content = mock_synthesis_response
-        mock_response.usage_metadata = {}
+        mock_response = AIMessage(
+            content=mock_synthesis_response,
+            usage_metadata={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        service._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        service._agent = mock_agent
 
         result = service.synthesize(
             sample_region_extraction, sample_reading_order, sample_schema_info
@@ -1009,13 +1013,14 @@ class TestSynthesisServiceMultiPage:
             model_used="gpt-4o",
         )
 
-        mock_response = MagicMock()
-        mock_response.content = mock_synthesis_response
-        mock_response.usage_metadata = {}
+        mock_response = AIMessage(
+            content=mock_synthesis_response,
+            usage_metadata={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        service._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        service._agent = mock_agent
 
         result = service.synthesize(
             region_extraction, reading_order, sample_schema_info
@@ -1087,13 +1092,14 @@ class TestSynthesisServiceSynthesizeFromPageResults:
             layout_type="single_column",
         )
 
-        mock_response = MagicMock()
-        mock_response.content = mock_synthesis_response
-        mock_response.usage_metadata = {}
+        mock_response = AIMessage(
+            content=mock_synthesis_response,
+            usage_metadata={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        service._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        service._agent = mock_agent
 
         result = service.synthesize_from_page_results(
             page_extractions=[page1_extraction, page2_extraction],
@@ -1117,16 +1123,18 @@ class TestSynthesisServiceIntegration:
         mock_synthesis_response: str,
     ) -> None:
         """Test complete synthesis pipeline."""
-        mock_response = MagicMock()
-        mock_response.content = mock_synthesis_response
-        mock_response.usage_metadata = {
-            "input_tokens": 200,
-            "output_tokens": 100,
-        }
+        mock_response = AIMessage(
+            content=mock_synthesis_response,
+            usage_metadata={
+                "input_tokens": 200,
+                "output_tokens": 100,
+                "total_tokens": 300,
+            },
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        service._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        service._agent = mock_agent
 
         result = service.synthesize(
             sample_region_extraction, sample_reading_order, sample_schema_info
@@ -1214,23 +1222,24 @@ class TestSynthesisServiceIntegration:
             schema_type="object",
         )
 
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(
-            {
-                "extracted_data": {
-                    "document": {
-                        "header": {"title": "Report", "date": "2024"},
-                        "body": {"sections": []},
-                    }
-                },
-                "overall_confidence": 0.9,
-            }
+        mock_response = AIMessage(
+            content=json.dumps(
+                {
+                    "extracted_data": {
+                        "document": {
+                            "header": {"title": "Report", "date": "2024"},
+                            "body": {"sections": []},
+                        }
+                    },
+                    "overall_confidence": 0.9,
+                }
+            ),
+            usage_metadata={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
         )
-        mock_response.usage_metadata = {}
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        service._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        service._agent = mock_agent
 
         result = service.synthesize(
             sample_region_extraction, sample_reading_order, schema_info

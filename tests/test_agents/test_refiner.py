@@ -4,6 +4,7 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
+from langchain_core.messages import AIMessage
 
 from agentic_document_extraction.agents.planner import (
     DocumentCharacteristics,
@@ -529,16 +530,19 @@ class TestRefinementAgent:
             "email": "john.smith@example.com",
         }
 
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(refined_data)
-        mock_response.usage_metadata = {
-            "input_tokens": 800,
-            "output_tokens": 100,
-        }
+        mock_response = AIMessage(
+            content=json.dumps(refined_data),
+            usage_metadata={
+                "input_tokens": 800,
+                "output_tokens": 100,
+                "total_tokens": 900,
+            },
+        )
 
         agent = RefinementAgent(api_key="test-key")
-        agent._llm = MagicMock()
-        agent._llm.invoke.return_value = mock_response
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        agent._agent = mock_agent
 
         feedback = RefinementFeedback(
             focus_fields=["name", "email"],
@@ -577,13 +581,19 @@ class TestRefinementAgent:
             "email": "john.doe@newdomain.com",  # Only email changed
         }
 
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(refined_data)
-        mock_response.usage_metadata = {"input_tokens": 500, "output_tokens": 50}
+        mock_response = AIMessage(
+            content=json.dumps(refined_data),
+            usage_metadata={
+                "input_tokens": 500,
+                "output_tokens": 50,
+                "total_tokens": 550,
+            },
+        )
 
         agent = RefinementAgent(api_key="test-key")
-        agent._llm = MagicMock()
-        agent._llm.invoke.return_value = mock_response
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        agent._agent = mock_agent
 
         feedback = RefinementFeedback(
             focus_fields=["email"],
@@ -1100,13 +1110,19 @@ class TestComplexSchemaRefinement:
             "products": ["Widget", "Gadget"],
         }
 
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(refined_data)
-        mock_response.usage_metadata = {"input_tokens": 300, "output_tokens": 50}
+        mock_response = AIMessage(
+            content=json.dumps(refined_data),
+            usage_metadata={
+                "input_tokens": 300,
+                "output_tokens": 50,
+                "total_tokens": 350,
+            },
+        )
 
         agent = RefinementAgent(api_key="test-key")
-        agent._llm = MagicMock()
-        agent._llm.invoke.return_value = mock_response
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        agent._agent = mock_agent
 
         feedback = RefinementFeedback(
             focus_fields=["company.name", "products"],

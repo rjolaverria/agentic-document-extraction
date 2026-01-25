@@ -6,6 +6,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+from langchain_core.messages import AIMessage
 from PIL import Image
 
 from agentic_document_extraction.services.extraction.region_visual_extraction import (
@@ -794,16 +795,18 @@ class TestRegionVisualExtractorSingleExtraction:
         mock_vlm_response_text: str,
     ) -> None:
         """Test extracting from a text region."""
-        mock_response = MagicMock()
-        mock_response.content = mock_vlm_response_text
-        mock_response.usage_metadata = {
-            "input_tokens": 150,
-            "output_tokens": 50,
-        }
+        mock_response = AIMessage(
+            content=mock_vlm_response_text,
+            usage_metadata={
+                "input_tokens": 150,
+                "output_tokens": 50,
+                "total_tokens": 200,
+            },
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        extractor._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        extractor._agent = mock_agent
 
         result = extractor.extract_from_region(
             region=sample_region,
@@ -828,13 +831,14 @@ class TestRegionVisualExtractorSingleExtraction:
         mock_vlm_response_table: str,
     ) -> None:
         """Test extracting from a table region."""
-        mock_response = MagicMock()
-        mock_response.content = mock_vlm_response_table
-        mock_response.usage_metadata = {}
+        mock_response = AIMessage(
+            content=mock_vlm_response_table,
+            usage_metadata={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        extractor._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        extractor._agent = mock_agent
 
         result = extractor.extract_from_region(
             region=sample_table_region,
@@ -857,13 +861,14 @@ class TestRegionVisualExtractorSingleExtraction:
         mock_vlm_response_figure: str,
     ) -> None:
         """Test extracting from a figure region."""
-        mock_response = MagicMock()
-        mock_response.content = mock_vlm_response_figure
-        mock_response.usage_metadata = {}
+        mock_response = AIMessage(
+            content=mock_vlm_response_figure,
+            usage_metadata={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        extractor._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        extractor._agent = mock_agent
 
         result = extractor.extract_from_region(
             region=sample_figure_region,
@@ -897,13 +902,14 @@ class TestRegionVisualExtractorSingleExtraction:
             create_ordered_region(regions[2], 2),
         ]
 
-        mock_response = MagicMock()
-        mock_response.content = mock_vlm_response_text
-        mock_response.usage_metadata = {}
+        mock_response = AIMessage(
+            content=mock_vlm_response_text,
+            usage_metadata={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        extractor._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        extractor._agent = mock_agent
 
         extractor.extract_from_region(
             region=sample_region,
@@ -915,8 +921,8 @@ class TestRegionVisualExtractorSingleExtraction:
         )
 
         # Verify the invoke was called
-        mock_llm.invoke.assert_called_once()
-        call_messages = mock_llm.invoke.call_args[0][0]
+        mock_agent.invoke.assert_called_once()
+        call_messages = mock_agent.invoke.call_args[0][0]["messages"]
 
         # Check that context is in the user message
         user_message = call_messages[1]
@@ -940,13 +946,14 @@ class TestRegionVisualExtractorSingleExtraction:
             },
         }
 
-        mock_response = MagicMock()
-        mock_response.content = mock_vlm_response_text
-        mock_response.usage_metadata = {}
+        mock_response = AIMessage(
+            content=mock_vlm_response_text,
+            usage_metadata={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        extractor._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        extractor._agent = mock_agent
 
         extractor.extract_from_region(
             region=sample_region,
@@ -957,7 +964,7 @@ class TestRegionVisualExtractorSingleExtraction:
         )
 
         # Verify schema is included in the system prompt
-        call_messages = mock_llm.invoke.call_args[0][0]
+        call_messages = mock_agent.invoke.call_args[0][0]["messages"]
         system_message = call_messages[0]
         assert "invoice_number" in str(system_message.content)
 
@@ -968,9 +975,9 @@ class TestRegionVisualExtractorSingleExtraction:
         sample_image: Image.Image,
     ) -> None:
         """Test error handling when LLM call fails."""
-        mock_llm = MagicMock()
-        mock_llm.invoke.side_effect = Exception("API Error")
-        extractor._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = Exception("API Error")
+        extractor._agent = mock_agent
 
         with pytest.raises(RegionVisualExtractionError) as exc_info:
             extractor.extract_from_region(
@@ -1004,17 +1011,30 @@ class TestRegionVisualExtractorMultiExtraction:
             "r2": create_test_image(700, 250),
         }
 
-        mock_response_text = MagicMock()
-        mock_response_text.content = mock_vlm_response_text
-        mock_response_text.usage_metadata = {"input_tokens": 100, "output_tokens": 50}
+        mock_response_text = AIMessage(
+            content=mock_vlm_response_text,
+            usage_metadata={
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+            },
+        )
 
-        mock_response_table = MagicMock()
-        mock_response_table.content = mock_vlm_response_table
-        mock_response_table.usage_metadata = {"input_tokens": 150, "output_tokens": 75}
+        mock_response_table = AIMessage(
+            content=mock_vlm_response_table,
+            usage_metadata={
+                "input_tokens": 150,
+                "output_tokens": 75,
+                "total_tokens": 225,
+            },
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.side_effect = [mock_response_text, mock_response_table]
-        extractor._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = [
+            {"messages": [mock_response_text]},
+            {"messages": [mock_response_table]},
+        ]
+        extractor._agent = mock_agent
 
         result = extractor.extract_from_regions(
             regions=regions,
@@ -1045,16 +1065,17 @@ class TestRegionVisualExtractorMultiExtraction:
             "r2": create_test_image(400, 150),
         }
 
-        mock_response_success = MagicMock()
-        mock_response_success.content = mock_vlm_response_text
-        mock_response_success.usage_metadata = {}
+        mock_response_success = AIMessage(
+            content=mock_vlm_response_text,
+            usage_metadata={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.side_effect = [
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = [
             Exception("API Error"),  # First call fails
-            mock_response_success,  # Second call succeeds
+            {"messages": [mock_response_success]},  # Second call succeeds
         ]
-        extractor._llm = mock_llm
+        extractor._agent = mock_agent
 
         result = extractor.extract_from_regions(
             regions=regions,
@@ -1089,9 +1110,9 @@ class TestRegionVisualExtractorMultiExtraction:
             "r2": create_test_image(400, 150),
         }
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.side_effect = Exception("API Error")
-        extractor._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = Exception("API Error")
+        extractor._agent = mock_agent
 
         with pytest.raises(RegionVisualExtractionError):
             extractor.extract_from_regions(
@@ -1119,13 +1140,14 @@ class TestRegionVisualExtractorMultiExtraction:
             # r2 is missing
         }
 
-        mock_response = MagicMock()
-        mock_response.content = mock_vlm_response_text
-        mock_response.usage_metadata = {}
+        mock_response = AIMessage(
+            content=mock_vlm_response_text,
+            usage_metadata={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        extractor._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        extractor._agent = mock_agent
 
         result = extractor.extract_from_regions(
             regions=regions,
@@ -1154,17 +1176,22 @@ class TestRegionVisualExtractorPageExtraction:
             create_region("r2", RegionType.TABLE, 100, 250, 800, 500),
         ]
 
-        mock_response_text = MagicMock()
-        mock_response_text.content = mock_vlm_response_text
-        mock_response_text.usage_metadata = {}
+        mock_response_text = AIMessage(
+            content=mock_vlm_response_text,
+            usage_metadata={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
 
-        mock_response_table = MagicMock()
-        mock_response_table.content = mock_vlm_response_table
-        mock_response_table.usage_metadata = {}
+        mock_response_table = AIMessage(
+            content=mock_vlm_response_table,
+            usage_metadata={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.side_effect = [mock_response_text, mock_response_table]
-        extractor._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = [
+            {"messages": [mock_response_text]},
+            {"messages": [mock_response_table]},
+        ]
+        extractor._agent = mock_agent
 
         result = extractor.extract_from_page(
             page_image=page_image,
@@ -1196,17 +1223,22 @@ class TestRegionVisualExtractorPageExtraction:
         )
         regions = [parent, child]
 
-        mock_response_figure = MagicMock()
-        mock_response_figure.content = mock_vlm_response_figure
-        mock_response_figure.usage_metadata = {}
+        mock_response_figure = AIMessage(
+            content=mock_vlm_response_figure,
+            usage_metadata={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
 
-        mock_response_caption = MagicMock()
-        mock_response_caption.content = mock_vlm_response_text
-        mock_response_caption.usage_metadata = {}
+        mock_response_caption = AIMessage(
+            content=mock_vlm_response_text,
+            usage_metadata={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.side_effect = [mock_response_figure, mock_response_caption]
-        extractor._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = [
+            {"messages": [mock_response_figure]},
+            {"messages": [mock_response_caption]},
+        ]
+        extractor._agent = mock_agent
 
         result = extractor.extract_from_page(
             page_image=page_image,
@@ -1282,15 +1314,45 @@ class TestRegionVisualExtractorIntegration:
 
         # Mock responses
         mock_responses = [
-            MagicMock(content=mock_vlm_response_text, usage_metadata={}),
-            MagicMock(content=mock_vlm_response_text, usage_metadata={}),
-            MagicMock(content=mock_vlm_response_table, usage_metadata={}),
-            MagicMock(content=mock_vlm_response_figure, usage_metadata={}),
+            AIMessage(
+                content=mock_vlm_response_text,
+                usage_metadata={
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "total_tokens": 0,
+                },
+            ),
+            AIMessage(
+                content=mock_vlm_response_text,
+                usage_metadata={
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "total_tokens": 0,
+                },
+            ),
+            AIMessage(
+                content=mock_vlm_response_table,
+                usage_metadata={
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "total_tokens": 0,
+                },
+            ),
+            AIMessage(
+                content=mock_vlm_response_figure,
+                usage_metadata={
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                    "total_tokens": 0,
+                },
+            ),
         ]
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.side_effect = mock_responses
-        extractor._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = [
+            {"messages": [response]} for response in mock_responses
+        ]
+        extractor._agent = mock_agent
 
         result = extractor.extract_from_page(
             page_image=page_image,
@@ -1329,13 +1391,14 @@ class TestRegionVisualExtractorIntegration:
 
         ocr_text = "Invoice Number: INV-2024-001\nDate: January 15, 2024"
 
-        mock_response = MagicMock()
-        mock_response.content = mock_vlm_response_text
-        mock_response.usage_metadata = {}
+        mock_response = AIMessage(
+            content=mock_vlm_response_text,
+            usage_metadata={"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+        )
 
-        mock_llm = MagicMock()
-        mock_llm.invoke.return_value = mock_response
-        extractor._llm = mock_llm
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        extractor._agent = mock_agent
 
         result = extractor.extract_from_region(
             region=region,
@@ -1346,7 +1409,7 @@ class TestRegionVisualExtractorIntegration:
         )
 
         # Verify OCR text was included in the prompt
-        call_messages = mock_llm.invoke.call_args[0][0]
+        call_messages = mock_agent.invoke.call_args[0][0]["messages"]
         user_message_content = str(call_messages[1].content)
         assert "Invoice Number" in user_message_content
         assert "INV-2024-001" in user_message_content

@@ -32,6 +32,12 @@ from agentic_document_extraction.services.layout_detector import (
     RegionType,
 )
 from agentic_document_extraction.services.reading_order_detector import OrderedRegion
+from agentic_document_extraction.utils.agent_helpers import (
+    build_agent,
+    get_message_content,
+    get_usage_metadata,
+    invoke_agent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -434,6 +440,7 @@ Respond with ONLY valid JSON."""
         self.max_tokens = max_tokens or settings.openai_max_tokens
 
         self._llm: ChatOpenAI | None = None
+        self._agent: Any | None = None
 
     @property
     def llm(self) -> ChatOpenAI:
@@ -460,6 +467,16 @@ Respond with ONLY valid JSON."""
             )
 
         return self._llm
+
+    @property
+    def agent(self) -> Any:
+        """Get or create the LangChain agent for region extraction."""
+        if self._agent is None:
+            self._agent = build_agent(
+                model=self.llm,
+                name="region-visual-extraction-agent",
+            )
+        return self._agent
 
     def _encode_image_to_base64(self, image: Image.Image) -> str:
         """Encode a PIL Image to base64 string.
@@ -770,13 +787,20 @@ Respond with ONLY valid JSON."""
         ]
 
         try:
-            # Call the VLM
-            response = self.llm.invoke(messages)
+            # Call the VLM via agent abstraction
+            response = invoke_agent(
+                self.agent,
+                messages,
+                metadata={
+                    "component": "region_visual_extraction",
+                    "agent_name": "region-visual-extraction-agent",
+                    "model": self.model,
+                    "region_id": region.region_id,
+                },
+            )
 
             # Extract response content
-            response_text = response.content
-            if not isinstance(response_text, str):
-                response_text = str(response_text)
+            response_text = get_message_content(response)
 
             # Parse response
             extracted_content, confidence, reasoning = self._parse_response(
@@ -784,7 +808,7 @@ Respond with ONLY valid JSON."""
             )
 
             # Extract token usage
-            usage_metadata = getattr(response, "usage_metadata", None) or {}
+            usage_metadata = get_usage_metadata(response)
             prompt_tokens = usage_metadata.get("input_tokens", 0)
             completion_tokens = usage_metadata.get("output_tokens", 0)
 

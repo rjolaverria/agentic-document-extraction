@@ -43,6 +43,12 @@ from agentic_document_extraction.services.extraction.text_extraction import (
     FieldExtraction,
 )
 from agentic_document_extraction.services.schema_validator import SchemaInfo
+from agentic_document_extraction.utils.agent_helpers import (
+    build_agent,
+    get_message_content,
+    get_usage_metadata,
+    invoke_agent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -290,6 +296,7 @@ Provide an improved extraction addressing the issues above. Respond with ONLY th
         self.max_tokens = max_tokens or settings.openai_max_tokens
 
         self._llm: ChatOpenAI | None = None
+        self._agent: Any | None = None
         self._conversation_history: list[BaseMessage] = []
 
     @property
@@ -319,6 +326,16 @@ Provide an improved extraction addressing the issues above. Respond with ONLY th
             )
 
         return self._llm
+
+    @property
+    def agent(self) -> Any:
+        """Get or create the LangChain agent for refinement."""
+        if self._agent is None:
+            self._agent = build_agent(
+                model=self.llm,
+                name="refinement-agent",
+            )
+        return self._agent
 
     def reset_memory(self) -> None:
         """Reset the conversation history for a new extraction task."""
@@ -515,17 +532,23 @@ Provide an improved extraction addressing the issues above. Respond with ONLY th
             # Add to conversation history for context
             self._conversation_history.extend(messages)
 
-            response = self.llm.invoke(messages)
+            response = invoke_agent(
+                self.agent,
+                messages,
+                metadata={
+                    "component": "refinement_agent",
+                    "agent_name": "refinement-agent",
+                    "model": self.model,
+                },
+            )
 
             # Parse response
-            content = response.content
-            if not isinstance(content, str):
-                content = str(content)
+            content = get_message_content(response)
 
             refined_data = self._parse_json_response(content, schema_info)
 
             # Extract token usage
-            usage_metadata = getattr(response, "usage_metadata", None) or {}
+            usage_metadata = get_usage_metadata(response)
             prompt_tokens = usage_metadata.get("input_tokens", 0)
             completion_tokens = usage_metadata.get("output_tokens", 0)
             total_tokens = prompt_tokens + completion_tokens

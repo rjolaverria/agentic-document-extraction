@@ -17,6 +17,12 @@ from agentic_document_extraction.services.extraction.text_extraction import (
     FieldExtraction,
 )
 from agentic_document_extraction.services.schema_validator import SchemaInfo
+from agentic_document_extraction.utils.agent_helpers import (
+    build_agent,
+    get_message_content,
+    get_usage_metadata,
+    invoke_agent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +106,7 @@ Include source references where available."""
         self.api_key = api_key if api_key is not None else settings.get_openai_api_key()
         self.model = model or settings.openai_model
         self._llm: ChatOpenAI | None = None
+        self._agent: Any | None = None
 
     @property
     def llm(self) -> ChatOpenAI | None:
@@ -120,6 +127,18 @@ Include source references where available."""
             )
 
         return self._llm
+
+    @property
+    def agent(self) -> Any | None:
+        """Get or create the LangChain agent for Markdown generation."""
+        if self.llm is None:
+            return None
+        if self._agent is None:
+            self._agent = build_agent(
+                model=self.llm,
+                name="markdown-generator-agent",
+            )
+        return self._agent
 
     def generate(
         self,
@@ -194,6 +213,8 @@ Include source references where available."""
         """
         if self.llm is None:
             raise ValueError("LLM not available")
+        if self.agent is None:
+            raise ValueError("Agent not available")
 
         # Build schema description
         schema_description = self._build_schema_description(schema_info)
@@ -220,14 +241,20 @@ Include source references where available."""
             field_details=field_details,
         )
 
-        response = self.llm.invoke(messages)
+        response = invoke_agent(
+            self.agent,
+            messages,
+            metadata={
+                "component": "markdown_generator",
+                "agent_name": "markdown-generator-agent",
+                "model": self.model,
+            },
+        )
 
-        content = response.content
-        if not isinstance(content, str):
-            content = str(content)
+        content = get_message_content(response)
 
         # Extract token usage
-        usage_metadata = getattr(response, "usage_metadata", None) or {}
+        usage_metadata = get_usage_metadata(response)
         token_usage = {
             "prompt_tokens": usage_metadata.get("input_tokens", 0),
             "completion_tokens": usage_metadata.get("output_tokens", 0),

@@ -4,6 +4,7 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
+from langchain_core.messages import AIMessage
 
 from agentic_document_extraction.agents.planner import (
     DocumentCharacteristics,
@@ -759,17 +760,19 @@ class TestLLMPlanning:
         }
 
         # Setup mock
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(llm_response)
-        mock_response.usage_metadata = {
-            "input_tokens": 500,
-            "output_tokens": 300,
-            "total_tokens": 800,
-        }
+        mock_response = AIMessage(
+            content=json.dumps(llm_response),
+            usage_metadata={
+                "input_tokens": 500,
+                "output_tokens": 300,
+                "total_tokens": 800,
+            },
+        )
 
         agent = ExtractionPlanningAgent(api_key="test-key")
-        agent._llm = MagicMock()
-        agent._llm.invoke.return_value = mock_response
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        agent._agent = mock_agent
 
         plan = agent.create_plan(
             schema_info=complex_schema_info,
@@ -819,9 +822,14 @@ class TestLLMPlanning:
             "estimated_confidence": 0.75,
         }
 
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(llm_response)
-        mock_response.usage_metadata = {"input_tokens": 100, "output_tokens": 100}
+        mock_response = AIMessage(
+            content=json.dumps(llm_response),
+            usage_metadata={
+                "input_tokens": 100,
+                "output_tokens": 100,
+                "total_tokens": 200,
+            },
+        )
 
         schema_info = SchemaInfo(
             schema={"type": "object", "properties": {"test": {"type": "string"}}},
@@ -831,8 +839,9 @@ class TestLLMPlanning:
         )
 
         agent = ExtractionPlanningAgent(api_key="test-key")
-        agent._llm = MagicMock()
-        agent._llm.invoke.return_value = mock_response
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        agent._agent = mock_agent
 
         plan = agent.create_plan(
             schema_info=schema_info,

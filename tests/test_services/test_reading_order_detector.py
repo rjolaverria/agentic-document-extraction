@@ -4,6 +4,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+from langchain_core.messages import AIMessage
 
 from agentic_document_extraction.services.layout_detector import (
     LayoutRegion,
@@ -686,24 +687,12 @@ class TestReadingOrderDetectorWithMockedLLM:
         """Test reading order detection for single column layout."""
         page_layout = create_page_layout(single_column_regions)
 
-        mock_response = MagicMock()
-        mock_response.content = mock_llm_response_single_column
+        mock_response = AIMessage(content=mock_llm_response_single_column)
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        detector._agent = mock_agent
 
-        mock_chain = MagicMock()
-        mock_chain.invoke.return_value = mock_response
-
-        # Patch ChatPromptTemplate to return a mock that creates our chain
-        with patch(
-            "agentic_document_extraction.services.reading_order_detector.ChatPromptTemplate"
-        ) as mock_prompt_class:
-            mock_prompt = MagicMock()
-            mock_prompt.__or__ = MagicMock(return_value=mock_chain)
-            mock_prompt_class.from_messages.return_value = mock_prompt
-
-            # Set _llm to avoid API key validation
-            detector._llm = MagicMock()
-
-            result = detector.detect_reading_order_for_page(page_layout)
+        result = detector.detect_reading_order_for_page(page_layout)
 
         assert result.page_number == 1
         assert result.layout_type == "single_column"
@@ -719,22 +708,12 @@ class TestReadingOrderDetectorWithMockedLLM:
         """Test reading order detection for multi-column layout."""
         page_layout = create_page_layout(multi_column_regions)
 
-        mock_response = MagicMock()
-        mock_response.content = mock_llm_response_multi_column
+        mock_response = AIMessage(content=mock_llm_response_multi_column)
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        detector._agent = mock_agent
 
-        mock_chain = MagicMock()
-        mock_chain.invoke.return_value = mock_response
-
-        with patch(
-            "agentic_document_extraction.services.reading_order_detector.ChatPromptTemplate"
-        ) as mock_prompt_class:
-            mock_prompt = MagicMock()
-            mock_prompt.__or__ = MagicMock(return_value=mock_chain)
-            mock_prompt_class.from_messages.return_value = mock_prompt
-
-            detector._llm = MagicMock()
-
-            result = detector.detect_reading_order_for_page(page_layout)
+        result = detector.detect_reading_order_for_page(page_layout)
 
         assert result.page_number == 1
         assert result.layout_type == "multi_column"
@@ -766,33 +745,27 @@ class TestReadingOrderDetectorWithMockedLLM:
         ]
         page2_layout = create_page_layout(page2_regions, page_number=2)
 
-        mock_response_page1 = MagicMock()
-        mock_response_page1.content = mock_llm_response_single_column
-
-        mock_response_page2 = MagicMock()
-        mock_response_page2.content = json.dumps(
-            {
-                "layout_type": "single_column",
-                "ordered_regions": [
-                    {"region_id": "r5", "order_index": 0, "confidence": 0.93},
-                ],
-                "overall_confidence": 0.93,
-            }
+        mock_response_page1 = AIMessage(content=mock_llm_response_single_column)
+        mock_response_page2 = AIMessage(
+            content=json.dumps(
+                {
+                    "layout_type": "single_column",
+                    "ordered_regions": [
+                        {"region_id": "r5", "order_index": 0, "confidence": 0.93},
+                    ],
+                    "overall_confidence": 0.93,
+                }
+            )
         )
 
-        mock_chain = MagicMock()
-        mock_chain.invoke.side_effect = [mock_response_page1, mock_response_page2]
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = [
+            {"messages": [mock_response_page1]},
+            {"messages": [mock_response_page2]},
+        ]
+        detector._agent = mock_agent
 
-        with patch(
-            "agentic_document_extraction.services.reading_order_detector.ChatPromptTemplate"
-        ) as mock_prompt_class:
-            mock_prompt = MagicMock()
-            mock_prompt.__or__ = MagicMock(return_value=mock_chain)
-            mock_prompt_class.from_messages.return_value = mock_prompt
-
-            detector._llm = MagicMock()
-
-            result = detector.detect_reading_order([page1_layout, page2_layout])
+        result = detector.detect_reading_order([page1_layout, page2_layout])
 
         assert result.total_pages == 2
         assert result.total_regions == 5  # 4 from page 1 + 1 from page 2
@@ -807,20 +780,12 @@ class TestReadingOrderDetectorWithMockedLLM:
         """Test error handling when LLM call fails."""
         page_layout = create_page_layout(single_column_regions)
 
-        mock_chain = MagicMock()
-        mock_chain.invoke.side_effect = Exception("LLM API error")
+        mock_agent = MagicMock()
+        mock_agent.invoke.side_effect = Exception("LLM API error")
+        detector._agent = mock_agent
 
-        with patch(
-            "agentic_document_extraction.services.reading_order_detector.ChatPromptTemplate"
-        ) as mock_prompt_class:
-            mock_prompt = MagicMock()
-            mock_prompt.__or__ = MagicMock(return_value=mock_chain)
-            mock_prompt_class.from_messages.return_value = mock_prompt
-
-            detector._llm = MagicMock()
-
-            with pytest.raises(ReadingOrderError) as exc_info:
-                detector.detect_reading_order_for_page(page_layout)
+        with pytest.raises(ReadingOrderError) as exc_info:
+            detector.detect_reading_order_for_page(page_layout)
 
         assert "LLM call failed" in str(exc_info.value)
 
@@ -1029,80 +994,73 @@ class TestReadingOrderDetectorIntegration:
         complex_layout_regions: list[LayoutRegion],
     ) -> None:
         """Test reading order for complex layout with figures and tables."""
-        mock_response = MagicMock()
-        mock_response.content = json.dumps(
-            {
-                "layout_type": "complex",
-                "ordered_regions": [
-                    {
-                        "region_id": "r1",
-                        "order_index": 0,
-                        "confidence": 0.95,
-                        "reasoning": "Title",
-                        "skip_in_reading": False,
-                    },
-                    {
-                        "region_id": "r2",
-                        "order_index": 1,
-                        "confidence": 0.92,
-                        "reasoning": "Body text before figure",
-                        "skip_in_reading": False,
-                    },
-                    {
-                        "region_id": "r3",
-                        "order_index": 2,
-                        "confidence": 0.88,
-                        "reasoning": "Figure",
-                        "skip_in_reading": False,
-                    },
-                    {
-                        "region_id": "r4",
-                        "order_index": 3,
-                        "confidence": 0.90,
-                        "reasoning": "Figure caption",
-                        "skip_in_reading": False,
-                    },
-                    {
-                        "region_id": "r5",
-                        "order_index": 4,
-                        "confidence": 0.85,
-                        "reasoning": "Text beside figure",
-                        "skip_in_reading": False,
-                    },
-                    {
-                        "region_id": "r6",
-                        "order_index": 5,
-                        "confidence": 0.87,
-                        "reasoning": "Table on right",
-                        "skip_in_reading": False,
-                    },
-                    {
-                        "region_id": "r7",
-                        "order_index": 6,
-                        "confidence": 0.80,
-                        "reasoning": "Footnote",
-                        "skip_in_reading": True,
-                    },
-                ],
-                "overall_confidence": 0.88,
-            }
+        mock_response = AIMessage(
+            content=json.dumps(
+                {
+                    "layout_type": "complex",
+                    "ordered_regions": [
+                        {
+                            "region_id": "r1",
+                            "order_index": 0,
+                            "confidence": 0.95,
+                            "reasoning": "Title",
+                            "skip_in_reading": False,
+                        },
+                        {
+                            "region_id": "r2",
+                            "order_index": 1,
+                            "confidence": 0.92,
+                            "reasoning": "Body text before figure",
+                            "skip_in_reading": False,
+                        },
+                        {
+                            "region_id": "r3",
+                            "order_index": 2,
+                            "confidence": 0.88,
+                            "reasoning": "Figure",
+                            "skip_in_reading": False,
+                        },
+                        {
+                            "region_id": "r4",
+                            "order_index": 3,
+                            "confidence": 0.90,
+                            "reasoning": "Figure caption",
+                            "skip_in_reading": False,
+                        },
+                        {
+                            "region_id": "r5",
+                            "order_index": 4,
+                            "confidence": 0.85,
+                            "reasoning": "Text beside figure",
+                            "skip_in_reading": False,
+                        },
+                        {
+                            "region_id": "r6",
+                            "order_index": 5,
+                            "confidence": 0.87,
+                            "reasoning": "Table on right",
+                            "skip_in_reading": False,
+                        },
+                        {
+                            "region_id": "r7",
+                            "order_index": 6,
+                            "confidence": 0.80,
+                            "reasoning": "Footnote",
+                            "skip_in_reading": True,
+                        },
+                    ],
+                    "overall_confidence": 0.88,
+                }
+            )
         )
 
         page_layout = create_page_layout(complex_layout_regions)
 
-        mock_chain = MagicMock()
-        mock_chain.invoke.return_value = mock_response
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        detector._agent = mock_agent
 
-        with patch(
-            "agentic_document_extraction.services.reading_order_detector.ChatPromptTemplate"
-        ) as mock_prompt_class:
-            mock_prompt = MagicMock()
-            mock_prompt.__or__ = MagicMock(return_value=mock_chain)
-            mock_prompt_class.from_messages.return_value = mock_prompt
-
-            detector._llm = MagicMock()
-
-            result = detector.detect_reading_order_for_page(page_layout)
+        result = detector.detect_reading_order_for_page(page_layout)
 
         assert result.layout_type == "complex"
         assert len(result.ordered_regions) == 7
@@ -1120,22 +1078,12 @@ class TestReadingOrderDetectorIntegration:
         """Test that reading sequence properly excludes skipped regions."""
         page_layout = create_page_layout(single_column_regions)
 
-        mock_response = MagicMock()
-        mock_response.content = mock_llm_response_single_column
+        mock_response = AIMessage(content=mock_llm_response_single_column)
+        mock_agent = MagicMock()
+        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        detector._agent = mock_agent
 
-        mock_chain = MagicMock()
-        mock_chain.invoke.return_value = mock_response
-
-        with patch(
-            "agentic_document_extraction.services.reading_order_detector.ChatPromptTemplate"
-        ) as mock_prompt_class:
-            mock_prompt = MagicMock()
-            mock_prompt.__or__ = MagicMock(return_value=mock_chain)
-            mock_prompt_class.from_messages.return_value = mock_prompt
-
-            detector._llm = MagicMock()
-
-            result = detector.detect_reading_order_for_page(page_layout)
+        result = detector.detect_reading_order_for_page(page_layout)
 
         # Get reading sequence without skipped
         sequence = result.get_reading_sequence(include_skipped=False)
