@@ -14,7 +14,6 @@ Design and implement a vision-first, agentic document extraction system as a Fas
   - `uv run ruff check .`
   - `uv run ruff format .` (no changes or only expected formatting changes)
   - `uv run mypy src`
-  - `uv run pytest` 
   - `uv run pytest --cov=src --cov-report=term-missing`
   - Run the service locally and manually verify the feature works as expected end-to-end use the files in `tests/fixtures/` as needed
 - Log any relevant observations, decisions, or changes made during the task by adding a new file in `./logs/` and referencing it in `./LOGS.md`.
