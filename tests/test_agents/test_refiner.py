@@ -40,6 +40,22 @@ from agentic_document_extraction.services.extraction.text_extraction import (
 from agentic_document_extraction.services.schema_validator import FieldInfo, SchemaInfo
 
 
+class ToolCallingFakeModel:
+    """Minimal chat model stub that supports tool calling."""
+
+    def __init__(self, responses: list[AIMessage]) -> None:
+        self._responses = responses
+        self._index = 0
+
+    def bind_tools(self, _tools: object, **_kwargs: object) -> "ToolCallingFakeModel":
+        return self
+
+    def invoke(self, _messages: object) -> AIMessage:
+        response = self._responses[self._index]
+        self._index += 1
+        return response
+
+
 # Test fixtures
 @pytest.fixture
 def simple_schema_info() -> SchemaInfo:
@@ -624,11 +640,12 @@ class TestRefinementAgent:
     def test_reset_memory(self) -> None:
         """Test resetting conversation memory."""
         agent = RefinementAgent(api_key="test-key")
-        agent._conversation_history = [MagicMock(), MagicMock()]
+        agent._message_history.add_message(MagicMock())
+        agent._message_history.add_message(MagicMock())
 
         agent.reset_memory()
 
-        assert len(agent._conversation_history) == 0
+        assert len(agent._message_history.messages) == 0
 
     def test_no_api_key_error(self) -> None:
         """Test error when API key is missing."""
@@ -766,6 +783,7 @@ class TestAgenticLoop:
             format_info=text_format_info,
             initial_result=good_extraction_result,
             plan=extraction_plan,
+            use_agent_orchestration=False,
         )
 
         assert result.converged is True
@@ -817,6 +835,7 @@ class TestAgenticLoop:
             format_info=text_format_info,
             initial_result=poor_extraction_result,
             plan=extraction_plan,
+            use_agent_orchestration=False,
         )
 
         assert result.converged is True
@@ -861,6 +880,7 @@ class TestAgenticLoop:
             format_info=text_format_info,
             initial_result=poor_extraction_result,
             plan=extraction_plan,
+            use_agent_orchestration=False,
         )
 
         assert result.converged is False
@@ -944,6 +964,7 @@ class TestAgenticLoop:
             format_info=text_format_info,
             initial_result=poor_extraction_result,
             plan=extraction_plan,
+            use_agent_orchestration=False,
         )
 
         # Should return iteration 2's result as best
@@ -967,6 +988,7 @@ class TestAgenticLoop:
                 initial_result=None,
                 extraction_func=None,
                 plan=extraction_plan,
+                use_agent_orchestration=False,
             )
 
         assert exc_info.value.error_type == "configuration_error"
@@ -994,10 +1016,64 @@ class TestAgenticLoop:
             initial_result=None,
             extraction_func=extraction_func,
             plan=extraction_plan,
+            use_agent_orchestration=False,
         )
 
         extraction_func.assert_called_once_with("Test text", simple_schema_info)
         assert result.converged is True
+
+    def test_loop_uses_agents_with_tools(
+        self,
+        good_extraction_result: ExtractionResult,
+        verification_report_passed: VerificationReport,
+        simple_schema_info: SchemaInfo,
+        text_format_info: FormatInfo,
+        extraction_plan: ExtractionPlan,
+    ) -> None:
+        """Test loop orchestration through agent tool calls."""
+        responses = [
+            AIMessage(
+                content="",
+                tool_calls=[{"id": "plan", "name": "plan_action", "args": {}}],
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[{"id": "execute", "name": "execute_action", "args": {}}],
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[{"id": "verify", "name": "verify_action", "args": {}}],
+            ),
+        ]
+        loop = AgenticLoop(
+            api_key="test-key",
+            loop_model=ToolCallingFakeModel(responses),
+        )
+
+        loop._planner = MagicMock()
+        loop._planner.create_plan.return_value = extraction_plan
+        loop._verifier = MagicMock()
+        loop._verifier.verify.return_value = verification_report_passed
+
+        extraction_func = MagicMock(return_value=good_extraction_result)
+
+        result = loop.run(
+            text="Test text",
+            schema_info=simple_schema_info,
+            format_info=text_format_info,
+            initial_result=None,
+            extraction_func=extraction_func,
+            plan=None,
+            use_llm_verification=False,
+            use_agent_orchestration=True,
+        )
+
+        assert result.converged is True
+        assert loop._loop_agent is not None
+        assert len(loop._loop_history.messages) > 0
+        loop._planner.create_plan.assert_called_once()
+        loop._verifier.verify.assert_called_once()
+        extraction_func.assert_called_once_with("Test text", simple_schema_info)
 
     def test_calculate_result_score(
         self,

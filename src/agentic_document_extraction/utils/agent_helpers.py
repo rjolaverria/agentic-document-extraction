@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from typing import Any
 
 from langchain.agents import create_agent
@@ -16,11 +17,12 @@ def build_agent(
     *,
     name: str | None = None,
     system_prompt: str | None = None,
+    tools: Sequence[Any] | None = None,
 ) -> Any:
     """Create a LangChain agent graph with optional system prompt."""
     return create_agent(
         model=model,
-        tools=[],
+        tools=list(tools or []),
         system_prompt=system_prompt,
         name=name,
     )

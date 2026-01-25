@@ -17,16 +17,20 @@ Key features:
 import json
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from langchain_core.messages import BaseMessage
+from langchain_core.chat_history import InMemoryChatMessageHistory
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.tools import BaseTool, StructuredTool
 from langchain_openai import ChatOpenAI
 
 from agentic_document_extraction.agents.planner import (
     ExtractionPlan,
     ExtractionPlanningAgent,
+    QualityThreshold,
 )
 from agentic_document_extraction.agents.verifier import (
     IssueSeverity,
@@ -208,6 +212,24 @@ class AgenticLoopResult:
         }
 
 
+@dataclass
+class LoopState:
+    """Shared state for the agentic loop tools."""
+
+    text: str
+    schema_info: SchemaInfo
+    format_info: FormatInfo
+    extraction_func: Callable[[str, SchemaInfo], ExtractionResult] | None
+    plan: ExtractionPlan | None = None
+    current_result: ExtractionResult | None = None
+    verification: VerificationReport | None = None
+    thresholds: QualityThreshold | None = None
+    processing_category: ProcessingCategory | None = None
+    max_iterations: int = 0
+    iteration: int = 0
+    use_llm_verification: bool = True
+
+
 class RefinementAgent:
     """Agent for refining extractions based on verification feedback.
 
@@ -297,7 +319,7 @@ Provide an improved extraction addressing the issues above. Respond with ONLY th
 
         self._llm: ChatOpenAI | None = None
         self._agent: Any | None = None
-        self._conversation_history: list[BaseMessage] = []
+        self._message_history = InMemoryChatMessageHistory()
 
     @property
     def llm(self) -> ChatOpenAI:
@@ -339,7 +361,7 @@ Provide an improved extraction addressing the issues above. Respond with ONLY th
 
     def reset_memory(self) -> None:
         """Reset the conversation history for a new extraction task."""
-        self._conversation_history = []
+        self._message_history.clear()
 
     def generate_feedback(
         self,
@@ -527,10 +549,11 @@ Provide an improved extraction addressing the issues above. Respond with ONLY th
         )
 
         try:
-            messages = formatted.format_messages()
+            new_messages = formatted.format_messages()
+            messages = [*self._message_history.messages, *new_messages]
 
-            # Add to conversation history for context
-            self._conversation_history.extend(messages)
+            # Persist the new prompt messages for future context
+            self._message_history.add_messages(new_messages)
 
             response = invoke_agent(
                 self.agent,
@@ -544,6 +567,9 @@ Provide an improved extraction addressing the issues above. Respond with ONLY th
 
             # Parse response
             content = get_message_content(response)
+
+            # Persist the model response for iterative memory
+            self._message_history.add_message(response)
 
             refined_data = self._parse_json_response(content, schema_info)
 
@@ -772,6 +798,12 @@ class AgenticLoop:
     thresholds are met or max iterations reached.
     """
 
+    LOOP_SYSTEM_PROMPT = """You are an extraction orchestration agent.
+You must call exactly one tool that matches the requested action.
+Valid actions: plan_action, execute_action, verify_action, refine_action.
+Return the tool output directly without additional commentary.
+"""
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -779,6 +811,7 @@ class AgenticLoop:
         temperature: float | None = None,
         max_tokens: int | None = None,
         default_max_iterations: int | None = None,
+        loop_model: Any | None = None,
     ) -> None:
         """Initialize the agentic loop orchestrator.
 
@@ -789,6 +822,7 @@ class AgenticLoop:
             max_tokens: Maximum tokens for responses.
             default_max_iterations: Default maximum iterations if not in plan.
                 Defaults to settings.max_refinement_iterations.
+            loop_model: Optional model override for the orchestration agent.
         """
         self.api_key = api_key if api_key is not None else settings.get_openai_api_key()
         self.model = model or settings.openai_model
@@ -801,11 +835,17 @@ class AgenticLoop:
             if default_max_iterations is not None
             else settings.max_refinement_iterations
         )
+        self.loop_model = loop_model
 
         # Initialize agents lazily
         self._planner: ExtractionPlanningAgent | None = None
         self._verifier: QualityVerificationAgent | None = None
         self._refiner: RefinementAgent | None = None
+        self._loop_agent: Any | None = None
+        self._loop_llm: Any | None = None
+        self._loop_tools: dict[str, BaseTool] | None = None
+        self._loop_state: LoopState | None = None
+        self._loop_history = InMemoryChatMessageHistory()
 
     @property
     def planner(self) -> ExtractionPlanningAgent:
@@ -843,15 +883,213 @@ class AgenticLoop:
             )
         return self._refiner
 
+    def _require_loop_state(self) -> LoopState:
+        if self._loop_state is None:
+            raise RefinementError(
+                "Loop state not initialized",
+                error_type="configuration_error",
+            )
+        return self._loop_state
+
+    def _get_loop_llm(self) -> Any:
+        if self._loop_llm is None:
+            if self.loop_model is not None:
+                self._loop_llm = self.loop_model
+            else:
+                if not self.api_key:
+                    raise RefinementError(
+                        "OpenAI API key not configured",
+                        error_type="configuration_error",
+                        details={"missing": "openai_api_key"},
+                    )
+                self._loop_llm = ChatOpenAI(
+                    api_key=self.api_key,  # type: ignore[arg-type]
+                    model=self.model,
+                    temperature=self.temperature,
+                    max_completion_tokens=self.max_tokens,
+                )
+        return self._loop_llm
+
+    def _build_loop_tools(self) -> dict[str, BaseTool]:
+        def plan_action(_: str | dict[str, Any] | None = None) -> str:
+            state = self._require_loop_state()
+            plan = self.planner.create_plan(
+                schema_info=state.schema_info,
+                format_info=state.format_info,
+                content_summary=state.text[:500] if state.text else None,
+            )
+            state.plan = plan
+            return json.dumps(
+                {
+                    "status": "planned",
+                    "strategy": plan.extraction_strategy,
+                    "max_iterations": plan.quality_thresholds.max_iterations,
+                }
+            )
+
+        def execute_action(_: str | dict[str, Any] | None = None) -> str:
+            state = self._require_loop_state()
+            if state.current_result is not None:
+                return json.dumps({"status": "skipped", "reason": "already_executed"})
+            if state.extraction_func is None:
+                raise RefinementError(
+                    "No extraction function provided",
+                    error_type="configuration_error",
+                )
+            state.current_result = state.extraction_func(state.text, state.schema_info)
+            return json.dumps(
+                {
+                    "status": "executed",
+                    "tokens": state.current_result.total_tokens,
+                }
+            )
+
+        def verify_action(_: str | dict[str, Any] | None = None) -> str:
+            state = self._require_loop_state()
+            if state.current_result is None:
+                raise RefinementError(
+                    "No extraction result to verify",
+                    error_type="configuration_error",
+                )
+            thresholds = state.thresholds or self.verifier.get_default_thresholds()
+            state.thresholds = thresholds
+            processing_category = (
+                state.processing_category or ProcessingCategory.TEXT_BASED
+            )
+            state.processing_category = processing_category
+            state.verification = self.verifier.verify(
+                extraction_result=state.current_result,
+                schema_info=state.schema_info,
+                thresholds=thresholds,
+                processing_category=processing_category,
+                use_llm_analysis=state.use_llm_verification,
+            )
+            return json.dumps(
+                {
+                    "status": state.verification.status.value,
+                    "confidence": state.verification.metrics.overall_confidence,
+                    "issues": len(state.verification.issues),
+                }
+            )
+
+        def refine_action(_: str | dict[str, Any] | None = None) -> str:
+            state = self._require_loop_state()
+            if state.current_result is None or state.verification is None:
+                raise RefinementError(
+                    "Missing verification or extraction result for refinement",
+                    error_type="configuration_error",
+                )
+            processing_category = (
+                state.processing_category or ProcessingCategory.TEXT_BASED
+            )
+            feedback = self.refiner.generate_feedback(
+                verification_report=state.verification,
+                schema_info=state.schema_info,
+                processing_category=processing_category,
+            )
+            state.current_result = self.refiner.refine(
+                text=state.text,
+                previous_result=state.current_result,
+                feedback=feedback,
+                schema_info=state.schema_info,
+            )
+            return json.dumps(
+                {
+                    "status": "refined",
+                    "tokens": state.current_result.total_tokens,
+                }
+            )
+
+        return {
+            "plan_action": StructuredTool.from_function(
+                plan_action,
+                name="plan_action",
+                description="Create or update the extraction plan.",
+                return_direct=True,
+            ),
+            "execute_action": StructuredTool.from_function(
+                execute_action,
+                name="execute_action",
+                description="Run extraction for the current document.",
+                return_direct=True,
+            ),
+            "verify_action": StructuredTool.from_function(
+                verify_action,
+                name="verify_action",
+                description="Verify the current extraction result.",
+                return_direct=True,
+            ),
+            "refine_action": StructuredTool.from_function(
+                refine_action,
+                name="refine_action",
+                description="Refine the extraction based on verification issues.",
+                return_direct=True,
+            ),
+        }
+
+    def _ensure_loop_tools(self) -> dict[str, BaseTool]:
+        if self._loop_tools is None:
+            self._loop_tools = self._build_loop_tools()
+        return self._loop_tools
+
+    @property
+    def loop_agent(self) -> Any:
+        if self._loop_agent is None:
+            tools = list(self._ensure_loop_tools().values())
+            self._loop_agent = build_agent(
+                model=self._get_loop_llm(),
+                name="agentic-loop-agent",
+                system_prompt=self.LOOP_SYSTEM_PROMPT,
+                tools=tools,
+            )
+        return self._loop_agent
+
+    def _record_loop_event(self, action: str, output: str) -> None:
+        self._loop_history.add_message(HumanMessage(content=f"Action: {action}"))
+        self._loop_history.add_message(AIMessage(content=output))
+
+    def _run_action(self, action: str, *, use_agent: bool) -> str:
+        tools = self._ensure_loop_tools()
+        if action not in tools:
+            raise RefinementError(
+                f"Unknown loop action: {action}",
+                error_type="configuration_error",
+            )
+
+        if not use_agent:
+            output = tools[action].invoke({})
+            self._record_loop_event(action, str(output))
+            return str(output)
+
+        messages = [
+            *self._loop_history.messages,
+            HumanMessage(content=f"Action: {action}"),
+        ]
+        response = invoke_agent(
+            self.loop_agent,
+            messages,
+            metadata={
+                "component": "agentic_loop",
+                "agent_name": "agentic-loop-agent",
+                "action": action,
+            },
+        )
+        output = get_message_content(response)
+        if not output:
+            output = json.dumps({"status": "completed", "action": action})
+        self._record_loop_event(action, output)
+        return output
+
     def run(
         self,
         text: str,
         schema_info: SchemaInfo,
         format_info: FormatInfo,
         initial_result: ExtractionResult | None = None,
-        extraction_func: Any | None = None,
+        extraction_func: Callable[[str, SchemaInfo], ExtractionResult] | None = None,
         plan: ExtractionPlan | None = None,
         use_llm_verification: bool = True,
+        use_agent_orchestration: bool = True,
     ) -> AgenticLoopResult:
         """Run the complete agentic extraction loop.
 
@@ -863,6 +1101,7 @@ class AgenticLoop:
             extraction_func: Function to call for extraction (receives text, schema_info).
             plan: Optional pre-computed extraction plan.
             use_llm_verification: Whether to use LLM for verification.
+            use_agent_orchestration: Whether to orchestrate with LangChain agents.
 
         Returns:
             AgenticLoopResult with the best extraction and loop metadata.
@@ -876,16 +1115,39 @@ class AgenticLoop:
 
         # Reset refiner memory for new extraction
         self.refiner.reset_memory()
+        self._loop_history.clear()
 
         # Phase 1: Planning
         logger.info("Starting agentic loop: Phase 1 - Planning")
+        self._loop_state = LoopState(
+            text=text,
+            schema_info=schema_info,
+            format_info=format_info,
+            extraction_func=extraction_func,
+            current_result=initial_result,
+            plan=plan,
+            use_llm_verification=use_llm_verification,
+        )
         if plan is None:
-            plan = self.planner.create_plan(
-                schema_info=schema_info,
-                format_info=format_info,
-                content_summary=text[:500] if text else None,
+            self._run_action("plan_action", use_agent=use_agent_orchestration)
+            plan = self._require_loop_state().plan
+            if plan is None:
+                raise RefinementError(
+                    "Planning did not produce a plan",
+                    error_type="execution_error",
+                )
+        else:
+            self._record_loop_event(
+                "plan_action",
+                json.dumps(
+                    {
+                        "status": "provided",
+                        "strategy": plan.extraction_strategy,
+                        "max_iterations": plan.quality_thresholds.max_iterations,
+                    }
+                ),
             )
-            total_tokens += plan.total_tokens
+        total_tokens += plan.total_tokens
 
         max_iterations = (
             plan.quality_thresholds.max_iterations or self.default_max_iterations
@@ -894,6 +1156,9 @@ class AgenticLoop:
         processing_category = ProcessingCategory(
             plan.document_characteristics.processing_category
         )
+        self._loop_state.thresholds = thresholds
+        self._loop_state.processing_category = processing_category
+        self._loop_state.max_iterations = max_iterations
 
         # Track best result
         best_result: ExtractionResult | None = None
@@ -908,29 +1173,36 @@ class AgenticLoop:
         for iteration in range(1, max_iterations + 1):
             iteration_start = time.time()
             iteration_tokens = 0
+            self._loop_state.iteration = iteration
 
             logger.info(f"Agentic loop: Iteration {iteration}/{max_iterations}")
 
             # Phase 2: Execute (only if no current result)
             if current_result is None:
-                if extraction_func is not None:
-                    current_result = extraction_func(text, schema_info)
-                    iteration_tokens += current_result.total_tokens
-                else:
+                self._run_action(
+                    "execute_action",
+                    use_agent=use_agent_orchestration,
+                )
+                current_result = self._require_loop_state().current_result
+                if current_result is None:
                     raise RefinementError(
-                        "No initial result and no extraction function provided",
-                        error_type="configuration_error",
+                        "Execution did not produce an extraction result",
+                        error_type="execution_error",
                     )
+                iteration_tokens += current_result.total_tokens
 
             # Phase 3: Verify
             logger.info(f"Iteration {iteration}: Verifying extraction")
-            verification = self.verifier.verify(
-                extraction_result=current_result,
-                schema_info=schema_info,
-                thresholds=thresholds,
-                processing_category=processing_category,
-                use_llm_analysis=use_llm_verification,
+            self._run_action(
+                "verify_action",
+                use_agent=use_agent_orchestration,
             )
+            verification = self._require_loop_state().verification
+            if verification is None:
+                raise RefinementError(
+                    "Verification did not produce a report",
+                    error_type="execution_error",
+                )
             iteration_tokens += verification.total_tokens
 
             # Calculate improvement from previous iteration
@@ -1001,18 +1273,16 @@ class AgenticLoop:
             ):
                 logger.info(f"Iteration {iteration}: Generating refinement")
 
-                feedback = self.refiner.generate_feedback(
-                    verification_report=verification,
-                    schema_info=schema_info,
-                    processing_category=processing_category,
+                self._run_action(
+                    "refine_action",
+                    use_agent=use_agent_orchestration,
                 )
-
-                current_result = self.refiner.refine(
-                    text=text,
-                    previous_result=current_result,
-                    feedback=feedback,
-                    schema_info=schema_info,
-                )
+                current_result = self._require_loop_state().current_result
+                if current_result is None:
+                    raise RefinementError(
+                        "Refinement did not produce a result",
+                        error_type="execution_error",
+                    )
 
             previous_metrics = metrics
 
@@ -1092,6 +1362,7 @@ class AgenticLoop:
         region_reprocess_func: Any | None = None,  # noqa: ARG002
         plan: ExtractionPlan | None = None,
         use_llm_verification: bool = True,
+        use_agent_orchestration: bool = True,
     ) -> AgenticLoopResult:
         """Run agentic loop with visual document refinement support.
 
@@ -1107,6 +1378,7 @@ class AgenticLoop:
                 Reserved for future use with region-level re-processing.
             plan: Optional pre-computed extraction plan.
             use_llm_verification: Whether to use LLM for verification.
+            use_agent_orchestration: Whether to orchestrate with LangChain agents.
 
         Returns:
             AgenticLoopResult with the best extraction and loop metadata.
@@ -1124,4 +1396,5 @@ class AgenticLoop:
             extraction_func=None,  # Don't need extraction func for visual
             plan=plan,
             use_llm_verification=use_llm_verification,
+            use_agent_orchestration=use_agent_orchestration,
         )
