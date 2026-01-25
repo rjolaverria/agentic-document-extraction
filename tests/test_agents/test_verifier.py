@@ -2026,3 +2026,185 @@ class TestNullOptionalFieldsHandling:
 
         # Should pass verification
         assert report.status == VerificationStatus.PASSED
+
+    def test_strip_null_optional_nested_fields(self) -> None:
+        """Test that nested optional fields with null values are stripped.
+
+        This addresses PR feedback about nested optional fields not being
+        handled, e.g., company.employees where employees is optional.
+        """
+        schema_info = SchemaInfo(
+            schema={
+                "type": "object",
+                "properties": {
+                    "company": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string"},
+                            "employees": {"type": "integer"},
+                            "revenue": {"type": "number"},
+                        },
+                        "required": ["name"],
+                    },
+                },
+                "required": ["company"],
+            },
+            required_fields=[
+                FieldInfo(
+                    name="company",
+                    path="company",
+                    field_type="object",
+                    required=True,
+                    nested_fields=[
+                        FieldInfo(
+                            name="name",
+                            path="company.name",
+                            field_type="string",
+                            required=True,
+                        ),
+                        FieldInfo(
+                            name="employees",
+                            path="company.employees",
+                            field_type="integer",
+                            required=False,
+                        ),
+                        FieldInfo(
+                            name="revenue",
+                            path="company.revenue",
+                            field_type="number",
+                            required=False,
+                        ),
+                    ],
+                )
+            ],
+            optional_fields=[],
+            schema_type="object",
+        )
+
+        # Nested optional fields are null
+        extraction_result = ExtractionResult(
+            extracted_data={
+                "company": {
+                    "name": "Acme Corp",
+                    "employees": None,  # Optional nested field is null
+                    "revenue": None,  # Optional nested field is null
+                }
+            },
+            field_extractions=[],
+        )
+
+        agent = QualityVerificationAgent(api_key="test-key")
+
+        report = agent.verify_quick(
+            extraction_result=extraction_result,
+            schema_info=schema_info,
+        )
+
+        # Should NOT have schema violations for null nested optional fields
+        schema_violations = [
+            i for i in report.issues if i.issue_type == IssueType.SCHEMA_VIOLATION
+        ]
+        assert len(schema_violations) == 0
+
+    def test_strip_null_optional_handles_non_dict_data(self) -> None:
+        """Test that non-dict data is returned unchanged.
+
+        This addresses PR feedback about non-dict schema handling where
+        calling .items() on non-dict would raise AttributeError.
+        """
+        schema_info = SchemaInfo(
+            schema={"type": "array", "items": {"type": "string"}},
+            required_fields=[],
+            optional_fields=[],
+            schema_type="array",
+        )
+
+        # Non-dict data (array)
+        data = ["item1", "item2", "item3"]
+
+        agent = QualityVerificationAgent(api_key="test-key")
+        result = agent._strip_null_optional_fields(data, schema_info)
+
+        # Should return the data unchanged (same object since no modification needed)
+        assert result == data
+
+    def test_strip_null_optional_handles_primitive_data(self) -> None:
+        """Test that primitive data types are handled gracefully."""
+        schema_info = SchemaInfo(
+            schema={"type": "string"},
+            required_fields=[],
+            optional_fields=[],
+            schema_type="string",
+        )
+
+        agent = QualityVerificationAgent(api_key="test-key")
+
+        # Test with string
+        assert agent._strip_null_optional_fields("test", schema_info) == "test"
+
+        # Test with number
+        assert agent._strip_null_optional_fields(42, schema_info) == 42
+
+        # Test with None
+        assert agent._strip_null_optional_fields(None, schema_info) is None
+
+    def test_strip_null_optional_array_of_objects(self) -> None:
+        """Test that optional fields in array items are handled."""
+        schema_info = SchemaInfo(
+            schema={
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "description": {"type": "string"},
+                            },
+                            "required": ["name"],
+                        },
+                    }
+                },
+                "required": ["items"],
+            },
+            required_fields=[
+                FieldInfo(
+                    name="items",
+                    path="items",
+                    field_type="array",
+                    required=True,
+                    nested_fields=[
+                        FieldInfo(
+                            name="name",
+                            path="items[].name",
+                            field_type="string",
+                            required=True,
+                        ),
+                        FieldInfo(
+                            name="description",
+                            path="items[].description",
+                            field_type="string",
+                            required=False,
+                        ),
+                    ],
+                )
+            ],
+            optional_fields=[],
+            schema_type="object",
+        )
+
+        data = {
+            "items": [
+                {"name": "Item 1", "description": None},
+                {"name": "Item 2", "description": "Has description"},
+            ]
+        }
+
+        agent = QualityVerificationAgent(api_key="test-key")
+        cleaned = agent._strip_null_optional_fields(data, schema_info)
+
+        # Null description should be stripped from first item
+        assert "description" not in cleaned["items"][0]
+        # Non-null description should remain in second item
+        assert cleaned["items"][1]["description"] == "Has description"

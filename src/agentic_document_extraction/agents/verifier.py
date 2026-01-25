@@ -13,6 +13,7 @@ Key features:
 - Different verification strategies for text vs. visual documents
 """
 
+import copy
 import json
 import logging
 import time
@@ -780,40 +781,89 @@ Respond with ONLY the JSON structure specified."""
 
     def _strip_null_optional_fields(
         self,
-        data: dict[str, Any],
+        data: Any,
         schema_info: SchemaInfo,
-    ) -> dict[str, Any]:
+    ) -> Any:
         """Strip null values from optional fields before schema validation.
 
         This addresses the issue where LLMs return null for optional fields
         they can't extract, but the schema doesn't allow null (e.g., type: string).
         Rather than failing schema validation, we omit these optional null fields.
 
+        Handles both top-level and nested optional fields recursively.
+
         Args:
-            data: Extracted data to clean.
+            data: Extracted data to clean. Can be any type but only dicts
+                  are processed recursively.
             schema_info: Schema information with optional field definitions.
 
         Returns:
-            Copy of data with null optional fields removed.
+            Copy of data with null optional fields removed, or original
+            data if not a dict.
         """
-        import copy
+        # Short-circuit for non-dict data (e.g., arrays, primitives)
+        if not isinstance(data, dict):
+            return data
 
-        # Get set of optional field paths (top-level only for now)
-        optional_paths = {f.path for f in schema_info.optional_fields}
+        # Build set of all optional field paths (including nested)
+        optional_paths: set[str] = set()
+        for field_info in schema_info.optional_fields:
+            optional_paths.add(field_info.path)
+            # Also add nested optional fields from required parent objects
+            if field_info.nested_fields:
+                for nested in field_info.nested_fields:
+                    if not nested.required:
+                        optional_paths.add(nested.path)
+
+        # Also collect nested optional fields from required fields
+        for field_info in schema_info.required_fields:
+            if field_info.nested_fields:
+                for nested in field_info.nested_fields:
+                    if not nested.required:
+                        optional_paths.add(nested.path)
 
         # Create a deep copy to avoid modifying original
         cleaned = copy.deepcopy(data)
 
-        # Remove null values for optional top-level fields
-        keys_to_remove = []
-        for key, value in cleaned.items():
-            if key in optional_paths and value is None:
-                keys_to_remove.append(key)
-
-        for key in keys_to_remove:
-            del cleaned[key]
+        # Recursively strip null optional fields
+        self._strip_null_recursive(cleaned, "", optional_paths)
 
         return cleaned
+
+    def _strip_null_recursive(
+        self,
+        data: dict[str, Any],
+        parent_path: str,
+        optional_paths: set[str],
+    ) -> None:
+        """Recursively strip null values from optional fields.
+
+        Args:
+            data: Dictionary to process (modified in place).
+            parent_path: Path prefix for nested fields.
+            optional_paths: Set of optional field paths.
+        """
+        keys_to_remove: list[str] = []
+
+        for key, value in data.items():
+            current_path = f"{parent_path}.{key}" if parent_path else key
+
+            # Check if this field is optional and null
+            if current_path in optional_paths and value is None:
+                keys_to_remove.append(key)
+            # Recurse into nested dicts
+            elif isinstance(value, dict):
+                self._strip_null_recursive(value, current_path, optional_paths)
+            # Handle arrays of objects
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, dict):
+                        # For array items, use path like "field[].nested"
+                        array_path = f"{current_path}[]"
+                        self._strip_null_recursive(item, array_path, optional_paths)
+
+        for key in keys_to_remove:
+            del data[key]
 
     def _validate_against_schema(
         self,

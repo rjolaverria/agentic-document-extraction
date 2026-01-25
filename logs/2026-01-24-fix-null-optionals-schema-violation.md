@@ -79,10 +79,28 @@ Added `TestNullOptionalFieldsHandling` test class with 6 tests:
 
 ## Testing
 
-- All 871 tests pass (864 passed, 7 skipped)
+- All 54 verifier tests pass
 - Ruff check: All checks passed
 - Ruff format: Clean
 - Mypy: No issues found in 29 source files
+
+## PR Feedback Addressed
+
+### Critical Issues Fixed
+
+1. **Non-dict Schema Handling**: Added early return for non-dict data to prevent `AttributeError` when calling `.items()` on arrays or primitives.
+
+2. **Nested Optional Fields**: Implemented recursive traversal via `_strip_null_recursive()` to handle nested optional fields like `company.employees` within required parent objects.
+
+### Minor Issues Fixed
+
+3. **Import Organization**: Moved `copy` import to module level (line 16) for consistency with codebase conventions.
+
+4. **Test Coverage**: Added 4 new tests for edge cases:
+   - `test_strip_null_optional_nested_fields` - Tests nested optional fields in required objects
+   - `test_strip_null_optional_handles_non_dict_data` - Tests array/primitive handling
+   - `test_strip_null_optional_handles_primitive_data` - Tests string/number/None handling
+   - `test_strip_null_optional_array_of_objects` - Tests optional fields in array items
 
 ## Notes
 
