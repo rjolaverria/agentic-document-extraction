@@ -719,7 +719,7 @@ class TestLLMPlanning:
                     "step_number": 1,
                     "action": "OCR text extraction",
                     "target": "all_pages",
-                    "strategy": "pytesseract",
+                    "strategy": "paddleocr",
                     "expected_output": "Raw text with bounding boxes",
                     "fallback": "cloud_ocr",
                     "depends_on": None,

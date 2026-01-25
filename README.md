@@ -18,31 +18,13 @@ A vision-first, agentic document extraction system built as a FastAPI service. T
 - Python 3.12+
 - [uv](https://github.com/astral-sh/uv) package manager
 - OpenAI API key
-- **Tesseract OCR** (required for image/visual document processing)
+- **PaddleOCR-VL** (installed via `uv sync` for image/visual document processing)
 
-#### Installing Tesseract OCR
+#### PaddleOCR-VL Notes
 
-Tesseract is required for processing image-based documents (PNG, JPG, TIFF, etc.). The Python `pytesseract` package is a wrapper that calls the tesseract binary.
+PaddleOCR-VL runs entirely in-process via the `paddleocr` and `paddlepaddle` packages. No system-level OCR binaries are required.
 
-**macOS:**
-```bash
-brew install tesseract
-```
-
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install tesseract-ocr
-```
-
-**Windows:**
-Download the installer from [UB-Mannheim/tesseract](https://github.com/UB-Mannheim/tesseract/wiki) and add to PATH.
-
-**Verify installation:**
-```bash
-tesseract --version
-```
-
-> **Note:** By default, Tesseract includes English (`eng`), orientation/script detection (`osd`), and `snum` language data. For additional languages, install `tesseract-lang` (macOS: `brew install tesseract-lang`).
+Optional GPU usage is controlled by environment variables (e.g., `ADE_PADDLEOCR_USE_GPU=true`) and depends on installing the appropriate PaddlePaddle GPU build.
 
 ### Installation
 

@@ -24,9 +24,10 @@ from agentic_document_extraction.services.schema_validator import (
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "") or os.environ.get(
     "ADE_OPENAI_API_KEY", ""
 )
-SKIP_INTEGRATION = not OPENAI_API_KEY
+SKIP_INTEGRATION = not OPENAI_API_KEY or os.environ.get("ADE_SKIP_REAL_API_TESTS")
 INTEGRATION_SKIP_REASON = (
-    "OpenAI API key not set (set OPENAI_API_KEY or ADE_OPENAI_API_KEY)"
+    "OpenAI API key not set (set OPENAI_API_KEY or ADE_OPENAI_API_KEY) "
+    "or ADE_SKIP_REAL_API_TESTS is enabled"
 )
 
 

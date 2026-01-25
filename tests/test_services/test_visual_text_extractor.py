@@ -100,16 +100,12 @@ startxref
 
 
 @pytest.fixture
-def mock_ocr_data() -> dict[str, list[int | str]]:
-    """Mock OCR data for tesseract."""
-    return {
-        "text": ["Hello", "World", ""],
-        "conf": [95, 90, -1],
-        "left": [10, 100, 0],
-        "top": [10, 10, 0],
-        "width": [50, 60, 0],
-        "height": [30, 30, 0],
-    }
+def mock_ocr_data() -> list[list[object]]:
+    """Mock OCR data for PaddleOCR."""
+    return [
+        [[[10, 10], [60, 10], [60, 40], [10, 40]], ("Hello", 0.95)],
+        [[[100, 10], [160, 10], [160, 40], [100, 40]], ("World", 0.90)],
+    ]
 
 
 class TestBoundingBox:
@@ -349,7 +345,7 @@ class TestVisualTextExtractorInit:
         """Test default initialization."""
         extractor = VisualTextExtractor()
 
-        assert extractor.ocr_language == "eng"
+        assert extractor.ocr_language == "en"
         assert extractor.pdf_dpi == 300
 
     def test_custom_initialization(self) -> None:
@@ -424,15 +420,11 @@ class TestVisualTextExtractorImage:
         self,
         extractor: VisualTextExtractor,
         sample_image_with_text: bytes,
-        mock_ocr_data: dict[str, list[int | str]],
+        mock_ocr_data: list[list[object]],
     ) -> None:
         """Test extracting text from PNG image."""
-        with (
-            patch("pytesseract.image_to_data") as mock_data,
-            patch("pytesseract.image_to_string") as mock_string,
-        ):
-            mock_data.return_value = mock_ocr_data
-            mock_string.return_value = "Hello World"
+        with patch.object(extractor, "_get_ocr_engine") as mock_engine:
+            mock_engine.return_value.ocr.return_value = mock_ocr_data
 
             result = extractor.extract_from_content(sample_image_with_text, ".png")
 
@@ -440,13 +432,14 @@ class TestVisualTextExtractorImage:
             assert result.extraction_method == ExtractionMethod.OCR
             assert len(result.pages) == 1
             assert result.pages[0].extraction_method == ExtractionMethod.OCR
-            assert "Hello World" in result.full_text
+            assert "Hello" in result.full_text
+            assert "World" in result.full_text
 
     def test_extract_jpg_image(
         self,
         extractor: VisualTextExtractor,
         sample_image_with_text: bytes,
-        mock_ocr_data: dict[str, list[int | str]],
+        mock_ocr_data: list[list[object]],
     ) -> None:
         """Test extracting text from JPG image."""
         # Convert PNG to JPG
@@ -455,12 +448,8 @@ class TestVisualTextExtractorImage:
         img.convert("RGB").save(buffer, format="JPEG")
         jpg_content = buffer.getvalue()
 
-        with (
-            patch("pytesseract.image_to_data") as mock_data,
-            patch("pytesseract.image_to_string") as mock_string,
-        ):
-            mock_data.return_value = mock_ocr_data
-            mock_string.return_value = "Hello World"
+        with patch.object(extractor, "_get_ocr_engine") as mock_engine:
+            mock_engine.return_value.ocr.return_value = mock_ocr_data
 
             result = extractor.extract_from_content(jpg_content, ".jpg")
 
@@ -471,7 +460,7 @@ class TestVisualTextExtractorImage:
         self,
         extractor: VisualTextExtractor,
         sample_image_with_text: bytes,
-        mock_ocr_data: dict[str, list[int | str]],
+        mock_ocr_data: list[list[object]],
     ) -> None:
         """Test extracting from image file path."""
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
@@ -479,12 +468,8 @@ class TestVisualTextExtractorImage:
             temp_path = f.name
 
         try:
-            with (
-                patch("pytesseract.image_to_data") as mock_data,
-                patch("pytesseract.image_to_string") as mock_string,
-            ):
-                mock_data.return_value = mock_ocr_data
-                mock_string.return_value = "Hello World"
+            with patch.object(extractor, "_get_ocr_engine") as mock_engine:
+                mock_engine.return_value.ocr.return_value = mock_ocr_data
 
                 result = extractor.extract_from_path(temp_path)
                 assert result.total_pages == 1
@@ -496,15 +481,11 @@ class TestVisualTextExtractorImage:
         self,
         extractor: VisualTextExtractor,
         sample_image_with_text: bytes,
-        mock_ocr_data: dict[str, list[int | str]],
+        mock_ocr_data: list[list[object]],
     ) -> None:
         """Test public extract_image method."""
-        with (
-            patch("pytesseract.image_to_data") as mock_data,
-            patch("pytesseract.image_to_string") as mock_string,
-        ):
-            mock_data.return_value = mock_ocr_data
-            mock_string.return_value = "Hello World"
+        with patch.object(extractor, "_get_ocr_engine") as mock_engine:
+            mock_engine.return_value.ocr.return_value = mock_ocr_data
 
             result = extractor.extract_image(sample_image_with_text)
 
@@ -515,15 +496,11 @@ class TestVisualTextExtractorImage:
         self,
         extractor: VisualTextExtractor,
         sample_image_with_text: bytes,
-        mock_ocr_data: dict[str, list[int | str]],
+        mock_ocr_data: list[list[object]],
     ) -> None:
         """Test that image metadata is included in result."""
-        with (
-            patch("pytesseract.image_to_data") as mock_data,
-            patch("pytesseract.image_to_string") as mock_string,
-        ):
-            mock_data.return_value = mock_ocr_data
-            mock_string.return_value = "Hello World"
+        with patch.object(extractor, "_get_ocr_engine") as mock_engine:
+            mock_engine.return_value.ocr.return_value = mock_ocr_data
 
             result = extractor.extract_from_content(sample_image_with_text, ".png")
 
@@ -536,15 +513,11 @@ class TestVisualTextExtractorImage:
         self,
         extractor: VisualTextExtractor,
         sample_image_with_text: bytes,
-        mock_ocr_data: dict[str, list[int | str]],
+        mock_ocr_data: list[list[object]],
     ) -> None:
         """Test that text elements have bounding boxes."""
-        with (
-            patch("pytesseract.image_to_data") as mock_data,
-            patch("pytesseract.image_to_string") as mock_string,
-        ):
-            mock_data.return_value = mock_ocr_data
-            mock_string.return_value = "Hello World"
+        with patch.object(extractor, "_get_ocr_engine") as mock_engine:
+            mock_engine.return_value.ocr.return_value = mock_ocr_data
 
             result = extractor.extract_from_content(sample_image_with_text, ".png")
 
@@ -559,15 +532,11 @@ class TestVisualTextExtractorImage:
         self,
         extractor: VisualTextExtractor,
         sample_image_with_text: bytes,
-        mock_ocr_data: dict[str, list[int | str]],
+        mock_ocr_data: list[list[object]],
     ) -> None:
         """Test that confidence scores are in valid range."""
-        with (
-            patch("pytesseract.image_to_data") as mock_data,
-            patch("pytesseract.image_to_string") as mock_string,
-        ):
-            mock_data.return_value = mock_ocr_data
-            mock_string.return_value = "Hello World"
+        with patch.object(extractor, "_get_ocr_engine") as mock_engine:
+            mock_engine.return_value.ocr.return_value = mock_ocr_data
 
             result = extractor.extract_from_content(sample_image_with_text, ".png")
 
@@ -639,15 +608,11 @@ class TestVisualTextExtractorExtensionHandling:
         self,
         extractor: VisualTextExtractor,
         sample_image_with_text: bytes,
-        mock_ocr_data: dict[str, list[int | str]],
+        mock_ocr_data: list[list[object]],
     ) -> None:
         """Test that extension without dot is handled."""
-        with (
-            patch("pytesseract.image_to_data") as mock_data,
-            patch("pytesseract.image_to_string") as mock_string,
-        ):
-            mock_data.return_value = mock_ocr_data
-            mock_string.return_value = "Hello World"
+        with patch.object(extractor, "_get_ocr_engine") as mock_engine:
+            mock_engine.return_value.ocr.return_value = mock_ocr_data
 
             result = extractor.extract_from_content(sample_image_with_text, "png")
 
@@ -657,15 +622,11 @@ class TestVisualTextExtractorExtensionHandling:
         self,
         extractor: VisualTextExtractor,
         sample_image_with_text: bytes,
-        mock_ocr_data: dict[str, list[int | str]],
+        mock_ocr_data: list[list[object]],
     ) -> None:
         """Test that uppercase extension is handled."""
-        with (
-            patch("pytesseract.image_to_data") as mock_data,
-            patch("pytesseract.image_to_string") as mock_string,
-        ):
-            mock_data.return_value = mock_ocr_data
-            mock_string.return_value = "Hello World"
+        with patch.object(extractor, "_get_ocr_engine") as mock_engine:
+            mock_engine.return_value.ocr.return_value = mock_ocr_data
 
             result = extractor.extract_from_content(sample_image_with_text, ".PNG")
 
@@ -711,35 +672,27 @@ class TestVisualExtractionError:
 class TestOCRMocking:
     """Tests with mocked OCR for controlled testing."""
 
-    def test_ocr_with_mocked_tesseract(self, extractor: VisualTextExtractor) -> None:
-        """Test OCR extraction with mocked Tesseract response."""
+    def test_ocr_with_mocked_paddleocr(self, extractor: VisualTextExtractor) -> None:
+        """Test OCR extraction with mocked PaddleOCR response."""
         # Create a simple test image
         img = Image.new("RGB", (200, 50), color="white")
         buffer = io.BytesIO()
         img.save(buffer, format="PNG")
         img_content = buffer.getvalue()
 
-        # Mock Tesseract responses
-        mock_ocr_data = {
-            "text": ["Hello", "World", ""],
-            "conf": [95, 90, -1],
-            "left": [10, 100, 0],
-            "top": [10, 10, 0],
-            "width": [50, 60, 0],
-            "height": [30, 30, 0],
-        }
+        mock_ocr_data = [
+            [[[10, 10], [60, 10], [60, 40], [10, 40]], ("Hello", 0.95)],
+            [[[100, 10], [160, 10], [160, 40], [100, 40]], ("World", 0.90)],
+        ]
 
-        with (
-            patch("pytesseract.image_to_data") as mock_data,
-            patch("pytesseract.image_to_string") as mock_string,
-        ):
-            mock_data.return_value = mock_ocr_data
-            mock_string.return_value = "Hello World"
+        with patch.object(extractor, "_get_ocr_engine") as mock_engine:
+            mock_engine.return_value.ocr.return_value = mock_ocr_data
 
             result = extractor.extract_from_content(img_content, ".png")
 
             assert result.total_pages == 1
-            assert "Hello World" in result.full_text
+            assert "Hello" in result.full_text
+            assert "World" in result.full_text
 
             # Verify text elements were created
             page = result.pages[0]
@@ -827,31 +780,26 @@ class TestPDFMocking:
         img = Image.new("RGB", (612, 792), color="white")
 
         # Mock OCR responses
-        mock_ocr_data = {
-            "text": ["OCR", "Text", ""],
-            "conf": [90, 85, -1],
-            "left": [100, 100, 0],
-            "top": [100, 130, 0],
-            "width": [50, 50, 0],
-            "height": [20, 20, 0],
-        }
+        mock_ocr_data = [
+            [[[100, 100], [150, 100], [150, 120], [100, 120]], ("OCR", 0.90)],
+            [[[100, 130], [150, 130], [150, 150], [100, 150]], ("Text", 0.85)],
+        ]
 
         with (
             patch("pdfplumber.open") as mock_open,
             patch("pdf2image.convert_from_bytes") as mock_convert,
-            patch("pytesseract.image_to_data") as mock_data,
-            patch("pytesseract.image_to_string") as mock_string,
+            patch.object(extractor, "_get_ocr_engine") as mock_engine,
         ):
             mock_open.return_value = mock_pdf
             mock_convert.return_value = [img]
-            mock_data.return_value = mock_ocr_data
-            mock_string.return_value = "OCR Text"
+            mock_engine.return_value.ocr.return_value = mock_ocr_data
 
             result = extractor.extract_from_content(b"fake pdf content", ".pdf")
 
             assert result.total_pages == 1
             assert result.extraction_method == ExtractionMethod.OCR
-            assert "OCR Text" in result.full_text
+            assert "OCR" in result.full_text
+            assert "Text" in result.full_text
 
 
 class TestMultiPageDocument:
@@ -906,24 +854,15 @@ class TestMultiPageDocument:
         mock_image.copy.return_value = mock_image
         mock_image.convert.return_value = mock_image
 
-        # Mock OCR responses
-        mock_ocr_data = {
-            "text": ["Frame", ""],
-            "conf": [90, -1],
-            "left": [10, 0],
-            "top": [10, 0],
-            "width": [50, 0],
-            "height": [20, 0],
-        }
-
         with (
             patch("PIL.Image.open") as mock_open,
-            patch("pytesseract.image_to_data") as mock_data,
-            patch("pytesseract.image_to_string") as mock_string,
+            patch.object(extractor, "_perform_ocr") as mock_perform_ocr,
         ):
             mock_open.return_value = mock_image
-            mock_data.return_value = mock_ocr_data
-            mock_string.return_value = "Frame text"
+            mock_perform_ocr.side_effect = [
+                ([], "Frame text", 0.90),
+                ([], "Frame text", 0.90),
+            ]
 
             result = extractor.extract_from_content(b"fake tiff content", ".tiff")
 

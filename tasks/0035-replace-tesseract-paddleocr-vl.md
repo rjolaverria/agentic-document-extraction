@@ -1,6 +1,6 @@
 # Replace Tesseract with PaddleOCR-VL
 
-- [ ] Replace Tesseract with PaddleOCR-VL
+- [x] Replace Tesseract with PaddleOCR-VL
   - As a developer, I want to replace Tesseract-based OCR with PaddleOCR-VL, so that visual text extraction is more accurate and consistent across document types.
   - **Acceptance Criteria**:
     - Remove Tesseract usage in visual OCR flows and replace with PaddleOCR-VL

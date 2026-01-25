@@ -137,7 +137,7 @@ tests/
   - LLM/VLM: `langchain`, `langchain-openai`, `openai`
   - Layout detection: `transformers`, `torch`, `pillow`
   - Text extraction: `chardet`, `pandas`
-  - OCR & PDF: `pypdf` or `pdfplumber`, `pytesseract`, `pdf2image`, `pillow`
+  - OCR & PDF: `pypdf` or `pdfplumber`, `paddleocr`, `paddlepaddle`, `pdf2image`, `pillow`
   - Document conversion: `python-docx`, `python-pptx`, `openpyxl`
   - Schema validation: `jsonschema`
   - Testing: `pytest`, `pytest-cov`, `httpx`, `pytest-asyncio`

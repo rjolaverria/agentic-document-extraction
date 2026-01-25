@@ -7,10 +7,11 @@ and supports multi-page documents.
 
 Uses:
 - pdfplumber for PDF text extraction with bounding boxes
-- pytesseract for OCR on images
+- PaddleOCR-VL for OCR on images
 - pdf2image for converting PDF pages to images when OCR is needed
 """
 
+import inspect
 import io
 import logging
 from dataclasses import dataclass, field
@@ -18,7 +19,10 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 from PIL import Image
+
+from agentic_document_extraction.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -231,6 +235,20 @@ class VisualExtractionResult:
         return elements
 
 
+@dataclass(frozen=True)
+class PaddleOCRConfig:
+    """Configuration for PaddleOCR-VL."""
+
+    language: str
+    use_gpu: bool
+    use_angle_cls: bool
+    det_model_dir: str | None
+    rec_model_dir: str | None
+    cls_model_dir: str | None
+    enable_mkldnn: bool
+    cpu_threads: int
+
+
 class VisualTextExtractor:
     """Extracts text from visual documents (PDFs and images).
 
@@ -259,22 +277,40 @@ class VisualTextExtractor:
     # Minimum confidence threshold for native PDF text
     MIN_PDF_TEXT_CONFIDENCE = 0.9
 
-    # Tesseract OCR language
-    DEFAULT_OCR_LANGUAGE = "eng"
+    # PaddleOCR language
+    DEFAULT_OCR_LANGUAGE = "en"
 
     def __init__(
         self,
-        ocr_language: str = DEFAULT_OCR_LANGUAGE,
+        ocr_language: str | None = None,
         pdf_dpi: int = DEFAULT_PDF_DPI,
+        ocr_config: PaddleOCRConfig | None = None,
     ) -> None:
         """Initialize the visual text extractor.
 
         Args:
-            ocr_language: Language code for Tesseract OCR (default: 'eng').
+            ocr_language: Language code for PaddleOCR (default: 'en').
             pdf_dpi: DPI for PDF to image conversion (default: 300).
+            ocr_config: Optional PaddleOCR configuration override.
         """
-        self.ocr_language = ocr_language
+        resolved_language = ocr_language or settings.paddleocr_language
         self.pdf_dpi = pdf_dpi
+        if ocr_config is not None:
+            self.ocr_config = ocr_config
+            self.ocr_language = ocr_config.language
+        else:
+            self.ocr_language = resolved_language
+            self.ocr_config = PaddleOCRConfig(
+                language=resolved_language,
+                use_gpu=settings.paddleocr_use_gpu,
+                use_angle_cls=settings.paddleocr_use_angle_cls,
+                det_model_dir=settings.paddleocr_det_model_dir,
+                rec_model_dir=settings.paddleocr_rec_model_dir,
+                cls_model_dir=settings.paddleocr_cls_model_dir,
+                enable_mkldnn=settings.paddleocr_enable_mkldnn,
+                cpu_threads=settings.paddleocr_cpu_threads,
+            )
+        self._ocr_engine: Any | None = None
 
     def extract_from_path(self, file_path: str | Path) -> VisualExtractionResult:
         """Extract text from a file path.
@@ -735,7 +771,7 @@ class VisualTextExtractor:
         image: Image.Image,
         page_num: int,
     ) -> tuple[list[TextElement], str, float]:
-        """Perform OCR on an image using Tesseract.
+        """Perform OCR on an image using PaddleOCR-VL.
 
         Args:
             image: PIL Image to process.
@@ -744,61 +780,172 @@ class VisualTextExtractor:
         Returns:
             Tuple of (text_elements, full_text, average_confidence).
         """
-        import pytesseract
+        ocr_engine = self._get_ocr_engine()
 
-        # Convert to RGB if necessary for pytesseract
+        # Convert to RGB if necessary for PaddleOCR
         if image.mode != "RGB":
             image = image.convert("RGB")
 
-        # Get detailed OCR data with bounding boxes
-        ocr_data = pytesseract.image_to_data(
-            image,
-            lang=self.ocr_language,
-            output_type=pytesseract.Output.DICT,
-        )
+        try:
+            ocr_output = ocr_engine.ocr(
+                np.array(image),
+                cls=self.ocr_config.use_angle_cls,
+            )
+        except (TypeError, ValueError) as exc:
+            if "cls" not in str(exc):
+                raise
+            ocr_output = ocr_engine.ocr(np.array(image))
 
         text_elements: list[TextElement] = []
         confidences: list[float] = []
 
-        n_boxes = len(ocr_data["text"])
-        for i in range(n_boxes):
-            text = ocr_data["text"][i].strip()
-            conf = int(ocr_data["conf"][i])
+        if not ocr_output:
+            return [], "", 0.0
 
-            # Skip empty text or low confidence results
-            if not text or conf < 0:
-                continue
-
-            # Convert confidence from 0-100 to 0.0-1.0
-            confidence = conf / 100.0
-            confidences.append(confidence)
-
-            bbox = BoundingBox(
-                x0=float(ocr_data["left"][i]),
-                y0=float(ocr_data["top"][i]),
-                x1=float(ocr_data["left"][i] + ocr_data["width"][i]),
-                y1=float(ocr_data["top"][i] + ocr_data["height"][i]),
+        def _is_line(item: Any) -> bool:
+            return (
+                isinstance(item, list)
+                and len(item) == 2
+                and isinstance(item[0], (list, tuple))
+                and isinstance(item[1], (list, tuple))
+                and len(item[1]) == 2
+                and isinstance(item[1][0], str)
             )
 
+        ocr_lines = ocr_output
+        if (
+            ocr_output
+            and not _is_line(ocr_output[0])
+            and isinstance(ocr_output[0], list)
+        ):
+            ocr_lines = ocr_output[0]
+
+        full_text_parts: list[str] = []
+        for line in ocr_lines:
+            if not _is_line(line):
+                continue
+            points, (text, confidence) = line
+            if not text:
+                continue
+
+            x_coords = [point[0] for point in points]
+            y_coords = [point[1] for point in points]
+            bbox = BoundingBox(
+                x0=float(min(x_coords)),
+                y0=float(min(y_coords)),
+                x1=float(max(x_coords)),
+                y1=float(max(y_coords)),
+            )
+
+            confidences.append(float(confidence))
+            full_text_parts.append(text)
             text_elements.append(
                 TextElement(
                     text=text,
                     bbox=bbox,
-                    confidence=confidence,
+                    confidence=float(confidence),
                     page_number=page_num,
                 )
             )
 
-        # Get full text for the page
-        full_text = pytesseract.image_to_string(
-            image,
-            lang=self.ocr_language,
-        )
+        full_text = "\n".join(full_text_parts)
 
         # Calculate average confidence
         avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
 
         return text_elements, full_text, avg_confidence
+
+    def _get_ocr_engine(self) -> Any:
+        """Initialize and cache the PaddleOCR engine."""
+        if self._ocr_engine is None:
+            try:
+                self._ensure_langchain_docstore_stub()
+                from paddleocr import PaddleOCR
+            except ImportError as exc:
+                raise VisualExtractionError(
+                    "PaddleOCR is not installed. Install dependencies with `uv sync`."
+                ) from exc
+
+            config = self.ocr_config
+            init_params = inspect.signature(PaddleOCR.__init__).parameters
+            ocr_kwargs: dict[str, Any] = {}
+
+            if "lang" in init_params:
+                ocr_kwargs["lang"] = config.language
+            if "use_gpu" in init_params:
+                ocr_kwargs["use_gpu"] = config.use_gpu
+            if "use_angle_cls" in init_params:
+                ocr_kwargs["use_angle_cls"] = config.use_angle_cls
+            if "use_textline_orientation" in init_params:
+                ocr_kwargs["use_textline_orientation"] = config.use_angle_cls
+            if "enable_mkldnn" in init_params:
+                ocr_kwargs["enable_mkldnn"] = config.enable_mkldnn
+            if "cpu_threads" in init_params:
+                ocr_kwargs["cpu_threads"] = config.cpu_threads
+            if "show_log" in init_params:
+                ocr_kwargs["show_log"] = False
+            if "text_detection_model_dir" in init_params and config.det_model_dir:
+                ocr_kwargs["text_detection_model_dir"] = config.det_model_dir
+            if "text_recognition_model_dir" in init_params and config.rec_model_dir:
+                ocr_kwargs["text_recognition_model_dir"] = config.rec_model_dir
+            if "textline_orientation_model_dir" in init_params and config.cls_model_dir:
+                ocr_kwargs["textline_orientation_model_dir"] = config.cls_model_dir
+
+            self._ocr_engine = PaddleOCR(**ocr_kwargs)
+        return self._ocr_engine
+
+    @staticmethod
+    def _ensure_langchain_docstore_stub() -> None:
+        """Provide minimal langchain stubs for PaddleOCR imports."""
+        import importlib
+        import sys
+        import types
+
+        import langchain
+
+        langchain_module: Any = langchain
+
+        def _ensure_module(name: str) -> bool:
+            try:
+                importlib.import_module(name)
+                return True
+            except ModuleNotFoundError:
+                return False
+
+        if not _ensure_module("langchain.docstore.document"):
+            docstore_module: Any = types.ModuleType("langchain.docstore")
+            document_module: Any = types.ModuleType("langchain.docstore.document")
+
+            @dataclass
+            class Document:
+                page_content: str
+                metadata: dict[str, Any] | None = None
+
+                def __post_init__(self) -> None:
+                    if self.metadata is None:
+                        self.metadata = {}
+
+            document_module.Document = Document
+            docstore_module.document = document_module
+            sys.modules.setdefault("langchain.docstore", docstore_module)
+            sys.modules.setdefault("langchain.docstore.document", document_module)
+            langchain_module.docstore = docstore_module
+
+        if not _ensure_module("langchain.text_splitter"):
+            text_splitter_module: Any = types.ModuleType("langchain.text_splitter")
+
+            class RecursiveCharacterTextSplitter:
+                def __init__(self, *_: Any, **__: Any) -> None:
+                    pass
+
+                def split_text(self, text: str) -> list[str]:
+                    return [text]
+
+            text_splitter_module.RecursiveCharacterTextSplitter = (
+                RecursiveCharacterTextSplitter
+            )
+            sys.modules.setdefault("langchain.text_splitter", text_splitter_module)
+            langchain_module.text_splitter = text_splitter_module
 
     def extract_pdf(self, content: bytes) -> VisualExtractionResult:
         """Public method to extract text from PDF content.

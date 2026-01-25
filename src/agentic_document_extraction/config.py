@@ -14,6 +14,14 @@ Environment Variables:
     ADE_OPENAI_MAX_TOKENS: Maximum tokens for LLM responses (default: 4096)
     ADE_CHUNK_SIZE: Token chunk size for large documents (default: 4000)
     ADE_CHUNK_OVERLAP: Token overlap between chunks (default: 200)
+    ADE_PADDLEOCR_LANGUAGE: PaddleOCR language code (default: en)
+    ADE_PADDLEOCR_USE_GPU: Enable PaddleOCR GPU usage (default: false)
+    ADE_PADDLEOCR_USE_ANGLE_CLS: Enable PaddleOCR angle classifier (default: true)
+    ADE_PADDLEOCR_DET_MODEL_DIR: PaddleOCR detection model directory
+    ADE_PADDLEOCR_REC_MODEL_DIR: PaddleOCR recognition model directory
+    ADE_PADDLEOCR_CLS_MODEL_DIR: PaddleOCR classifier model directory
+    ADE_PADDLEOCR_ENABLE_MKLDNN: Enable PaddleOCR MKL-DNN (default: false)
+    ADE_PADDLEOCR_CPU_THREADS: PaddleOCR CPU thread count (default: 4)
     ADE_MIN_OVERALL_CONFIDENCE: Min confidence threshold (default: 0.7)
     ADE_MIN_FIELD_CONFIDENCE: Min per-field confidence (default: 0.5)
     ADE_REQUIRED_FIELD_COVERAGE: Required field coverage threshold (default: 0.9)
@@ -91,6 +99,34 @@ class Settings(BaseSettings):
 
     chunk_overlap: int = 200
     """Token overlap between chunks for context continuity."""
+
+    # =========================================================================
+    # OCR Settings (PaddleOCR-VL)
+    # =========================================================================
+
+    paddleocr_language: str = "en"
+    """PaddleOCR language code (e.g., en, ch, fr)."""
+
+    paddleocr_use_gpu: bool = False
+    """Enable GPU acceleration for PaddleOCR."""
+
+    paddleocr_use_angle_cls: bool = True
+    """Enable angle classification for PaddleOCR."""
+
+    paddleocr_det_model_dir: str | None = None
+    """Optional PaddleOCR detection model directory override."""
+
+    paddleocr_rec_model_dir: str | None = None
+    """Optional PaddleOCR recognition model directory override."""
+
+    paddleocr_cls_model_dir: str | None = None
+    """Optional PaddleOCR classifier model directory override."""
+
+    paddleocr_enable_mkldnn: bool = False
+    """Enable MKL-DNN acceleration for PaddleOCR on CPU."""
+
+    paddleocr_cpu_threads: int = 4
+    """CPU thread count for PaddleOCR."""
 
     # =========================================================================
     # Quality Threshold Settings
@@ -185,6 +221,22 @@ class Settings(BaseSettings):
         if not 1 <= v <= 500:
             raise ValueError(f"max_file_size_mb must be between 1 and 500, got {v}")
         return v
+
+    @field_validator("paddleocr_cpu_threads")
+    @classmethod
+    def validate_paddleocr_threads(cls, v: int) -> int:
+        """Validate PaddleOCR CPU thread count."""
+        if v < 1:
+            raise ValueError("paddleocr_cpu_threads must be at least 1")
+        return v
+
+    @field_validator("paddleocr_language")
+    @classmethod
+    def validate_paddleocr_language(cls, v: str) -> str:
+        """Validate PaddleOCR language code is non-empty."""
+        if not v.strip():
+            raise ValueError("paddleocr_language must be a non-empty string")
+        return v.strip()
 
     @field_validator("server_port")
     @classmethod

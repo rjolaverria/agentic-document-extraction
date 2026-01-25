@@ -3,6 +3,7 @@
 Each log entry lives in `logs/` as its own file. Add new logs there and reference them here.
 
 - 2026-01-25 Feature: LangChain Agentic Loop Tools -> logs/2026-01-25-feature-langchain-agentic-loop-tools.md
+- 2026-01-25 Feature: PaddleOCR-VL OCR Migration -> logs/2026-01-25-feature-paddleocr-vl-ocr.md
 - 2026-01-24 Fix: Null Optional Fields Schema Violation -> logs/2026-01-24-fix-null-optionals-schema-violation.md
 - 2026-01-24 Fix: Coupon Form Extraction Missing Required Fields -> logs/2026-01-24-fix-coupon-required-fields-missing.md
 - 2026-01-24 Fix: Invoice Date Format False Positive -> logs/2026-01-24-fix-invoice-date-format-false-positive.md
