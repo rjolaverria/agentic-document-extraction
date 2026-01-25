@@ -1,6 +1,6 @@
 # Replace Custom Job Manager with Docket
 
-- [ ] Replace Custom Job Manager with Docket
+- [x] Replace Custom Job Manager with Docket
   - As a developer, I want to replace the custom async job manager with the Docket library, so that long-running operations have standardized async execution and progress tracking.
   - **Acceptance Criteria**:
     - Replace custom job manager implementation with Docket in async processing flows

@@ -24,6 +24,7 @@ dependencies = [
     "pillow>=12.1.0",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.12.0",
+    "pydocket>=0.17.1",
     "pypdf>=6.6.0",
     "python-magic>=0.4.27",
     "python-multipart>=0.0.21",
@@ -108,6 +109,8 @@ module = [
     "paddle.*",
     "pdf2image",
     "pdf2image.*",
+    "docket",
+    "docket.*",
 ]
 ignore_missing_imports = true
 

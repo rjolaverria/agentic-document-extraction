@@ -44,6 +44,11 @@ class TestSettings:
 
         # Job management defaults
         assert settings.job_ttl_hours == 24
+        assert settings.docket_name == "agentic-document-extraction"
+        assert settings.docket_url == "redis://localhost:6379/0"
+        assert settings.docket_result_storage_url is None
+        assert settings.docket_execution_ttl_seconds is None
+        assert settings.docket_execution_ttl.total_seconds() == settings.job_ttl_seconds
 
         # Logging defaults
         assert settings.log_level == "INFO"
@@ -99,6 +104,15 @@ class TestSettings:
             settings = Settings(_env_file=None)
 
         assert settings.job_ttl_seconds == 12 * 3600
+
+    def test_docket_execution_ttl_override(self) -> None:
+        """Test Docket execution TTL override."""
+        env_vars = {"ADE_DOCKET_EXECUTION_TTL_SECONDS": "900"}
+        with patch.dict(os.environ, env_vars, clear=True):
+            settings = Settings(_env_file=None)
+
+        assert settings.docket_execution_ttl_seconds == 900
+        assert settings.docket_execution_ttl.total_seconds() == 900
 
     def test_cors_origins_list_single(self) -> None:
         """Test CORS origins list with single origin."""
@@ -306,6 +320,15 @@ class TestSettingsValidation:
     def test_job_ttl_must_be_positive(self) -> None:
         """Test job TTL must be positive."""
         env_vars = {"ADE_JOB_TTL_HOURS": "0"}
+        with (
+            patch.dict(os.environ, env_vars, clear=True),
+            pytest.raises(ValueError, match="at least 1"),
+        ):
+            Settings(_env_file=None)
+
+    def test_docket_execution_ttl_must_be_positive(self) -> None:
+        """Test Docket execution TTL must be positive."""
+        env_vars = {"ADE_DOCKET_EXECUTION_TTL_SECONDS": "0"}
         with (
             patch.dict(os.environ, env_vars, clear=True),
             pytest.raises(ValueError, match="at least 1"),

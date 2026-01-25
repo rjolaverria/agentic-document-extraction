@@ -27,6 +27,11 @@ Environment Variables:
     ADE_REQUIRED_FIELD_COVERAGE: Required field coverage threshold (default: 0.9)
     ADE_MAX_REFINEMENT_ITERATIONS: Max agentic loop iterations (default: 3)
     ADE_JOB_TTL_HOURS: Job result retention time in hours (default: 24)
+    ADE_DOCKET_NAME: Shared Docket name (default: agentic-document-extraction)
+    ADE_DOCKET_URL: Redis/memory backend URL (default: redis://localhost:6379/0)
+    ADE_DOCKET_RESULT_STORAGE_URL: Optional Redis URL for result storage
+    ADE_DOCKET_EXECUTION_TTL_SECONDS: Optional TTL override for executions
+    ADE_DOCKET_ENABLE_INTERNAL_INSTRUMENTATION: Enable Docket internal spans
     ADE_LOG_LEVEL: Logging level (default: INFO)
     ADE_DEBUG: Enable debug mode (default: false)
     ADE_CORS_ORIGINS: Comma-separated CORS origins (default: *)
@@ -35,6 +40,7 @@ Environment Variables:
 """
 
 import logging
+from datetime import timedelta
 from typing import Any
 
 from pydantic import SecretStr, field_validator, model_validator
@@ -155,6 +161,21 @@ class Settings(BaseSettings):
     job_ttl_hours: int = 24
     """Time-to-live for job results in hours before cleanup."""
 
+    docket_name: str = "agentic-document-extraction"
+    """Shared Docket name for coordinating workers."""
+
+    docket_url: str = "redis://localhost:6379/0"
+    """Redis or memory backend URL for Docket (e.g., redis:// or memory://)."""
+
+    docket_result_storage_url: str | None = None
+    """Optional Redis URL for result storage (defaults to docket_url)."""
+
+    docket_execution_ttl_seconds: int | None = None
+    """Override for Docket execution TTL in seconds (defaults to job_ttl_seconds)."""
+
+    docket_enable_internal_instrumentation: bool = False
+    """Enable OpenTelemetry spans for Docket's internal Redis polling."""
+
     # =========================================================================
     # Logging Settings
     # =========================================================================
@@ -254,6 +275,16 @@ class Settings(BaseSettings):
             raise ValueError(f"job_ttl_hours must be at least 1, got {v}")
         return v
 
+    @field_validator("docket_execution_ttl_seconds")
+    @classmethod
+    def validate_docket_ttl(cls, v: int | None) -> int | None:
+        """Validate Docket execution TTL override."""
+        if v is not None and v < 1:
+            raise ValueError(
+                f"docket_execution_ttl_seconds must be at least 1, got {v}"
+            )
+        return v
+
     @model_validator(mode="after")
     def validate_chunk_settings(self) -> "Settings":
         """Validate chunk overlap is less than chunk size."""
@@ -277,6 +308,16 @@ class Settings(BaseSettings):
     def job_ttl_seconds(self) -> int:
         """Get job TTL in seconds."""
         return self.job_ttl_hours * 3600
+
+    @property
+    def docket_execution_ttl(self) -> timedelta:
+        """Get Docket execution TTL as a timedelta."""
+        ttl_seconds = (
+            self.docket_execution_ttl_seconds
+            if self.docket_execution_ttl_seconds is not None
+            else self.job_ttl_seconds
+        )
+        return timedelta(seconds=ttl_seconds)
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -324,6 +365,13 @@ class Settings(BaseSettings):
             "required_field_coverage": self.required_field_coverage,
             "max_refinement_iterations": self.max_refinement_iterations,
             "job_ttl_hours": self.job_ttl_hours,
+            "docket_name": self.docket_name,
+            "docket_url": self.docket_url,
+            "docket_result_storage_url": self.docket_result_storage_url,
+            "docket_execution_ttl_seconds": self.docket_execution_ttl_seconds,
+            "docket_enable_internal_instrumentation": (
+                self.docket_enable_internal_instrumentation
+            ),
             "log_level": self.log_level,
             "debug": self.debug,
             "cors_origins": self.cors_origins,

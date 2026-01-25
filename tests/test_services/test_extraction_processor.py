@@ -15,27 +15,13 @@ from PIL import Image
 from agentic_document_extraction.models import (
     FormatFamily,
     FormatInfo,
-    JobStatus,
     ProcessingCategory,
 )
 from agentic_document_extraction.services.extraction_processor import (
     process_extraction_job,
 )
-from agentic_document_extraction.services.job_manager import (
-    JobManager,
-    JobManagerConfig,
-)
 
-
-@pytest.fixture
-def job_manager() -> JobManager:
-    """Create a job manager for testing with auto-cleanup disabled."""
-    config = JobManagerConfig(
-        ttl_seconds=3600,
-        cleanup_interval_seconds=300,
-        enable_auto_cleanup=False,
-    )
-    return JobManager(config=config)
+pytestmark = pytest.mark.asyncio
 
 
 @pytest.fixture
@@ -144,12 +130,11 @@ class TestExtractionProcessorRouting:
     @patch(
         "agentic_document_extraction.services.extraction_processor.VisualTextExtractor"
     )
-    def test_png_file_routes_to_visual_extractor(
+    async def test_png_file_routes_to_visual_extractor(
         self,
         mock_visual_extractor_class: MagicMock,
         mock_agentic_loop_class: MagicMock,
         mock_markdown_gen_class: MagicMock,
-        job_manager: JobManager,
         sample_png_file: Path,
         sample_schema_file: Path,
     ) -> None:
@@ -160,35 +145,30 @@ class TestExtractionProcessorRouting:
         mock_agentic_loop_class.return_value = create_mock_agentic_loop()
         mock_markdown_gen_class.return_value = create_mock_markdown_generator()
 
-        # Create job
-        job = job_manager.create_job(
+        # Process the job
+        result = await process_extraction_job(
             job_id="test-png-routing",
             filename="test_image.png",
             file_path=str(sample_png_file),
             schema_path=str(sample_schema_file),
+            progress=None,
         )
-
-        # Process the job
-        process_extraction_job(job.job_id, job_manager)
 
         # Verify visual extractor was called (not text extractor)
         mock_visual_extractor.extract_from_path.assert_called_once()
-
-        # Verify job completed successfully
-        completed_job = job_manager.get_job(job.job_id)
-        assert completed_job.status == JobStatus.COMPLETED
+        # JsonGenerator adds None for optional fields, so check required field
+        assert result["extracted_data"]["name"] == "test"
 
     @patch(
         "agentic_document_extraction.services.extraction_processor.MarkdownGenerator"
     )
     @patch("agentic_document_extraction.services.extraction_processor.AgenticLoop")
     @patch("agentic_document_extraction.services.extraction_processor.TextExtractor")
-    def test_txt_file_routes_to_text_extractor(
+    async def test_txt_file_routes_to_text_extractor(
         self,
         mock_text_extractor_class: MagicMock,
         mock_agentic_loop_class: MagicMock,
         mock_markdown_gen_class: MagicMock,
-        job_manager: JobManager,
         sample_txt_file: Path,
         sample_schema_file: Path,
     ) -> None:
@@ -199,23 +179,19 @@ class TestExtractionProcessorRouting:
         mock_agentic_loop_class.return_value = create_mock_agentic_loop()
         mock_markdown_gen_class.return_value = create_mock_markdown_generator()
 
-        # Create job
-        job = job_manager.create_job(
+        # Process the job
+        result = await process_extraction_job(
             job_id="test-txt-routing",
             filename="test.txt",
             file_path=str(sample_txt_file),
             schema_path=str(sample_schema_file),
+            progress=None,
         )
-
-        # Process the job
-        process_extraction_job(job.job_id, job_manager)
 
         # Verify text extractor was called (not visual extractor)
         mock_text_extractor.extract_from_path.assert_called_once()
-
-        # Verify job completed successfully
-        completed_job = job_manager.get_job(job.job_id)
-        assert completed_job.status == JobStatus.COMPLETED
+        # JsonGenerator adds None for optional fields, so check required field
+        assert result["extracted_data"]["name"] == "test"
 
 
 class TestExtractionProcessorVisualFormats:
@@ -242,13 +218,12 @@ class TestExtractionProcessorVisualFormats:
         "agentic_document_extraction.services.extraction_processor.VisualTextExtractor"
     )
     @patch("agentic_document_extraction.services.extraction_processor.FormatDetector")
-    def test_visual_formats_use_visual_extractor(
+    async def test_visual_formats_use_visual_extractor(
         self,
         mock_format_detector_class: MagicMock,
         mock_visual_extractor_class: MagicMock,
         mock_agentic_loop_class: MagicMock,
         mock_markdown_gen_class: MagicMock,
-        job_manager: JobManager,
         temp_dir: Path,
         sample_schema: dict,
         extension: str,
@@ -287,23 +262,19 @@ class TestExtractionProcessorVisualFormats:
         mock_agentic_loop_class.return_value = create_mock_agentic_loop()
         mock_markdown_gen_class.return_value = create_mock_markdown_generator()
 
-        # Create job
-        job = job_manager.create_job(
+        # Process the job
+        result = await process_extraction_job(
             job_id=f"test-{extension.lstrip('.')}-routing",
             filename=f"test{extension}",
             file_path=str(test_file),
             schema_path=str(schema_file),
+            progress=None,
         )
-
-        # Process the job
-        process_extraction_job(job.job_id, job_manager)
 
         # Verify visual extractor was called
         mock_visual_extractor.extract_from_path.assert_called_once()
-
-        # Verify job completed successfully
-        completed_job = job_manager.get_job(job.job_id)
-        assert completed_job.status == JobStatus.COMPLETED
+        # JsonGenerator adds None for optional fields, so check required field
+        assert result["extracted_data"]["name"] == "test"
 
 
 class TestExtractionProcessorTextFormats:
@@ -319,13 +290,12 @@ class TestExtractionProcessorTextFormats:
     @patch("agentic_document_extraction.services.extraction_processor.AgenticLoop")
     @patch("agentic_document_extraction.services.extraction_processor.TextExtractor")
     @patch("agentic_document_extraction.services.extraction_processor.FormatDetector")
-    def test_text_formats_use_text_extractor(
+    async def test_text_formats_use_text_extractor(
         self,
         mock_format_detector_class: MagicMock,
         mock_text_extractor_class: MagicMock,
         mock_agentic_loop_class: MagicMock,
         mock_markdown_gen_class: MagicMock,
-        job_manager: JobManager,
         temp_dir: Path,
         sample_schema: dict,
         extension: str,
@@ -360,20 +330,16 @@ class TestExtractionProcessorTextFormats:
         mock_agentic_loop_class.return_value = create_mock_agentic_loop()
         mock_markdown_gen_class.return_value = create_mock_markdown_generator()
 
-        # Create job
-        job = job_manager.create_job(
+        # Process the job
+        result = await process_extraction_job(
             job_id=f"test-{extension.lstrip('.')}-routing",
             filename=f"test{extension}",
             file_path=str(test_file),
             schema_path=str(schema_file),
+            progress=None,
         )
-
-        # Process the job
-        process_extraction_job(job.job_id, job_manager)
 
         # Verify text extractor was called
         mock_text_extractor.extract_from_path.assert_called_once()
-
-        # Verify job completed successfully
-        completed_job = job_manager.get_job(job.job_id)
-        assert completed_job.status == JobStatus.COMPLETED
+        # JsonGenerator adds None for optional fields, so check required field
+        assert result["extracted_data"]["name"] == "test"

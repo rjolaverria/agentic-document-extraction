@@ -4,25 +4,23 @@ This module provides the main extraction orchestration logic that:
 1. Detects document format
 2. Extracts text using appropriate method (text-based or visual)
 3. Runs the agentic extraction loop
-4. Saves results to job manager
+4. Returns results for Docket storage
 
 This is the entry point for processing extraction jobs in background tasks.
 """
 
 import json
+from contextlib import suppress
 from pathlib import Path
 from typing import Any
+
+from docket import Progress
 
 from agentic_document_extraction.agents.refiner import AgenticLoop
 from agentic_document_extraction.models import ProcessingCategory
 from agentic_document_extraction.output.json_generator import JsonGenerator
 from agentic_document_extraction.output.markdown_generator import MarkdownGenerator
 from agentic_document_extraction.services.format_detector import FormatDetector
-from agentic_document_extraction.services.job_manager import (
-    JobManager,
-    JobNotFoundError,
-    get_job_manager,
-)
 from agentic_document_extraction.services.schema_validator import SchemaValidator
 from agentic_document_extraction.services.text_extractor import TextExtractor
 from agentic_document_extraction.services.visual_text_extractor import (
@@ -40,6 +38,7 @@ from agentic_document_extraction.utils.logging import (
 )
 
 logger = get_logger(__name__)
+_DEFAULT_PROGRESS = Progress()
 
 
 def _get_nested_value(data: dict[str, Any], path: str) -> Any:
@@ -76,60 +75,64 @@ def _get_nested_value(data: dict[str, Any], path: str) -> Any:
     return current
 
 
+async def _set_progress(progress: Progress | None, message: str) -> None:
+    """Update Docket progress messages when available."""
+    if progress is None:
+        return
+    # Progress dependency is only valid inside a Docket worker context.
+    with suppress(AssertionError):
+        await progress.set_message(message)
+
+
 # Re-export DocumentProcessingError as ExtractionProcessorError for backward compatibility
 ExtractionProcessorError = DocumentProcessingError
 
 
-def process_extraction_job(
+async def process_extraction_job(
     job_id: str,
-    job_manager: JobManager | None = None,
-) -> None:
+    filename: str,
+    file_path: str,
+    schema_path: str,
+    progress: Progress | None = _DEFAULT_PROGRESS,
+) -> dict[str, Any]:
     """Process an extraction job.
 
     This is the main entry point for background job processing. It:
-    1. Retrieves job data from the job manager
+    1. Loads schema and detects document format
     2. Detects document format
     3. Extracts text using appropriate method
     4. Runs the agentic extraction loop
-    5. Saves results or error to job manager
+    5. Returns results for Docket result storage
 
     Args:
         job_id: The job ID to process.
-        job_manager: Optional job manager instance. Uses global if not provided.
+        filename: Original uploaded filename.
+        file_path: Path to the uploaded file.
+        schema_path: Path to the schema file.
+        progress: Optional Docket progress reporter.
     """
-    if job_manager is None:
-        job_manager = get_job_manager()
-
     # Set job ID in context for logging correlation
     set_job_id(job_id)
     metrics = PerformanceMetrics(operation="extraction")
 
     try:
-        # Get job data
-        job = job_manager.get_job(job_id)
-
-        with LogContext(job_id=job_id, filename=job.filename):
+        with LogContext(job_id=job_id, filename=filename):
             logger.info(
                 "Starting extraction",
-                filename=job.filename,
+                filename=filename,
             )
 
-            # Update status to processing
-            job_manager.update_status(
-                job_id,
-                status=job.status.PROCESSING,
-                progress="Processing started",
-            )
+            await _set_progress(progress, "Processing started")
 
             # Load schema from file
-            schema_path = Path(job.schema_path)
-            if not schema_path.exists():
+            schema_file_path = Path(schema_path)
+            if not schema_file_path.exists():
                 raise ADEFileNotFoundError(
-                    file_path=str(schema_path),
-                    message=f"Schema file not found: {schema_path}",
+                    file_path=str(schema_file_path),
+                    message=f"Schema file not found: {schema_file_path}",
                 )
 
-            with open(schema_path) as f:
+            with open(schema_file_path) as f:
                 schema_content = json.load(f)
 
             # Validate schema
@@ -137,46 +140,44 @@ def process_extraction_job(
             schema_info = schema_validator.validate(schema_content)
             logger.info("Schema validated")
 
-            job_manager.update_status(
-                job_id,
-                status=job.status.PROCESSING,
-                progress="Schema validated, detecting document format",
-            )
+            await _set_progress(progress, "Schema validated, detecting document format")
 
             # Detect document format
-            file_path = Path(job.file_path)
-            if not file_path.exists():
+            document_path = Path(file_path)
+            if not document_path.exists():
                 raise ADEFileNotFoundError(
-                    file_path=str(file_path),
-                    message=f"Document file not found: {file_path}",
+                    file_path=str(document_path),
+                    message=f"Document file not found: {document_path}",
                 )
 
             format_detector = FormatDetector()
-            format_info = format_detector.detect_from_path(file_path)
+            format_info = format_detector.detect_from_path(document_path)
             logger.info(
                 "Format detected",
                 mime_type=format_info.mime_type,
                 category=format_info.processing_category.value,
             )
 
-            job_manager.update_status(
-                job_id,
-                status=job.status.PROCESSING,
-                progress=f"Document format: {format_info.format_family.value}, extracting text",
+            await _set_progress(
+                progress,
+                (
+                    "Document format: "
+                    f"{format_info.format_family.value}, extracting text"
+                ),
             )
 
             # Extract text based on document type
             if format_info.processing_category == ProcessingCategory.TEXT_BASED:
                 # Text-based extraction
                 text_extractor = TextExtractor()
-                text_extraction_result = text_extractor.extract_from_path(file_path)
+                text_extraction_result = text_extractor.extract_from_path(document_path)
                 text = text_extraction_result.text
                 logger.info("Text extracted", length=len(text))
             else:
                 # Visual document - use OCR and layout detection
                 visual_text_extractor = VisualTextExtractor()
                 visual_extraction_result = visual_text_extractor.extract_from_path(
-                    file_path
+                    document_path
                 )
                 text = visual_extraction_result.full_text
                 logger.info(
@@ -187,11 +188,7 @@ def process_extraction_job(
                     confidence=visual_extraction_result.average_confidence,
                 )
 
-            job_manager.update_status(
-                job_id,
-                status=job.status.PROCESSING,
-                progress="Running agentic extraction loop",
-            )
+            await _set_progress(progress, "Running agentic extraction loop")
 
             # Run agentic extraction loop
             agentic_loop = AgenticLoop()
@@ -211,7 +208,7 @@ def process_extraction_job(
                 visual_extraction_service = VisualDocumentExtractionService()
 
                 # Capture file_path and text (OCR) in closure for visual extraction
-                captured_file_path = file_path
+                captured_file_path = document_path
                 captured_ocr_text = text
 
                 def extraction_func(
@@ -296,14 +293,7 @@ def process_extraction_job(
                         if normalized_value is not None:
                             issue["current_value"] = normalized_value
 
-            # Set result on job
-            job_manager.set_result(
-                job_id=job_id,
-                extracted_data=normalized_data,
-                markdown_summary=markdown_summary,
-                metadata=metadata,
-                quality_report=quality_report,
-            )
+            await _set_progress(progress, "Extraction completed")
 
             logger.log_extraction_result(
                 job_id=job_id,
@@ -315,42 +305,22 @@ def process_extraction_job(
                 confidence=loop_result.final_verification.metrics.overall_confidence,
             )
 
-    except JobNotFoundError:
-        logger.error("Job not found, cannot process", job_id=job_id)
-        raise
+            return {
+                "extracted_data": normalized_data,
+                "markdown_summary": markdown_summary,
+                "metadata": metadata,
+                "quality_report": quality_report,
+            }
 
     except Exception as e:
-        error_message = f"{type(e).__name__}: {e}"
         logger.error(
             "Job failed",
             job_id=job_id,
-            error=error_message,
+            error=f"{type(e).__name__}: {e}",
             error_type=type(e).__name__,
             exc_info=True,
         )
-
-        try:
-            job_manager.set_failed(job_id, error_message)
-        except JobNotFoundError:
-            logger.error(
-                "Could not mark job as failed - job not found",
-                job_id=job_id,
-            )
-
-
-async def process_extraction_job_async(
-    job_id: str,
-    job_manager: JobManager | None = None,
-) -> None:
-    """Async wrapper for process_extraction_job.
-
-    Used with FastAPI BackgroundTasks for async execution.
-
-    Args:
-        job_id: The job ID to process.
-        job_manager: Optional job manager instance.
-    """
-    # Run the synchronous processing in a way that doesn't block
-    # For CPU-bound work, this runs in the same thread
-    # For I/O-bound work (API calls), the underlying libraries handle async
-    process_extraction_job(job_id, job_manager)
+        if progress is not None:
+            with suppress(AssertionError):
+                await progress.set_message("Job failed")
+        raise

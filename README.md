@@ -7,7 +7,7 @@ A vision-first, agentic document extraction system built as a FastAPI service. T
 - **Multi-format support**: Process text files, CSVs, PDFs, images, Office documents, and more
 - **Vision-first approach**: Treats visual documents (PDFs, images) as visual objects, understanding layout and spatial relationships
 - **Agentic processing**: Uses plan→execute→verify→refine loops to iteratively improve extraction quality
-- **Async job processing**: Long-running extractions run in the background with status tracking
+- **Async job processing**: Docket-backed background jobs with status tracking and progress reporting
 - **Structured output**: Returns both JSON (matching your schema) and Markdown summaries
 - **Quality verification**: Built-in quality checks with configurable confidence thresholds
 
@@ -19,6 +19,7 @@ A vision-first, agentic document extraction system built as a FastAPI service. T
 - [uv](https://github.com/astral-sh/uv) package manager
 - OpenAI API key
 - **PaddleOCR-VL** (installed via `uv sync` for image/visual document processing)
+- Redis 5+ (for Docket job storage and execution)
 
 #### PaddleOCR-VL Notes
 
@@ -41,6 +42,8 @@ cat > .env << EOF
 ADE_OPENAI_API_KEY=sk-your-api-key-here
 ADE_LOG_LEVEL=INFO
 ADE_DEBUG=false
+ADE_DOCKET_NAME=agentic-document-extraction
+ADE_DOCKET_URL=redis://localhost:6379/0
 EOF
 ```
 
@@ -55,6 +58,30 @@ uv run uvicorn agentic_document_extraction.api:app --host 0.0.0.0 --port 8000 --
 ```
 
 The API will be available at `http://localhost:8000`. Interactive documentation is at `http://localhost:8000/docs`.
+
+### Running the Docket Worker
+
+Docket workers execute extraction jobs. Run a worker in a separate terminal:
+
+```bash
+uv run docket worker \
+  --tasks agentic_document_extraction.docket_tasks:tasks \
+  --docket agentic-document-extraction \
+  --url redis://localhost:6379/0 \
+  --concurrency 2
+```
+
+Notes:
+- The API process and worker process must point at the same Redis backend.
+- `memory://` is supported for local-only testing but cannot be shared across processes.
+
+### Docket Configuration
+
+Key environment variables:
+- `ADE_DOCKET_NAME`: Shared docket name for API and workers
+- `ADE_DOCKET_URL`: Redis backend URL for scheduling and state
+- `ADE_DOCKET_RESULT_STORAGE_URL`: Optional separate Redis URL for result storage
+- `ADE_DOCKET_EXECUTION_TTL_SECONDS`: Override TTL for execution state/results
 
 ## API Endpoints
 

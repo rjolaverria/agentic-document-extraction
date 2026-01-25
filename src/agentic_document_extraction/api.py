@@ -2,12 +2,12 @@
 
 import json
 import uuid
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
 from fastapi import (
-    BackgroundTasks,
     FastAPI,
     File,
     Form,
@@ -29,13 +29,14 @@ from agentic_document_extraction.models import (
     JobStatusResponse,
     UploadResponse,
 )
+from agentic_document_extraction.services.docket_client import build_docket
+from agentic_document_extraction.services.docket_jobs import (
+    DocketJobStore,
+    build_status_snapshot,
+    load_execution,
+)
 from agentic_document_extraction.services.extraction_processor import (
     process_extraction_job,
-)
-from agentic_document_extraction.services.job_manager import (
-    JobExpiredError,
-    JobNotFoundError,
-    get_job_manager,
 )
 from agentic_document_extraction.services.schema_validator import (
     SchemaValidationError,
@@ -45,6 +46,8 @@ from agentic_document_extraction.utils.exceptions import (
     ADEError,
     ErrorCode,
     FileTooLargeError,
+    JobExpiredError,
+    JobNotFoundError,
     SchemaParseError,
     ValidationError,
 )
@@ -67,6 +70,19 @@ logger = get_logger(__name__)
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> Any:
+        docket = build_docket()
+        await docket.__aenter__()
+        docket.register(process_extraction_job)
+        app.state.docket = docket
+        try:
+            yield
+        finally:
+            await docket.__aexit__(None, None, None)
+            app.state.docket = None
+
     app = FastAPI(
         title="Agentic Document Extraction API",
         description=(
@@ -77,6 +93,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        lifespan=lifespan,
     )
 
     # Configure CORS using settings
@@ -214,7 +231,6 @@ def create_app() -> FastAPI:
     )
     async def extract_document(
         request: Request,
-        background_tasks: BackgroundTasks,
         file: Annotated[UploadFile, File(description="Document file to extract from")],
         extraction_schema: Annotated[
             str | None, Form(alias="schema", description="JSON schema as string")
@@ -235,7 +251,6 @@ def create_app() -> FastAPI:
 
         Args:
             request: FastAPI request object
-            background_tasks: FastAPI background tasks handler
             file: The document file to process
             extraction_schema: JSON schema as a string (alternative to schema_file)
             schema_file: JSON schema as a file upload (alternative to schema)
@@ -368,9 +383,9 @@ def create_app() -> FastAPI:
         with open(schema_filepath, "w") as f:
             json.dump(schema_content, f)
 
-        # Create job in job manager
-        job_manager = get_job_manager()
-        job_manager.create_job(
+        docket = request.app.state.docket
+        job_store = DocketJobStore(docket)
+        await job_store.create(
             job_id=job_id,
             filename=file.filename or "unknown",
             file_path=str(temp_filepath),
@@ -385,8 +400,12 @@ def create_app() -> FastAPI:
             request_id=request_id,
         )
 
-        # Start background processing
-        background_tasks.add_task(process_extraction_job, job_id)
+        await docket.add(process_extraction_job, key=job_id)(
+            job_id,
+            file.filename or "unknown",
+            str(temp_filepath),
+            str(schema_filepath),
+        )
 
         return {
             "job_id": job_id,
@@ -420,10 +439,12 @@ def create_app() -> FastAPI:
             HTTPException: 410 if job has expired
         """
         request_id = getattr(request.state, "request_id", None)
-        job_manager = get_job_manager()
+        docket = request.app.state.docket
+        job_store = DocketJobStore(docket)
 
         try:
-            job = job_manager.get_job(job_id)
+            metadata = await job_store.get(job_id)
+            execution = await load_execution(docket, job_id)
         except JobNotFoundError:
             logger.warning(
                 "Job not found",
@@ -446,21 +467,23 @@ def create_app() -> FastAPI:
                 f"{settings.job_ttl_hours} hours.",
             ) from None
 
+        snapshot = build_status_snapshot(metadata, execution)
+
         logger.debug(
             "Job status retrieved",
             job_id=job_id,
-            status=job.status.value,
+            status=snapshot.status.value,
             request_id=request_id,
         )
 
         return {
-            "job_id": job.job_id,
-            "status": job.status,
-            "filename": job.filename,
-            "created_at": job.created_at,
-            "updated_at": job.updated_at,
-            "progress": job.progress,
-            "error_message": job.error_message,
+            "job_id": snapshot.job_id,
+            "status": snapshot.status,
+            "filename": snapshot.filename,
+            "created_at": snapshot.created_at,
+            "updated_at": snapshot.updated_at,
+            "progress": snapshot.progress,
+            "error_message": snapshot.error_message,
         }
 
     @app.get(
@@ -490,10 +513,12 @@ def create_app() -> FastAPI:
             HTTPException: 425 if job is not yet complete
         """
         request_id = getattr(request.state, "request_id", None)
-        job_manager = get_job_manager()
+        docket = request.app.state.docket
+        job_store = DocketJobStore(docket)
 
         try:
-            job = job_manager.get_job(job_id)
+            metadata = await job_store.get(job_id)
+            execution = await load_execution(docket, job_id)
         except JobNotFoundError:
             logger.warning(
                 "Job not found for result retrieval",
@@ -516,8 +541,10 @@ def create_app() -> FastAPI:
                 f"{settings.job_ttl_hours} hours.",
             ) from None
 
+        status_snapshot = build_status_snapshot(metadata, execution)
+
         # Check if job is complete
-        if job.status == JobStatus.PENDING:
+        if status_snapshot.status == JobStatus.PENDING:
             logger.debug(
                 "Result requested for pending job",
                 job_id=job_id,
@@ -528,48 +555,62 @@ def create_app() -> FastAPI:
                 detail=f"Job {job_id} is pending. Check status at GET /jobs/{job_id}",
             )
 
-        if job.status == JobStatus.PROCESSING:
+        if status_snapshot.status == JobStatus.PROCESSING:
             logger.debug(
                 "Result requested for processing job",
                 job_id=job_id,
-                progress=job.progress,
+                progress=status_snapshot.progress,
                 request_id=request_id,
             )
             raise HTTPException(
                 status_code=status.HTTP_425_TOO_EARLY,
                 detail=f"Job {job_id} is still processing. "
-                f"Progress: {job.progress or 'Unknown'}. "
+                f"Progress: {status_snapshot.progress or 'Unknown'}. "
                 f"Check status at GET /jobs/{job_id}",
             )
 
-        # Build response based on job status
-        metadata = None
-        if job.metadata:
-            metadata = ExtractionMetadata(
-                processing_time_seconds=job.metadata.get("processing_time_seconds", 0),
-                model_used=job.metadata.get("model_used", "unknown"),
-                total_tokens=job.metadata.get("total_tokens", 0),
-                iterations_completed=job.metadata.get("iterations_completed", 0),
-                converged=job.metadata.get("converged", False),
-                document_type=job.metadata.get("document_type", "unknown"),
-            )
+        extracted_data = None
+        markdown_summary = None
+        metadata_payload = None
+        quality_report = None
+
+        if status_snapshot.status == JobStatus.COMPLETED:
+            result = await execution.get_result()
+            if isinstance(result, dict):
+                extracted_data = result.get("extracted_data")
+                markdown_summary = result.get("markdown_summary")
+                quality_report = result.get("quality_report")
+                result_metadata = result.get("metadata")
+                if isinstance(result_metadata, dict):
+                    metadata_payload = ExtractionMetadata(
+                        processing_time_seconds=result_metadata.get(
+                            "processing_time_seconds", 0
+                        ),
+                        model_used=result_metadata.get("model_used", "unknown"),
+                        total_tokens=result_metadata.get("total_tokens", 0),
+                        iterations_completed=result_metadata.get(
+                            "iterations_completed", 0
+                        ),
+                        converged=result_metadata.get("converged", False),
+                        document_type=result_metadata.get("document_type", "unknown"),
+                    )
 
         logger.info(
             "Job result retrieved",
             job_id=job_id,
-            status=job.status.value,
-            has_data=job.extracted_data is not None,
+            status=status_snapshot.status.value,
+            has_data=extracted_data is not None,
             request_id=request_id,
         )
 
         return {
-            "job_id": job.job_id,
-            "status": job.status,
-            "extracted_data": job.extracted_data,
-            "markdown_summary": job.markdown_summary,
-            "metadata": metadata,
-            "quality_report": job.quality_report,
-            "error_message": job.error_message,
+            "job_id": status_snapshot.job_id,
+            "status": status_snapshot.status,
+            "extracted_data": extracted_data,
+            "markdown_summary": markdown_summary,
+            "metadata": metadata_payload,
+            "quality_report": quality_report,
+            "error_message": status_snapshot.error_message,
         }
 
     logger.info("FastAPI application created successfully")
