@@ -20,6 +20,7 @@ A vision-first, agentic document extraction system built as a FastAPI service. T
 - OpenAI API key
 - **PaddleOCR-VL** (installed via `uv sync` for image/visual document processing)
 - Redis 5+ (for Docket job storage and execution)
+- Docker (optional, easiest way to run the local Redis container)
 
 #### PaddleOCR-VL Notes
 
@@ -45,6 +46,25 @@ ADE_DEBUG=false
 ADE_DOCKET_NAME=agentic-document-extraction
 ADE_DOCKET_URL=redis://localhost:6379/0
 EOF
+```
+
+### Local Run Order
+
+Run these in separate terminals in this order so the API and workers share the same Redis backend:
+
+```bash
+# Terminal 1: start Redis
+docker run --name redis -p 6379:6379 redis
+
+# Terminal 2: start a Docket worker
+uv run docket worker \
+  --tasks agentic_document_extraction.docket_tasks:tasks \
+  --docket agentic-document-extraction \
+  --url redis://localhost:6379/0 \
+  --concurrency 2
+
+# Terminal 3: start the API server
+uv run uvicorn agentic_document_extraction.api:app --reload
 ```
 
 ### Running the Server
