@@ -23,3 +23,11 @@ Replaced the Tesseract OCR integration with PaddleOCR-VL, added configurable run
 - `uv run mypy src`
 - `ADE_SKIP_REAL_API_TESTS=1 uv run pytest --cov=src --cov-report=term-missing` (skipped real API tests due to OpenAI quota)
 - Manual service run: `sample_coupon_code_form.png` + `sample_coupon_code_form_schema.json` reached LLM stage but failed with OpenAI quota (429)
+
+## Manual Run (Re-test)
+
+- **Job ID**: da6d1dbb-6980-4922-aac2-fd13d0fd1edb
+- **Input**: `tests/fixtures/sample_documents/sample_coupon_code_form.png`
+- **Schema**: `tests/fixtures/sample_schemas/sample_coupon_code_form_schema.json`
+- **Result**: Completed successfully; extracted data and markdown returned.
+- **Notes**: Quality report flagged non-ISO date formats and likely schema typo `extimated_redemption_rate`.
