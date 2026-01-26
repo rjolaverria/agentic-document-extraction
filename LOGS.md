@@ -3,6 +3,7 @@
 Each log entry lives in `logs/` as its own file. Add new logs there and reference them here.
 
 - 2026-01-26 Feature: LayoutReader Reading Order Detection -> logs/2026-01-26-feature-layoutreader-reading-order.md
+- 2026-01-26 Feature: AnalyzeChart Tool -> logs/2026-01-26-feature-analyze-chart-tool.md
 - 2026-01-25 Feature: Replace Custom Job Manager with Docket -> logs/2026-01-25-feature-docket-job-manager.md
 - 2026-01-25 Feature: LangChain Agentic Loop Tools -> logs/2026-01-25-feature-langchain-agentic-loop-tools.md
 - 2026-01-25 Feature: PaddleOCR-VL OCR Migration -> logs/2026-01-25-feature-paddleocr-vl-ocr.md

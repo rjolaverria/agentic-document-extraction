@@ -23,6 +23,7 @@ from agentic_document_extraction.agents.refiner import (
     RefinementError,
     RefinementFeedback,
 )
+from agentic_document_extraction.agents.tools import AnalyzeChart
 from agentic_document_extraction.agents.verifier import (
     IssueSeverity,
     IssueType,
@@ -61,4 +62,6 @@ __all__ = [
     "VerificationIssue",
     "VerificationReport",
     "VerificationStatus",
+    # Tools
+    "AnalyzeChart",
 ]
