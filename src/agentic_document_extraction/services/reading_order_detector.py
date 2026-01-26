@@ -1,25 +1,26 @@
-"""Reading order detection service using LLM.
+"""Reading order detection service using LayoutReader.
 
-This module provides functionality to detect the reading order of text elements
-and layout regions in visual documents using LangChain with OpenAI GPT models.
-It analyzes spatial relationships to determine the logical flow of the document.
+This module provides functionality to detect the reading order of layout
+regions in visual documents using the LayoutReader model. It analyzes
+spatial relationships locally to determine the logical flow of the document.
 
 Key features:
-- Takes text elements/regions with bounding box coordinates as input
-- Uses LangChain with OpenAI GPT-4 to analyze spatial relationships
-- Handles complex layouts (multi-column, sidebar, headers/footers)
+- Takes layout regions with bounding boxes as input
+- Uses LayoutReader (LayoutLMv3) to infer reading order
+- Handles complex layouts (multi-column, mixed content)
 - Provides confidence scores for reading order decisions
 - Works across multi-page documents
 """
 
-import json
 import logging
 import time
+from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any
+from functools import lru_cache
+from typing import Any, cast
 
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
+import torch
+from transformers import LayoutLMv3ForTokenClassification
 
 from agentic_document_extraction.config import settings
 from agentic_document_extraction.services.layout_detector import (
@@ -27,13 +28,13 @@ from agentic_document_extraction.services.layout_detector import (
     PageLayoutResult,
     RegionType,
 )
-from agentic_document_extraction.utils.agent_helpers import (
-    build_agent,
-    get_message_content,
-    invoke_agent,
-)
 
 logger = logging.getLogger(__name__)
+
+MAX_LEN = 510
+CLS_TOKEN_ID = 0
+UNK_TOKEN_ID = 3
+EOS_TOKEN_ID = 2
 
 
 class ReadingOrderError(Exception):
@@ -219,220 +220,145 @@ SKIP_REGION_TYPES: set[RegionType] = {
 }
 
 
+def _boxes_to_inputs(boxes: list[list[int]]) -> dict[str, torch.Tensor]:
+    bbox = [[0, 0, 0, 0]] + boxes + [[0, 0, 0, 0]]
+    input_ids = [CLS_TOKEN_ID] + [UNK_TOKEN_ID] * len(boxes) + [EOS_TOKEN_ID]
+    attention_mask = [1] + [1] * len(boxes) + [1]
+    return {
+        "bbox": torch.tensor([bbox]),
+        "attention_mask": torch.tensor([attention_mask]),
+        "input_ids": torch.tensor([input_ids]),
+    }
+
+
+def _prepare_inputs(
+    inputs: dict[str, torch.Tensor],
+    model: LayoutLMv3ForTokenClassification,
+) -> dict[str, torch.Tensor]:
+    if not list(model.parameters()):
+        raise ReadingOrderError("LayoutReader model has no parameters")
+    device = next(model.parameters()).device
+    dtype = next(model.parameters()).dtype
+    prepared: dict[str, torch.Tensor] = {}
+    for key, value in inputs.items():
+        value = value.to(device)
+        if torch.is_floating_point(value):
+            value = value.to(dtype)
+        prepared[key] = value
+    return prepared
+
+
+def _parse_logits(logits: torch.Tensor, length: int) -> list[int]:
+    """Parse LayoutReader logits into reading order indices."""
+    if length <= 0:
+        return []
+
+    trimmed = logits[1 : length + 1, :length]
+    orders = trimmed.argsort(descending=False).tolist()
+    ret = [order.pop() for order in orders]
+
+    while True:
+        order_to_indices: dict[int, list[int]] = defaultdict(list)
+        for idx, order in enumerate(ret):
+            order_to_indices[order].append(idx)
+        duplicates = {k: v for k, v in order_to_indices.items() if len(v) > 1}
+        if not duplicates:
+            break
+        for order, indices in duplicates.items():
+            indices_to_logits = {idx: trimmed[idx, order] for idx in indices}
+            sorted_indices = sorted(
+                indices_to_logits.items(), key=lambda item: item[1], reverse=True
+            )
+            for idx, _ in sorted_indices[1:]:
+                ret[idx] = orders[idx].pop()
+
+    return ret
+
+
+@lru_cache(maxsize=1)
+def _load_layoutreader_model(
+    model_name: str,
+    device: str,
+    use_bfloat16: bool,
+) -> LayoutLMv3ForTokenClassification:
+    model = cast(
+        LayoutLMv3ForTokenClassification,
+        LayoutLMv3ForTokenClassification.from_pretrained(model_name),
+    )
+    model_device = torch.device(device)
+    if use_bfloat16 and model_device.type == "cuda":
+        model = model.bfloat16()
+    model = cast(LayoutLMv3ForTokenClassification, model.to(model_device))  # type: ignore[arg-type]
+    model.eval()  # type: ignore[no-untyped-call]
+    return model
+
+
 class ReadingOrderDetector:
-    """Detects reading order of layout regions using LLM analysis.
-
-    Uses LangChain with OpenAI GPT-4 to analyze spatial relationships
-    between regions and determine the logical reading order. Handles
-    complex layouts including multi-column, sidebars, and headers/footers.
-    """
-
-    # System prompt for reading order analysis
-    SYSTEM_PROMPT = """You are an expert document layout analyst. Your task is to determine the correct reading order of document regions based on their positions and types.
-
-RULES FOR READING ORDER:
-1. For single-column layouts: Read top to bottom, left to right
-2. For multi-column layouts: Read each column top to bottom before moving to the next column
-3. Titles and section headers come before their content
-4. Captions should be read adjacent to their figures/tables
-5. Sidebars and callout boxes may interrupt main flow but should be grouped
-6. Page headers and footers are typically read separately (mark as skip_in_reading: true)
-7. Footnotes are typically read at the end of main content (mark as skip_in_reading: true)
-8. Tables should be read as single units
-9. List items should be read in their visual order
-
-LAYOUT TYPE DETECTION:
-- "single_column": One main column of content
-- "multi_column": Multiple columns (2 or more)
-- "mixed": Combination of single and multi-column sections
-- "complex": Non-standard layout requiring special handling
-
-You must respond with ONLY valid JSON matching this structure:
-{{
-  "layout_type": "single_column|multi_column|mixed|complex",
-  "ordered_regions": [
-    {{
-      "region_id": "string",
-      "order_index": 0,
-      "confidence": 0.95,
-      "reasoning": "brief explanation",
-      "skip_in_reading": false
-    }}
-  ],
-  "overall_confidence": 0.9
-}}"""
-
-    USER_PROMPT_TEMPLATE = """Analyze the following document regions and determine their reading order.
-
-Page dimensions: {page_width}x{page_height} pixels
-
-Regions to order:
-{regions_json}
-
-Determine the correct reading order based on spatial positions and region types.
-Respond with ONLY the JSON structure specified."""
+    """Detects reading order of layout regions using LayoutReader."""
 
     def __init__(
         self,
-        api_key: str | None = None,
-        model: str | None = None,
-        temperature: float | None = None,
+        model_name: str | None = None,
+        device: str | None = None,
+        use_bfloat16: bool = True,
     ) -> None:
         """Initialize the reading order detector.
 
         Args:
-            api_key: OpenAI API key. Defaults to settings.
-            model: Model name to use. Defaults to settings.openai_model.
-            temperature: Sampling temperature. Defaults to 0.0 for determinism.
+            model_name: LayoutReader model name. Defaults to settings.
+            device: Torch device string (cpu/cuda). Defaults to auto-detect.
+            use_bfloat16: Whether to prefer bfloat16 on CUDA.
         """
-        self.api_key = api_key if api_key is not None else settings.get_openai_api_key()
-        self.model = model or settings.openai_model
-        self.temperature = temperature if temperature is not None else 0.0
-
-        self._llm: ChatOpenAI | None = None
-        self._agent: Any | None = None
+        self.model_name = model_name or settings.layoutreader_model
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.use_bfloat16 = use_bfloat16
 
     @property
-    def llm(self) -> ChatOpenAI:
-        """Get or create the LangChain ChatOpenAI instance.
+    def model(self) -> LayoutLMv3ForTokenClassification:
+        """Load or retrieve the cached LayoutReader model."""
+        return _load_layoutreader_model(self.model_name, self.device, self.use_bfloat16)
 
-        Returns:
-            Configured ChatOpenAI instance.
+    def _scale_boxes(
+        self, regions: list[LayoutRegion], page_width: float, page_height: float
+    ) -> list[list[int]]:
+        x_scale = 1000.0 / page_width
+        y_scale = 1000.0 / page_height
 
-        Raises:
-            ReadingOrderError: If API key is not configured.
-        """
-        if self._llm is None:
-            if not self.api_key:
-                raise ReadingOrderError(
-                    "OpenAI API key not configured",
-                    details={"missing": "openai_api_key"},
-                )
-
-            self._llm = ChatOpenAI(
-                api_key=self.api_key,  # type: ignore[arg-type]
-                model=self.model,
-                temperature=self.temperature,
-                model_kwargs={"response_format": {"type": "json_object"}},
-            )
-
-        return self._llm
-
-    @property
-    def agent(self) -> Any:
-        """Get or create the LangChain agent for reading order detection."""
-        if self._agent is None:
-            self._agent = build_agent(
-                model=self.llm,
-                name="reading-order-agent",
-            )
-        return self._agent
-
-    def _format_regions_for_prompt(self, regions: list[LayoutRegion]) -> str:
-        """Format regions as JSON for the LLM prompt.
-
-        Args:
-            regions: List of layout regions to format.
-
-        Returns:
-            JSON string with region information.
-        """
-        regions_data = []
+        boxes: list[list[int]] = []
         for region in regions:
-            region_info = {
-                "region_id": region.region_id,
-                "region_type": region.region_type.value,
-                "bbox": {
-                    "x0": round(region.bbox.x0, 1),
-                    "y0": round(region.bbox.y0, 1),
-                    "x1": round(region.bbox.x1, 1),
-                    "y1": round(region.bbox.y1, 1),
-                },
-                "center": {
-                    "x": round(region.bbox.center[0], 1),
-                    "y": round(region.bbox.center[1], 1),
-                },
-                "confidence": round(region.confidence, 2),
-            }
-            if region.parent_region_id:
-                region_info["parent_region_id"] = region.parent_region_id
-            regions_data.append(region_info)
+            left = int(round(region.bbox.x0 * x_scale))
+            top = int(round(region.bbox.y0 * y_scale))
+            right = int(round(region.bbox.x1 * x_scale))
+            bottom = int(round(region.bbox.y1 * y_scale))
 
-        return json.dumps(regions_data, indent=2)
+            left = max(0, min(1000, left))
+            top = max(0, min(1000, top))
+            right = max(left, min(1000, right))
+            bottom = max(top, min(1000, bottom))
 
-    def _parse_llm_response(
-        self,
-        response_text: str,
-        regions: list[LayoutRegion],
-    ) -> tuple[list[OrderedRegion], str, float]:
-        """Parse the LLM response into ordered regions.
+            boxes.append([left, top, right, bottom])
 
-        Args:
-            response_text: Raw JSON response from LLM.
-            regions: Original list of regions.
+        return boxes
 
-        Returns:
-            Tuple of (ordered_regions, layout_type, overall_confidence).
+    def _predict_orders(self, boxes: list[list[int]]) -> tuple[list[int], list[float]]:
+        inputs = _boxes_to_inputs(boxes)
+        prepared = _prepare_inputs(inputs, self.model)
+        logits = self.model(**prepared).logits.detach().cpu().squeeze(0)
 
-        Raises:
-            ReadingOrderError: If response parsing fails.
-        """
-        try:
-            response_data = json.loads(response_text)
-        except json.JSONDecodeError as e:
-            raise ReadingOrderError(
-                f"Failed to parse LLM response as JSON: {e}",
-                details={"raw_response": response_text[:500]},
-            ) from e
+        orders = _parse_logits(logits, len(boxes))
+        if not orders:
+            return orders, []
 
-        # Create a lookup map for regions by ID
-        region_map = {r.region_id: r for r in regions}
+        region_logits = logits[1 : len(boxes) + 1, : len(boxes)].float()
+        probs = torch.softmax(region_logits, dim=-1)
+        confidences: list[float] = []
+        for idx, order in enumerate(orders):
+            if 0 <= order < len(boxes):
+                confidences.append(float(probs[idx, order].item()))
+            else:
+                confidences.append(0.0)
 
-        # Parse ordered regions
-        ordered_regions: list[OrderedRegion] = []
-        seen_ids: set[str] = set()
-
-        for item in response_data.get("ordered_regions", []):
-            region_id = item.get("region_id")
-            if not region_id or region_id not in region_map:
-                logger.warning(f"Unknown region_id in LLM response: {region_id}")
-                continue
-
-            if region_id in seen_ids:
-                logger.warning(f"Duplicate region_id in LLM response: {region_id}")
-                continue
-
-            seen_ids.add(region_id)
-
-            ordered_region = OrderedRegion(
-                region=region_map[region_id],
-                order_index=item.get("order_index", len(ordered_regions)),
-                confidence=float(item.get("confidence", 0.5)),
-                reasoning=item.get("reasoning"),
-                skip_in_reading=bool(item.get("skip_in_reading", False)),
-            )
-            ordered_regions.append(ordered_region)
-
-        # Handle any regions not in the response (shouldn't happen, but be safe)
-        for region_id, region in region_map.items():
-            if region_id not in seen_ids:
-                logger.warning(f"Region {region_id} not in LLM response, adding at end")
-                ordered_region = OrderedRegion(
-                    region=region,
-                    order_index=len(ordered_regions),
-                    confidence=0.3,  # Low confidence for missing regions
-                    reasoning="Region not analyzed by LLM",
-                    skip_in_reading=region.region_type in SKIP_REGION_TYPES,
-                )
-                ordered_regions.append(ordered_region)
-
-        # Sort by order_index to ensure correct order
-        ordered_regions.sort(key=lambda r: r.order_index)
-
-        layout_type = response_data.get("layout_type", "unknown")
-        overall_confidence = float(response_data.get("overall_confidence", 0.5))
-
-        return ordered_regions, layout_type, overall_confidence
+        return orders, confidences
 
     def detect_reading_order_for_page(
         self,
@@ -451,7 +377,6 @@ Respond with ONLY the JSON structure specified."""
         """
         start_time = time.time()
 
-        # Handle empty pages
         if not page_result.regions:
             return PageReadingOrder(
                 page_number=page_result.page_number,
@@ -461,56 +386,98 @@ Respond with ONLY the JSON structure specified."""
                 processing_time_seconds=time.time() - start_time,
             )
 
-        # Format regions for the prompt
-        regions_json = self._format_regions_for_prompt(page_result.regions)
-
-        # Create the prompt
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                ("system", self.SYSTEM_PROMPT),
-                ("human", self.USER_PROMPT_TEMPLATE),
-            ]
-        )
-
-        # Call the LLM
-        try:
-            messages = prompt.format_messages(
-                page_width=page_result.page_width,
-                page_height=page_result.page_height,
-                regions_json=regions_json,
-            )
-            response = invoke_agent(
-                self.agent,
-                messages,
-                metadata={
+        if page_result.page_width <= 0 or page_result.page_height <= 0:
+            logger.warning(
+                "Invalid page dimensions for LayoutReader; falling back to heuristic.",
+                extra={
                     "component": "reading_order_detector",
-                    "agent_name": "reading-order-agent",
-                    "model": self.model,
                     "page_number": page_result.page_number,
+                    "page_width": page_result.page_width,
+                    "page_height": page_result.page_height,
                 },
             )
-        except Exception as e:
-            raise ReadingOrderError(
-                f"LLM call failed: {e}",
-                page_number=page_result.page_number,
-                details={"error_type": type(e).__name__},
-            ) from e
+            fallback = self.detect_reading_order_simple(
+                page_result.regions,
+                page_width=page_result.page_width,
+                page_height=page_result.page_height,
+            )
+            fallback.processing_time_seconds = time.time() - start_time
+            return fallback
 
-        # Parse the response
-        response_text = get_message_content(response)
+        if len(page_result.regions) > MAX_LEN:
+            logger.warning(
+                "LayoutReader max region count exceeded; falling back to heuristic.",
+                extra={
+                    "component": "reading_order_detector",
+                    "page_number": page_result.page_number,
+                    "region_count": len(page_result.regions),
+                    "max_len": MAX_LEN,
+                },
+            )
+            fallback = self.detect_reading_order_simple(
+                page_result.regions,
+                page_width=page_result.page_width,
+                page_height=page_result.page_height,
+            )
+            fallback.processing_time_seconds = time.time() - start_time
+            return fallback
 
-        ordered_regions, layout_type, overall_confidence = self._parse_llm_response(
-            response_text, page_result.regions
+        boxes = self._scale_boxes(
+            page_result.regions, page_result.page_width, page_result.page_height
         )
 
+        try:
+            orders, confidences = self._predict_orders(boxes)
+        except Exception as exc:  # pragma: no cover - defensive guard
+            raise ReadingOrderError(
+                f"LayoutReader inference failed: {exc}",
+                page_number=page_result.page_number,
+                details={"error_type": type(exc).__name__},
+            ) from exc
+
+        if len(orders) != len(page_result.regions):
+            raise ReadingOrderError(
+                "LayoutReader returned an unexpected number of orders",
+                page_number=page_result.page_number,
+                details={
+                    "expected": len(page_result.regions),
+                    "actual": len(orders),
+                },
+            )
+
+        ordered_regions: list[OrderedRegion] = []
+        for idx, region in enumerate(page_result.regions):
+            skip = region.region_type in SKIP_REGION_TYPES
+            confidence = confidences[idx] if idx < len(confidences) else 0.0
+            ordered_regions.append(
+                OrderedRegion(
+                    region=region,
+                    order_index=orders[idx],
+                    confidence=confidence,
+                    reasoning="LayoutReader model",
+                    skip_in_reading=skip,
+                )
+            )
+
+        ordered_regions.sort(key=lambda r: r.order_index)
+
+        layout_type = self._detect_layout_type_heuristic(
+            page_result.regions, page_result.page_width
+        )
+        overall_confidence = sum(confidences) / len(confidences) if confidences else 0.5
         processing_time = time.time() - start_time
 
         logger.info(
-            f"Page {page_result.page_number}: "
-            f"ordered {len(ordered_regions)} regions, "
-            f"layout={layout_type}, "
-            f"confidence={overall_confidence:.2f}, "
-            f"time={processing_time:.2f}s"
+            "Page reading order complete",
+            extra={
+                "component": "reading_order_detector",
+                "page_number": page_result.page_number,
+                "region_count": len(ordered_regions),
+                "layout_type": layout_type,
+                "overall_confidence": round(overall_confidence, 4),
+                "processing_time_seconds": round(processing_time, 4),
+                "model": self.model_name,
+            },
         )
 
         return PageReadingOrder(
@@ -537,9 +504,6 @@ Respond with ONLY the JSON structure specified."""
             ReadingOrderError: If reading order detection fails.
         """
         start_time = time.time()
-        total_tokens = 0
-        prompt_tokens = 0
-        completion_tokens = 0
 
         page_orders: list[PageReadingOrder] = []
         total_regions = 0
@@ -549,26 +513,24 @@ Respond with ONLY the JSON structure specified."""
             page_orders.append(page_order)
             total_regions += len(page_order.ordered_regions)
 
-            # Try to extract token usage from LLM (if available)
-            # Note: Token tracking may need enhancement based on LangChain version
-
         processing_time = time.time() - start_time
 
         logger.info(
-            f"Document reading order complete: "
-            f"{len(page_orders)} pages, "
-            f"{total_regions} regions, "
-            f"time={processing_time:.2f}s"
+            "Document reading order complete",
+            extra={
+                "component": "reading_order_detector",
+                "page_count": len(page_orders),
+                "region_count": total_regions,
+                "processing_time_seconds": round(processing_time, 4),
+                "model": self.model_name,
+            },
         )
 
         return DocumentReadingOrder(
             pages=page_orders,
             total_pages=len(page_orders),
             total_regions=total_regions,
-            model_used=self.model,
-            total_tokens=total_tokens,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
+            model_used=self.model_name,
             processing_time_seconds=processing_time,
         )
 
@@ -578,11 +540,11 @@ Respond with ONLY the JSON structure specified."""
         page_width: float = 1000.0,
         page_height: float = 1000.0,  # noqa: ARG002
     ) -> PageReadingOrder:
-        """Detect reading order using simple heuristics (no LLM).
+        """Detect reading order using simple heuristics (no model).
 
-        This method provides a fallback when LLM is not available or for
-        simple single-column layouts. Uses top-to-bottom, left-to-right
-        ordering with special handling for common region types.
+        This method provides a fallback when LayoutReader is unavailable or for
+        large pages. Uses top-to-bottom, left-to-right ordering with special
+        handling for common region types.
 
         Args:
             regions: List of layout regions to order.
@@ -603,31 +565,28 @@ Respond with ONLY the JSON structure specified."""
                 processing_time_seconds=time.time() - start_time,
             )
 
-        # Detect layout type based on region positions
         layout_type = self._detect_layout_type_heuristic(regions, page_width)
 
-        # Sort regions based on detected layout
         if layout_type == "multi_column":
             sorted_regions = self._sort_multi_column(regions, page_width)
         else:
             sorted_regions = self._sort_single_column(regions)
 
-        # Create ordered regions with assigned indices
         ordered_regions: list[OrderedRegion] = []
         for idx, region in enumerate(sorted_regions):
             skip = region.region_type in SKIP_REGION_TYPES
-            ordered_region = OrderedRegion(
-                region=region,
-                order_index=idx,
-                confidence=0.7 if layout_type == "single_column" else 0.5,
-                reasoning=f"Heuristic ordering: {layout_type}",
-                skip_in_reading=skip,
+            ordered_regions.append(
+                OrderedRegion(
+                    region=region,
+                    order_index=idx,
+                    confidence=0.7 if layout_type == "single_column" else 0.5,
+                    reasoning=f"Heuristic ordering: {layout_type}",
+                    skip_in_reading=skip,
+                )
             )
-            ordered_regions.append(ordered_region)
 
         processing_time = time.time() - start_time
 
-        # Lower confidence for heuristic-based ordering
         overall_confidence = 0.6 if layout_type == "single_column" else 0.4
 
         return PageReadingOrder(
@@ -655,21 +614,15 @@ Respond with ONLY the JSON structure specified."""
         if len(regions) < 2:
             return "single_column"
 
-        # Filter out headers/footers for column analysis
         content_regions = [r for r in regions if r.region_type not in SKIP_REGION_TYPES]
 
         if len(content_regions) < 2:
             return "single_column"
 
-        # Check if regions are horizontally distributed
-        # indicating potential multi-column layout
         x_centers = [r.bbox.center[0] for r in content_regions]
         x_spread = max(x_centers) - min(x_centers)
 
-        # If horizontal spread is > 40% of page width with similar y values,
-        # likely multi-column
         if x_spread > page_width * 0.4:
-            # Check if multiple regions are at similar y positions
             y_centers = sorted(r.bbox.center[1] for r in content_regions)
             y_clusters = self._count_y_clusters(y_centers, page_width * 0.1)
 
@@ -737,27 +690,18 @@ Respond with ONLY the JSON structure specified."""
         Returns:
             Sorted regions.
         """
-        # Determine column boundaries by clustering X centers
         x_centers = [(r, r.bbox.center[0]) for r in regions]
-
-        # Simple two-column detection: split at middle
         mid_x = page_width / 2
 
         left_column = [r for r, x in x_centers if x < mid_x]
         right_column = [r for r, x in x_centers if x >= mid_x]
 
-        # Sort each column by Y position
         left_sorted = sorted(left_column, key=lambda r: (r.bbox.y0, r.bbox.x0))
         right_sorted = sorted(right_column, key=lambda r: (r.bbox.y0, r.bbox.x0))
 
-        # Combine: left column first, then right
         return left_sorted + right_sorted
 
     @staticmethod
     def get_default_model() -> str:
-        """Get the default model name from settings.
-
-        Returns:
-            Default model name.
-        """
-        return settings.openai_model
+        """Get the default LayoutReader model name from settings."""
+        return settings.layoutreader_model

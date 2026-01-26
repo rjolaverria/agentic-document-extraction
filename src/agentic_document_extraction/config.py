@@ -22,6 +22,7 @@ Environment Variables:
     ADE_PADDLEOCR_CLS_MODEL_DIR: PaddleOCR classifier model directory
     ADE_PADDLEOCR_ENABLE_MKLDNN: Enable PaddleOCR MKL-DNN (default: false)
     ADE_PADDLEOCR_CPU_THREADS: PaddleOCR CPU thread count (default: 4)
+    ADE_LAYOUTREADER_MODEL: LayoutReader model name (default: hantian/layoutreader)
     ADE_MIN_OVERALL_CONFIDENCE: Min confidence threshold (default: 0.7)
     ADE_MIN_FIELD_CONFIDENCE: Min per-field confidence (default: 0.5)
     ADE_REQUIRED_FIELD_COVERAGE: Required field coverage threshold (default: 0.9)
@@ -133,6 +134,13 @@ class Settings(BaseSettings):
 
     paddleocr_cpu_threads: int = 4
     """CPU thread count for PaddleOCR."""
+
+    # =========================================================================
+    # LayoutReader Settings
+    # =========================================================================
+
+    layoutreader_model: str = "hantian/layoutreader"
+    """LayoutReader model name for reading order detection."""
 
     # =========================================================================
     # Quality Threshold Settings
@@ -360,6 +368,7 @@ class Settings(BaseSettings):
             "openai_max_tokens": self.openai_max_tokens,
             "chunk_size": self.chunk_size,
             "chunk_overlap": self.chunk_overlap,
+            "layoutreader_model": self.layoutreader_model,
             "min_overall_confidence": self.min_overall_confidence,
             "min_field_confidence": self.min_field_confidence,
             "required_field_coverage": self.required_field_coverage,

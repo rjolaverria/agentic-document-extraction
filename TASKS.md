@@ -38,7 +38,7 @@ Each task lives in `tasks/` as its own file. Add new tasks there and reference t
 - [x] Refactor Agentic Loops to Use LangChain Agents -> tasks/0034-refactor-agentic-loops-langchain.md
 - [x] Replace Tesseract with PaddleOCR-VL -> tasks/0035-replace-tesseract-paddleocr-vl.md
 - [x] Replace Custom Job Manager with Docket -> tasks/0036-replace-job-manager-docket.md
-- [ ] Implement LayoutReader for Reading Order Detection -> tasks/0037-implement-layoutreader-reading-order.md
+- [x] Implement LayoutReader for Reading Order Detection -> tasks/0037-implement-layoutreader-reading-order.md
 - [ ] Implement AnalyzeChart Tool for LangChain Agent -> tasks/0038-implement-analyze-chart-tool.md
 - [ ] Implement AnalyzeTable Tool for LangChain Agent -> tasks/0039-implement-analyze-table-tool.md
 - [ ] Refactor Extraction Agent to Tool-Based Architecture -> tasks/0040-refactor-extraction-agent-tool-based.md

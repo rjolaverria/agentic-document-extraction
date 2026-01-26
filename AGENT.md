@@ -54,7 +54,7 @@ Format Detection (Story 1.3)
             ↓
         Layout Detection - HF Transformers (3.2)
             ↓
-        Reading Order - LangChain + GPT-4 (3.3)
+        Reading Order - LayoutReader (3.3)
             ↓
         Region-Based VLM - LangChain + GPT-4V (3.4)
             ↓
@@ -81,7 +81,7 @@ src/agentic_document_extraction/
 │   ├── schema_validator.py         # Story 1.4
 │   ├── text_extractor.py           # Story 2.1, 3.1
 │   ├── layout_detector.py          # Story 3.2 (HF transformers)
-│   ├── reading_order.py            # Story 3.3 (LangChain + GPT-4)
+│   ├── reading_order_detector.py   # Story 3.3 (LayoutReader)
 │   └── extraction/
 │       ├── __init__.py
 │       ├── text_extraction.py      # Story 2.2 (LangChain + GPT-4)
@@ -130,7 +130,7 @@ tests/
 - **Layout Detection**: Open-source models via Hugging Face `transformers` library
 - **Processing Strategy**:
   - Text-based documents (txt, csv): Direct text extraction → LangChain LLM processing
-  - Visual documents (pdf, images, office docs): OCR → Layout detection (HF transformers) → Reading order detection (LangChain + GPT-4) → Region segmentation → VLM processing (LangChain + GPT-4V) → Synthesis (LangChain)
+  - Visual documents (pdf, images, office docs): OCR → Layout detection (HF transformers) → Reading order detection (LayoutReader) → Region segmentation → VLM processing (LangChain + GPT-4V) → Synthesis (LangChain)
 - **Agentic architecture**: LangChain agents for planning, execution, verification, and refinement
 - **Dependencies**:
   - API: `fastapi`, `uvicorn`, `python-multipart`, `pydantic`, `pydantic-settings`

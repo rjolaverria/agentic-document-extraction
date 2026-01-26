@@ -6,6 +6,7 @@ A vision-first, agentic document extraction system built as a FastAPI service. T
 
 - **Multi-format support**: Process text files, CSVs, PDFs, images, Office documents, and more
 - **Vision-first approach**: Treats visual documents (PDFs, images) as visual objects, understanding layout and spatial relationships
+- **LayoutReader ordering**: Uses LayoutReader to determine reading order of detected regions without LLM calls
 - **Agentic processing**: Uses plan→execute→verify→refine loops to iteratively improve extraction quality
 - **Async job processing**: Docket-backed background jobs with status tracking and progress reporting
 - **Structured output**: Returns both JSON (matching your schema) and Markdown summaries
@@ -516,6 +517,7 @@ All configuration is done via environment variables with the `ADE_` prefix. Crea
 | `ADE_OPENAI_VLM_MODEL` | `gpt-4o` | Model for vision/multimodal processing |
 | `ADE_OPENAI_TEMPERATURE` | `0.0` | LLM temperature (0.0 = deterministic) |
 | `ADE_OPENAI_MAX_TOKENS` | `4096` | Max tokens for LLM responses |
+| `ADE_LAYOUTREADER_MODEL` | `hantian/layoutreader` | LayoutReader model for reading order detection |
 | `ADE_MAX_FILE_SIZE_MB` | `10` | Maximum file upload size in MB |
 | `ADE_TEMP_UPLOAD_DIR` | `/tmp/ade_uploads` | Temporary file storage directory |
 | `ADE_CHUNK_SIZE` | `4000` | Token chunk size for large documents |
