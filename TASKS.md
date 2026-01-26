@@ -38,3 +38,17 @@ Each task lives in `tasks/` as its own file. Add new tasks there and reference t
 - [x] Refactor Agentic Loops to Use LangChain Agents -> tasks/0034-refactor-agentic-loops-langchain.md
 - [x] Replace Tesseract with PaddleOCR-VL -> tasks/0035-replace-tesseract-paddleocr-vl.md
 - [x] Replace Custom Job Manager with Docket -> tasks/0036-replace-job-manager-docket.md
+- [ ] Implement LayoutReader for Reading Order Detection -> tasks/0037-implement-layoutreader-reading-order.md
+- [ ] Implement AnalyzeChart Tool for LangChain Agent -> tasks/0038-implement-analyze-chart-tool.md
+- [ ] Implement AnalyzeTable Tool for LangChain Agent -> tasks/0039-implement-analyze-table-tool.md
+- [ ] Refactor Extraction Agent to Tool-Based Architecture -> tasks/0040-refactor-extraction-agent-tool-based.md
+- [ ] Refactor Visual Document Extraction Pipeline -> tasks/0041-refactor-visual-extraction-pipeline.md
+- [ ] Simplify Agentic Loop for Tool-Based Architecture -> tasks/0042-simplify-agentic-loop-tool-based.md
+- [ ] Update Architecture Documentation -> tasks/0043-update-architecture-documentation.md
+- [ ] Implement AnalyzeForm Tool for LangChain Agent -> tasks/0044-implement-analyze-form-tool.md
+- [ ] Implement AnalyzeSignature Tool for LangChain Agent -> tasks/0045-implement-analyze-signature-tool.md
+- [ ] Implement AnalyzeDiagram Tool for LangChain Agent -> tasks/0046-implement-analyze-diagram-tool.md
+- [ ] Implement AnalyzeHandwriting Tool for LangChain Agent -> tasks/0047-implement-analyze-handwriting-tool.md
+- [ ] Implement AnalyzeImage Tool for LangChain Agent -> tasks/0048-implement-analyze-image-tool.md
+- [ ] Implement AnalyzeLogo Tool for LangChain Agent -> tasks/0049-implement-analyze-logo-tool.md
+- [ ] Implement AnalyzeMath Tool for LangChain Agent -> tasks/0050-implement-analyze-math-tool.md
