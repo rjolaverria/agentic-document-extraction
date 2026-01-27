@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
-import json
 import logging
-from functools import lru_cache
 from typing import Any
 
-from langchain_core.messages import HumanMessage
-from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
+from langchain_core.tools import ToolException, tool
 
-from agentic_document_extraction.config import settings
+from agentic_document_extraction.agents.tools.vlm_utils import (
+    call_vlm_with_image,
+    encode_image_to_base64,
+    parse_json_response,
+)
+from agentic_document_extraction.services.layout_detector import (
+    LayoutRegion,
+    RegionType,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,73 +45,47 @@ Return a JSON object with this structure:
 """
 
 
-@lru_cache(maxsize=1)
-def _get_vlm() -> ChatOpenAI:
-    api_key = settings.get_openai_api_key()
-    if not api_key:
-        raise ValueError("OpenAI API key not configured")
-    return ChatOpenAI(
-        api_key=api_key,  # type: ignore[arg-type]
-        model=settings.openai_model,
-        temperature=settings.openai_temperature,
-        max_completion_tokens=settings.openai_max_tokens,
-    )
+@tool("analyze_chart")
+def AnalyzeChart(region_id: str, regions: list[LayoutRegion]) -> dict[str, Any]:
+    """Analyze chart/graph regions when OCR text is insufficient."""
+    region = next((r for r in regions if r.region_id == region_id), None)
+    if region is None:
+        raise ToolException(f"Unknown region_id: {region_id}")
 
+    region_image = region.region_image
+    if region_image is None:
+        raise ToolException(f"Region image not provided for region_id: {region_id}")
 
-def _call_vlm_with_image(image_base64: str, prompt: str) -> str:
-    message = HumanMessage(
-        content=[
-            {"type": "text", "text": prompt},
-            {
-                "type": "image_url",
-                "image_url": {"url": f"data:image/png;base64,{image_base64}"},
-            },
-        ]
-    )
-    response = _get_vlm().invoke([message])
-    return str(response.content)
+    if region_image.base64:
+        image_base64 = region_image.base64
+    elif region_image.image is not None:
+        image_base64 = encode_image_to_base64(region_image.image)
+    else:
+        raise ToolException(f"Region image missing image/base64 for {region_id}")
 
-
-def _parse_json_response(response_text: str) -> dict[str, Any]:
     try:
-        parsed = json.loads(response_text)
-        if isinstance(parsed, dict):
-            return parsed
-    except json.JSONDecodeError:
-        pass
+        response_text = call_vlm_with_image(image_base64, CHART_ANALYSIS_PROMPT)
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.error("AnalyzeChart VLM call failed: %s", exc)
+        raise ToolException("AnalyzeChart VLM call failed") from exc
 
-    start_idx = response_text.find("{")
-    end_idx = response_text.rfind("}") + 1
-    if start_idx != -1 and end_idx > start_idx:
-        try:
-            parsed = json.loads(response_text[start_idx:end_idx])
-            if isinstance(parsed, dict):
-                return parsed
-        except json.JSONDecodeError:
-            pass
+    result = parse_json_response(
+        response_text,
+        default={
+            "chart_type": "unknown",
+            "title": None,
+            "x_axis": {"label": None, "ticks": []},
+            "y_axis": {"label": None, "ticks": []},
+            "key_data_points": [],
+            "trends": "Unable to parse structured response.",
+            "legend": [],
+        },
+        tool_name="AnalyzeChart",
+    )
 
-    logger.warning("AnalyzeChart returned non-JSON response")
-    return {
-        "chart_type": "unknown",
-        "title": None,
-        "x_axis": {"label": None, "ticks": []},
-        "y_axis": {"label": None, "ticks": []},
-        "key_data_points": [],
-        "trends": "Unable to parse structured response.",
-        "legend": [],
-        "raw_response": response_text[:200],
-    }
+    if region.region_type != RegionType.PICTURE:
+        notes = result.get("notes")
+        note = f"Region type is {region.region_type.value}; expected picture/chart."
+        result["notes"] = f"{notes} {note}".strip() if notes else note
 
-
-@tool
-def AnalyzeChart(image_base64: str) -> dict[str, Any]:
-    """Analyze a chart or figure image using a vision-language model.
-
-    Args:
-        image_base64: Base64-encoded image content (PNG/JPEG).
-
-    Returns:
-        Parsed JSON object with chart type, axes, key data points, trends, and legend.
-    """
-    response_text = _call_vlm_with_image(image_base64, CHART_ANALYSIS_PROMPT)
-    return _parse_json_response(response_text)
+    return result

@@ -1,7 +1,5 @@
 """Tests for the AnalyzeChart tool."""
 
-import base64
-import io
 import json
 import os
 from typing import Any
@@ -11,6 +9,12 @@ import pytest
 from PIL import Image, ImageDraw
 
 from agentic_document_extraction.agents.tools.analyze_chart import AnalyzeChart
+from agentic_document_extraction.services.layout_detector import (
+    LayoutRegion,
+    RegionBoundingBox,
+    RegionImage,
+    RegionType,
+)
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "") or os.environ.get(
     "ADE_OPENAI_API_KEY", ""
@@ -40,10 +44,18 @@ def create_chart_image() -> Image.Image:
     return image
 
 
-def image_to_base64(image: Image.Image) -> str:
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-    return base64.b64encode(buffer.getvalue()).decode("utf-8")
+def create_regions(image: Image.Image) -> list[LayoutRegion]:
+    bbox = RegionBoundingBox(x0=0, y0=0, x1=image.width, y1=image.height)
+    return [
+        LayoutRegion(
+            region_type=RegionType.PICTURE,
+            bbox=bbox,
+            confidence=0.99,
+            page_number=1,
+            region_id="region-1",
+            region_image=RegionImage(image=image),
+        )
+    ]
 
 
 class TestAnalyzeChartTool:
@@ -61,13 +73,12 @@ class TestAnalyzeChartTool:
             "legend": ["Revenue"],
         }
 
+        regions = create_regions(create_chart_image())
         with patch(
-            "agentic_document_extraction.agents.tools.analyze_chart._call_vlm_with_image",
+            "agentic_document_extraction.agents.tools.analyze_chart.call_vlm_with_image",
             return_value=json.dumps(response_payload),
         ):
-            result = AnalyzeChart.invoke(
-                {"image_base64": image_to_base64(create_chart_image())}
-            )
+            result = AnalyzeChart.invoke({"region_id": "region-1", "regions": regions})
 
         assert result["chart_type"] == "bar"
         assert result["x_axis"]["label"] == "Quarter"
@@ -81,22 +92,20 @@ class TestAnalyzeChartTool:
             + json.dumps({"chart_type": "line", "trends": "Upward"})
             + "\nThanks!"
         )
+        regions = create_regions(create_chart_image())
         with patch(
-            "agentic_document_extraction.agents.tools.analyze_chart._call_vlm_with_image",
+            "agentic_document_extraction.agents.tools.analyze_chart.call_vlm_with_image",
             return_value=wrapped,
         ):
-            result = AnalyzeChart.invoke(
-                {"image_base64": image_to_base64(create_chart_image())}
-            )
+            result = AnalyzeChart.invoke({"region_id": "region-1", "regions": regions})
 
         assert result["chart_type"] == "line"
         assert result["trends"] == "Upward"
 
     @pytest.mark.skipif(SKIP_INTEGRATION, reason=INTEGRATION_SKIP_REASON)
     def test_analyze_chart_integration(self) -> None:
-        result = AnalyzeChart.invoke(
-            {"image_base64": image_to_base64(create_chart_image())}
-        )
+        regions = create_regions(create_chart_image())
+        result = AnalyzeChart.invoke({"region_id": "region-1", "regions": regions})
 
         assert result["chart_type"]
         assert result["trends"]

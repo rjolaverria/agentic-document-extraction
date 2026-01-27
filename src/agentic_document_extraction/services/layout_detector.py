@@ -206,6 +206,17 @@ class RegionBoundingBox:
 
 
 @dataclass
+class RegionImage:
+    """Optional region image payload."""
+
+    image: Image.Image | None = None
+    """PIL image for the region."""
+
+    base64: str | None = None
+    """Base64-encoded image for the region."""
+
+
+@dataclass
 class LayoutRegion:
     """A detected layout region in a document.
 
@@ -232,6 +243,9 @@ class LayoutRegion:
 
     metadata: dict[str, Any] = field(default_factory=dict)
     """Additional metadata about the region."""
+
+    region_image: RegionImage | None = None
+    """Optional image payload for the region."""
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation.
