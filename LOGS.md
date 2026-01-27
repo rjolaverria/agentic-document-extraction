@@ -4,6 +4,7 @@ Each log entry lives in `logs/` as its own file. Add new logs there and referenc
 
 - 2026-01-27 Refactor: AnalyzeTable Tool Function Input -> logs/2026-01-27-refactor-analyze-table-tool.md
 - 2026-01-27 Refactor: Region Input Tool Interface -> logs/2026-01-27-refactor-region-tool-input.md
+- 2026-01-27 Refactor: Tool-Based Extraction Agent -> logs/2026-01-27-refactor-extraction-agent-tool-based.md
 - 2026-01-26 Feature: LayoutReader Reading Order Detection -> logs/2026-01-26-feature-layoutreader-reading-order.md
 - 2026-01-26 Feature: AnalyzeChart Tool -> logs/2026-01-26-feature-analyze-chart-tool.md
 - 2026-01-26 Feature: AnalyzeTable Tool -> logs/2026-01-26-feature-analyze-table-tool.md

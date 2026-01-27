@@ -1,11 +1,9 @@
 """Tests for visual document extraction service."""
 
-import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from langchain_core.messages import AIMessage
 from PIL import Image
 
 from agentic_document_extraction.services.extraction.text_extraction import (
@@ -203,27 +201,28 @@ class TestVisualDocumentExtractionService:
         sample_schema_info: SchemaInfo,
     ) -> None:
         """Test successful extraction from image."""
-        # Mock response
-        mock_response = AIMessage(
-            content=json.dumps(
-                {
-                    "brand": "OLD GOLD",
-                    "media_type": "DIRECT MAIL",
-                    "issue_date": "10/4/99",
-                }
-            ),
-            usage_metadata={
-                "input_tokens": 100,
-                "output_tokens": 50,
-                "total_tokens": 150,
+        mock_tool_agent = MagicMock()
+        mock_tool_agent.extract.return_value = ExtractionResult(
+            extracted_data={
+                "brand": "OLD GOLD",
+                "media_type": "DIRECT MAIL",
+                "issue_date": "10/4/99",
             },
+            total_tokens=150,
+            model_used="gpt-4o",
         )
-        mock_agent = MagicMock()
-        mock_agent.invoke.return_value = {"messages": [mock_response]}
 
         service = VisualDocumentExtractionService(api_key="test-key")
-        service._agent = mock_agent
-        result = service.extract(sample_image, sample_schema_info)
+        layout_result = MagicMock()
+        layout_result.get_all_regions.return_value = []
+        service._layout_detector = MagicMock(detect_from_images=lambda _: layout_result)
+        service._tool_agent = mock_tool_agent
+
+        result = service.extract(
+            sample_image,
+            sample_schema_info,
+            ocr_text="Sample OCR text",
+        )
 
         assert isinstance(result, ExtractionResult)
         assert result.extracted_data["brand"] == "OLD GOLD"
@@ -235,27 +234,26 @@ class TestVisualDocumentExtractionService:
         sample_image: Image.Image,
         sample_schema_info: SchemaInfo,
     ) -> None:
-        """Test extraction includes OCR text in prompt."""
-        mock_response = AIMessage(content='{"brand": "Test", "media_type": "Email"}')
-        mock_agent = MagicMock()
-        mock_agent.invoke.return_value = {"messages": [mock_response]}
+        """Test extraction forwards OCR text to the tool agent."""
+        mock_tool_agent = MagicMock()
+        mock_tool_agent.extract.return_value = ExtractionResult(
+            extracted_data={"brand": "Test", "media_type": "Email"}
+        )
 
         service = VisualDocumentExtractionService(api_key="test-key")
-        service._agent = mock_agent
+        layout_result = MagicMock()
+        layout_result.get_all_regions.return_value = []
+        service._layout_detector = MagicMock(detect_from_images=lambda _: layout_result)
+        service._tool_agent = mock_tool_agent
         service.extract(
             sample_image,
             sample_schema_info,
             ocr_text="Some OCR extracted text",
         )
 
-        # Verify OCR text was included in the prompt
-        call_args = mock_agent.invoke.call_args
-        messages = call_args[0][0]["messages"]
-        # The second message is the HumanMessage with the prompt
-        human_msg = messages[1]
-        # Content is a list with text and image_url
-        text_content = human_msg.content[0]["text"]
-        assert "Some OCR extracted text" in text_content
+        mock_tool_agent.extract.assert_called_once()
+        _, kwargs = mock_tool_agent.extract.call_args
+        assert "Some OCR extracted text" in kwargs["ordered_text"]
 
     def test_extract_llm_error(
         self,
@@ -263,35 +261,19 @@ class TestVisualDocumentExtractionService:
         sample_schema_info: SchemaInfo,
     ) -> None:
         """Test extraction handles LLM errors."""
-        mock_agent = MagicMock()
-        mock_agent.invoke.side_effect = Exception("API error")
+        mock_tool_agent = MagicMock()
+        mock_tool_agent.extract.side_effect = Exception("API error")
 
         service = VisualDocumentExtractionService(api_key="test-key")
-        service._agent = mock_agent
+        layout_result = MagicMock()
+        layout_result.get_all_regions.return_value = []
+        service._layout_detector = MagicMock(detect_from_images=lambda _: layout_result)
+        service._tool_agent = mock_tool_agent
         with pytest.raises(VisualExtractionError) as exc_info:
-            service.extract(sample_image, sample_schema_info)
+            service.extract(sample_image, sample_schema_info, ocr_text="OCR")
 
         assert "Visual extraction failed" in str(exc_info.value)
-        assert exc_info.value.error_type == "vlm_error"
-
-
-class TestVisualDocumentExtractionServicePrompts:
-    """Tests for prompt construction in VisualDocumentExtractionService."""
-
-    def test_system_prompt_contains_form_instructions(self) -> None:
-        """Test system prompt includes form-specific instructions."""
-        prompt = VisualDocumentExtractionService.EXTRACTION_SYSTEM_PROMPT
-        assert "form" in prompt.lower()
-        assert "label" in prompt.lower()
-        assert "value" in prompt.lower()
-
-    def test_user_prompt_template_has_placeholders(self) -> None:
-        """Test user prompt template has required placeholders."""
-        template = VisualDocumentExtractionService.EXTRACTION_USER_PROMPT
-        assert "{schema}" in template
-        assert "{required_fields}" in template
-        assert "{optional_fields}" in template
-        assert "{ocr_text_section}" in template
+        assert exc_info.value.error_type == "tool_agent_error"
 
 
 class TestExtractionResultCompatibility:

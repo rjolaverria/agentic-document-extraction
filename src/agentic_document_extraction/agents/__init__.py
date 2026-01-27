@@ -4,6 +4,7 @@ This package contains LangChain agents for planning, verification, and
 refinement of document extraction tasks.
 """
 
+from agentic_document_extraction.agents.extraction_agent import ExtractionAgent
 from agentic_document_extraction.agents.planner import (
     DocumentCharacteristics,
     ExtractionChallenge,
@@ -40,6 +41,7 @@ __all__ = [
     "DocumentCharacteristics",
     "ExtractionChallenge",
     "ExtractionPlan",
+    "ExtractionAgent",
     "ExtractionPlanningAgent",
     "ExtractionStep",
     "PlanningError",

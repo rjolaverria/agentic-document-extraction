@@ -1,15 +1,15 @@
-"""VLM-based extraction service for visual documents.
+"""Tool-based extraction service for visual documents.
 
 This module provides functionality to extract structured information from visual
-documents (images, PDFs rendered as images) using LangChain with OpenAI GPT-4V
-vision model. This bypasses OCR limitations by allowing the VLM to "see" the
-document directly.
+documents (images, PDFs rendered as images) using a tool-based LangChain agent.
+The agent receives OCR text in reading order alongside layout metadata and can
+invoke VLM tools for charts and tables when OCR is insufficient.
 
 Key features:
-- Direct image-to-JSON extraction using GPT-4V
+- Tool-based extraction using OCR + layout metadata
 - Schema-guided extraction for structured output
-- Combines visual understanding with OCR text for enhanced accuracy
-- Handles forms, handwritten text, and complex layouts
+- Selective VLM tool usage for charts and tables
+- Handles complex layouts with reading order context
 """
 
 import base64
@@ -20,22 +20,22 @@ import time
 from pathlib import Path
 from typing import Any
 
-from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from PIL import Image
 
+from agentic_document_extraction.agents.extraction_agent import ExtractionAgent
 from agentic_document_extraction.config import settings
 from agentic_document_extraction.services.extraction.text_extraction import (
     ExtractionResult,
     FieldExtraction,
 )
-from agentic_document_extraction.services.schema_validator import SchemaInfo
-from agentic_document_extraction.utils.agent_helpers import (
-    build_agent,
-    get_message_content,
-    get_usage_metadata,
-    invoke_agent,
+from agentic_document_extraction.services.layout_detector import LayoutDetector
+from agentic_document_extraction.services.reading_order_detector import (
+    OrderedRegion,
+    ReadingOrderDetector,
 )
+from agentic_document_extraction.services.schema_validator import SchemaInfo
+from agentic_document_extraction.utils.agent_helpers import build_agent
 
 logger = logging.getLogger(__name__)
 
@@ -62,54 +62,12 @@ class VisualExtractionError(Exception):
 
 
 class VisualDocumentExtractionService:
-    """Service for extracting structured data from document images using VLM.
+    """Service for extracting structured data from visual documents.
 
-    Uses GPT-4V (Vision) to directly analyze document images and extract
-    structured information according to a JSON schema. This bypasses OCR
-    limitations for forms, handwritten text, and complex layouts.
+    Uses layout detection + reading order to provide a tool-based extraction
+    agent with OCR text and region metadata. The agent selectively invokes
+    chart/table VLM tools when necessary.
     """
-
-    EXTRACTION_SYSTEM_PROMPT = """You are an expert document analysis assistant with vision capabilities.
-Your task is to extract structured information from the provided document image according to a JSON schema.
-
-CRITICAL RULES:
-1. CAREFULLY examine the entire document image to find ALL requested fields
-2. For form documents: Labels are usually on the LEFT, values are on the RIGHT or BELOW
-3. Look for underlined text, handwritten entries, filled-in boxes, and typed values
-4. Extract the ACTUAL VALUES, not the field labels/headers
-5. For required fields, make your best effort to extract a value - examine the image carefully
-6. If a field is truly not present or illegible, use null for optional fields only
-7. Preserve exact text as it appears (including case, punctuation, abbreviations)
-8. For dates, preserve the original format
-9. For arrays, extract each item separately
-
-FORM DOCUMENT TIPS:
-- Field labels like "BRAND(S) APPLICABLE:" should have their VALUE extracted (not the label)
-- Look for text that appears AFTER labels, often underlined or in a different column
-- Handwritten text and typed text both count as valid values
-- Tables often have labels in the left column and values in the right column
-
-You must respond with ONLY valid JSON that matches the schema. Do not include any explanation or text outside the JSON."""
-
-    EXTRACTION_USER_PROMPT = """Extract information from this document image according to this JSON schema:
-
-## JSON Schema:
-```json
-{schema}
-```
-
-## Required Fields (MUST extract these):
-{required_fields}
-
-## Optional Fields:
-{optional_fields}
-
-{ocr_text_section}
-
-IMPORTANT: Examine the image carefully. For forms, values are typically to the RIGHT of or BELOW their labels.
-Look for ALL text in the image including underlined entries, handwritten text, and filled-in fields.
-
-Respond with ONLY the extracted JSON data. Ensure all required fields have values if they appear in the document."""
 
     def __init__(
         self,
@@ -135,6 +93,9 @@ Respond with ONLY the extracted JSON data. Ensure all required fields have value
 
         self._llm: ChatOpenAI | None = None
         self._agent: Any | None = None
+        self._tool_agent: ExtractionAgent | None = None
+        self._layout_detector: LayoutDetector | None = None
+        self._reading_order_detector: ReadingOrderDetector | None = None
 
     @property
     def llm(self) -> ChatOpenAI:
@@ -172,6 +133,32 @@ Respond with ONLY the extracted JSON data. Ensure all required fields have value
                 name="visual-extraction-agent",
             )
         return self._agent
+
+    @property
+    def tool_agent(self) -> ExtractionAgent:
+        """Get or create the tool-based extraction agent."""
+        if self._tool_agent is None:
+            self._tool_agent = ExtractionAgent(
+                api_key=self.api_key,
+                model=self.model,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+            )
+        return self._tool_agent
+
+    @property
+    def layout_detector(self) -> LayoutDetector:
+        """Get or create the layout detector."""
+        if self._layout_detector is None:
+            self._layout_detector = LayoutDetector()
+        return self._layout_detector
+
+    @property
+    def reading_order_detector(self) -> ReadingOrderDetector:
+        """Get or create the reading order detector."""
+        if self._reading_order_detector is None:
+            self._reading_order_detector = ReadingOrderDetector()
+        return self._reading_order_detector
 
     def _encode_image_to_base64(self, image: Image.Image) -> str:
         """Encode a PIL Image to base64 string.
@@ -243,122 +230,51 @@ Respond with ONLY the extracted JSON data. Ensure all required fields have value
         """
         start_time = time.time()
 
-        # Load and encode image
         image = self._load_image(image_source)
-        image_base64 = self._encode_image_to_base64(image)
 
-        # Build prompts
-        required_fields_str = (
-            "\n".join(
-                f"- {f.path}: {f.field_type}"
-                + (f" - {f.description}" if f.description else "")
-                for f in schema_info.required_fields
+        layout_result = self.layout_detector.detect_from_images([image])
+        all_regions = layout_result.get_all_regions()
+        if all_regions:
+            reading_order = self.reading_order_detector.detect_reading_order(
+                layout_result.pages
             )
-            or "None"
-        )
+            ordered_regions = [
+                ordered
+                for page in reading_order.pages
+                for ordered in page.ordered_regions
+                if not ordered.skip_in_reading
+            ]
+        else:
+            ordered_regions = []
 
-        optional_fields_str = (
-            "\n".join(
-                f"- {f.path}: {f.field_type}"
-                + (f" - {f.description}" if f.description else "")
-                for f in schema_info.optional_fields
-            )
-            or "None"
-        )
-
-        # Add OCR text section if available
-        ocr_text_section = ""
-        if ocr_text:
-            ocr_text_section = f"""
-## OCR Text (for reference, may be incomplete):
-```
-{ocr_text[:4000]}
-```
-Note: The OCR text above may have missed some values. Always verify against the actual image."""
-
-        user_prompt = self.EXTRACTION_USER_PROMPT.format(
-            schema=json.dumps(schema_info.schema, indent=2),
-            required_fields=required_fields_str,
-            optional_fields=optional_fields_str,
-            ocr_text_section=ocr_text_section,
-        )
-
-        # Create messages with image
-        messages = [
-            SystemMessage(content=self.EXTRACTION_SYSTEM_PROMPT),
-            HumanMessage(
-                content=[
-                    {"type": "text", "text": user_prompt},
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:image/png;base64,{image_base64}",
-                            "detail": "high",
-                        },
-                    },
-                ]
-            ),
-        ]
+        ordered_text = ocr_text or self._build_text_from_regions(ordered_regions)
 
         try:
-            # Call the VLM via agent abstraction
-            response = invoke_agent(
-                self.agent,
-                messages,
-                metadata={
-                    "component": "visual_extraction",
-                    "agent_name": "visual-extraction-agent",
-                    "model": self.model,
-                },
+            result = self.tool_agent.extract(
+                ordered_text=ordered_text,
+                schema_info=schema_info,
+                regions=all_regions,
+                ordered_regions=ordered_regions,
             )
-
-            # Extract response content
-            content = get_message_content(response)
-
-            # Parse JSON response
-            extracted_data = self._parse_json_response(content, schema_info)
-
-            # Extract token usage
-            usage_metadata = get_usage_metadata(response)
-            prompt_tokens = usage_metadata.get("input_tokens", 0)
-            completion_tokens = usage_metadata.get("output_tokens", 0)
-            total_tokens = usage_metadata.get(
-                "total_tokens", prompt_tokens + completion_tokens
-            )
-
-            # Build field extractions
-            field_extractions = self._build_field_extractions(
-                extracted_data, schema_info
-            )
-
-            processing_time = time.time() - start_time
-
-            logger.info(
-                f"Visual extraction completed: model={self.model}, "
-                f"tokens={total_tokens}, time={processing_time:.2f}s"
-            )
-
-            return ExtractionResult(
-                extracted_data=extracted_data,
-                field_extractions=field_extractions,
-                model_used=self.model,
-                total_tokens=total_tokens,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                processing_time_seconds=processing_time,
-                chunks_processed=1,
-                is_chunked=False,
-                raw_response=content,
-            )
-
-        except Exception as e:
-            if isinstance(e, VisualExtractionError):
-                raise
+        except Exception as exc:
             raise VisualExtractionError(
-                f"Visual extraction failed: {e}",
-                error_type="vlm_error",
-                details={"original_error": str(e)},
-            ) from e
+                f"Visual extraction failed: {exc}",
+                error_type="tool_agent_error",
+                details={"original_error": str(exc)},
+            ) from exc
+
+        result.processing_time_seconds = time.time() - start_time
+        return result
+
+    def _build_text_from_regions(self, ordered_regions: list[OrderedRegion]) -> str:
+        if not ordered_regions:
+            return ""
+        parts: list[str] = []
+        for ordered in ordered_regions:
+            text = ordered.region.metadata.get("text")
+            if isinstance(text, str) and text.strip():
+                parts.append(text.strip())
+        return "\n".join(parts)
 
     def _parse_json_response(
         self,

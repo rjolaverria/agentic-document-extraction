@@ -19,20 +19,20 @@ New architecture (from diagram):
 - Agent synthesizes final extraction from OCR + tool results
 
 ## Acceptance Criteria
-- [ ] Create new `ExtractionAgent` class using LangChain agent framework
-- [ ] System prompt includes:
+- [x] Create new `ExtractionAgent` class using LangChain agent framework
+- [x] System prompt includes:
   - All OCR text in reading order
   - Layout region metadata (IDs, types, bounding boxes)
   - Target JSON schema
   - Extraction instructions
   - Tool usage guidelines
-- [ ] Register AnalyzeChart and AnalyzeTable tools with agent
-- [ ] Agent makes autonomous decisions about tool usage
-- [ ] Agent synthesizes final JSON output from OCR text + tool results
-- [ ] Replace existing planning/verification/refinement agents with single agent
-- [ ] Unit tests for agent initialization and tool registration
-- [ ] Integration tests with various document types
-- [ ] Performance comparison vs old multi-agent approach
+- [x] Register AnalyzeChart and AnalyzeTable tools with agent
+- [x] Agent makes autonomous decisions about tool usage
+- [x] Agent synthesizes final JSON output from OCR text + tool results
+- [x] Replace existing planning/verification/refinement agents with single agent
+- [x] Unit tests for agent initialization and tool registration
+- [x] Integration tests with various document types
+- [x] Performance comparison vs old multi-agent approach
 
 ## Agent Prompt Structure
 ```

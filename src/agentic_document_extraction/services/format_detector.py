@@ -6,7 +6,10 @@ and magic bytes (file content signatures), and classify them into processing cat
 
 from pathlib import Path
 
-import magic
+try:  # pragma: no cover - exercised indirectly in tests
+    import magic
+except ImportError:  # pragma: no cover - fallback for environments without libmagic
+    magic = None  # type: ignore[assignment]
 
 from agentic_document_extraction.models import (
     FormatFamily,
@@ -156,7 +159,7 @@ class FormatDetector:
 
     def __init__(self) -> None:
         """Initialize the format detector with a magic instance."""
-        self._magic = magic.Magic(mime=True)
+        self._magic = magic.Magic(mime=True) if magic is not None else None
 
     def detect_from_path(self, file_path: str | Path) -> FormatInfo:
         """Detect format from a file path.
@@ -304,6 +307,9 @@ class FormatDetector:
         if not content:
             return None
 
+        if self._magic is None:
+            return self._detect_mime_from_signature(content)
+
         try:
             detected = self._magic.from_buffer(content)
             return self._normalize_mime_type(detected)
@@ -314,6 +320,26 @@ class FormatDetector:
                 error_type=type(e).__name__,
             )
             return None
+
+    def _detect_mime_from_signature(self, content: bytes) -> str | None:
+        """Fallback signature-based MIME detection when libmagic is unavailable."""
+        if content.startswith(b"%PDF-"):
+            return "application/pdf"
+        if content.startswith(b"\x89PNG\r\n\x1a\n"):
+            return "image/png"
+        if content.startswith(b"\xff\xd8\xff"):
+            return "image/jpeg"
+        if content.startswith((b"GIF87a", b"GIF89a")):
+            return "image/gif"
+        if content.startswith(b"BM"):
+            return "image/bmp"
+        if content.startswith((b"II*\x00", b"MM\x00*")):
+            return "image/tiff"
+        if len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+            return "image/webp"
+        if content.startswith(b"MZ"):
+            return "application/x-dosexec"
+        return None
 
     def _normalize_mime_type(self, mime_type: str) -> str:
         """Normalize MIME type to canonical form.
