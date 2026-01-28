@@ -2,6 +2,7 @@
 
 Each log entry lives in `logs/` as its own file. Add new logs there and reference them here.
 
+- 2026-01-27 Refactor: Extraction Agent to Tool-Based Architecture -> logs/2026-01-27-refactor-extraction-agent-tool-based.md
 - 2026-01-27 Refactor: AnalyzeTable Tool Function Input -> logs/2026-01-27-refactor-analyze-table-tool.md
 - 2026-01-27 Refactor: Region Input Tool Interface -> logs/2026-01-27-refactor-region-tool-input.md
 - 2026-01-26 Feature: LayoutReader Reading Order Detection -> logs/2026-01-26-feature-layoutreader-reading-order.md

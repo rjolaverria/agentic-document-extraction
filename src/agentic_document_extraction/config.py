@@ -162,6 +162,9 @@ class Settings(BaseSettings):
     max_refinement_iterations: int = 3
     """Maximum iterations for the agentic refinement loop (1-10)."""
 
+    use_tool_agent: bool = True
+    """Use the single tool-using ExtractionAgent instead of the multi-agent loop."""
+
     # =========================================================================
     # Job Management Settings
     # =========================================================================
@@ -373,6 +376,7 @@ class Settings(BaseSettings):
             "min_field_confidence": self.min_field_confidence,
             "required_field_coverage": self.required_field_coverage,
             "max_refinement_iterations": self.max_refinement_iterations,
+            "use_tool_agent": self.use_tool_agent,
             "job_ttl_hours": self.job_ttl_hours,
             "docket_name": self.docket_name,
             "docket_url": self.docket_url,

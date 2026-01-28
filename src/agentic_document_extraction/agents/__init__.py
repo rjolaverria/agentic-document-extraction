@@ -4,6 +4,7 @@ This package contains LangChain agents for planning, verification, and
 refinement of document extraction tasks.
 """
 
+from agentic_document_extraction.agents.extraction_agent import ExtractionAgent
 from agentic_document_extraction.agents.planner import (
     DocumentCharacteristics,
     ExtractionChallenge,
@@ -23,7 +24,14 @@ from agentic_document_extraction.agents.refiner import (
     RefinementError,
     RefinementFeedback,
 )
-from agentic_document_extraction.agents.tools import AnalyzeChart, AnalyzeTable
+from agentic_document_extraction.agents.tools import (
+    AnalyzeChart,
+    AnalyzeTable,
+    analyze_chart,
+    analyze_chart_impl,
+    analyze_table,
+    analyze_table_impl,
+)
 from agentic_document_extraction.agents.verifier import (
     IssueSeverity,
     IssueType,
@@ -36,6 +44,8 @@ from agentic_document_extraction.agents.verifier import (
 )
 
 __all__ = [
+    # Extraction Agent (new)
+    "ExtractionAgent",
     # Planner
     "DocumentCharacteristics",
     "ExtractionChallenge",
@@ -65,4 +75,8 @@ __all__ = [
     # Tools
     "AnalyzeChart",
     "AnalyzeTable",
+    "analyze_chart",
+    "analyze_chart_impl",
+    "analyze_table",
+    "analyze_table_impl",
 ]

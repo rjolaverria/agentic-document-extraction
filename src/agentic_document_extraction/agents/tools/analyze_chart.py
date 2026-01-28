@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Annotated, Any
 
 from langchain_core.tools import ToolException, tool
 
@@ -44,10 +44,30 @@ Return a JSON object with this structure:
 ```
 """
 
+CHART_DEFAULT_RESPONSE: dict[str, Any] = {
+    "chart_type": "unknown",
+    "title": None,
+    "x_axis": {"label": None, "ticks": []},
+    "y_axis": {"label": None, "ticks": []},
+    "key_data_points": [],
+    "trends": "Unable to parse structured response.",
+    "legend": [],
+}
 
-@tool("analyze_chart")
-def AnalyzeChart(region_id: str, regions: list[LayoutRegion]) -> dict[str, Any]:
-    """Analyze chart/graph regions when OCR text is insufficient."""
+
+def analyze_chart_impl(region_id: str, regions: list[LayoutRegion]) -> dict[str, Any]:
+    """Core chart analysis logic shared by the tool and direct callers.
+
+    Args:
+        region_id: ID of the region to analyze.
+        regions: List of layout regions with images.
+
+    Returns:
+        Parsed chart analysis result dict.
+
+    Raises:
+        ToolException: When the region or its image cannot be found.
+    """
     region = next((r for r in regions if r.region_id == region_id), None)
     if region is None:
         raise ToolException(f"Unknown region_id: {region_id}")
@@ -71,15 +91,7 @@ def AnalyzeChart(region_id: str, regions: list[LayoutRegion]) -> dict[str, Any]:
 
     result = parse_json_response(
         response_text,
-        default={
-            "chart_type": "unknown",
-            "title": None,
-            "x_axis": {"label": None, "ticks": []},
-            "y_axis": {"label": None, "ticks": []},
-            "key_data_points": [],
-            "trends": "Unable to parse structured response.",
-            "legend": [],
-        },
+        default=dict(CHART_DEFAULT_RESPONSE),
         tool_name="AnalyzeChart",
     )
 
@@ -89,3 +101,27 @@ def AnalyzeChart(region_id: str, regions: list[LayoutRegion]) -> dict[str, Any]:
         result["notes"] = f"{notes} {note}".strip() if notes else note
 
     return result
+
+
+@tool("analyze_chart")
+def AnalyzeChart(region_id: str, regions: list[LayoutRegion]) -> dict[str, Any]:
+    """Analyze chart/graph regions when OCR text is insufficient."""
+    return analyze_chart_impl(region_id, regions)
+
+
+try:
+    from langchain.tools import InjectedState
+
+    @tool("analyze_chart_agent")
+    def analyze_chart(
+        region_id: str,
+        state: Annotated[dict[str, Any], InjectedState],
+    ) -> dict[str, Any]:
+        """Analyze a chart/graph region by its ID to extract structured data
+        (chart type, axes, data points, trends). Use when OCR text alone
+        cannot capture chart information."""
+        regions: list[LayoutRegion] = state.get("regions", [])
+        return analyze_chart_impl(region_id, regions)
+
+except ImportError:  # pragma: no cover
+    analyze_chart = None  # type: ignore[assignment]

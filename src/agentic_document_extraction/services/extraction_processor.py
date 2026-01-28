@@ -16,7 +16,9 @@ from typing import Any
 
 from docket import Progress
 
+from agentic_document_extraction.agents.extraction_agent import ExtractionAgent
 from agentic_document_extraction.agents.refiner import AgenticLoop
+from agentic_document_extraction.config import settings as app_settings
 from agentic_document_extraction.models import ProcessingCategory
 from agentic_document_extraction.output.json_generator import JsonGenerator
 from agentic_document_extraction.output.markdown_generator import MarkdownGenerator
@@ -190,54 +192,85 @@ async def process_extraction_job(
 
             await _set_progress(progress, "Running agentic extraction loop")
 
-            # Run agentic extraction loop
-            agentic_loop = AgenticLoop()
+            if app_settings.use_tool_agent:
+                # New: single tool-using ExtractionAgent
+                extraction_agent = ExtractionAgent()
 
-            # Import extraction services here to avoid circular imports
-            from agentic_document_extraction.services.extraction.text_extraction import (
-                ExtractionResult,
-                TextExtractionService,
-            )
-            from agentic_document_extraction.services.extraction.visual_document_extraction import (
-                VisualDocumentExtractionService,
-            )
-            from agentic_document_extraction.services.schema_validator import SchemaInfo
+                # For visual documents, run layout detection to get regions
+                layout_regions = None
+                if format_info.processing_category == ProcessingCategory.VISUAL:
+                    try:
+                        from agentic_document_extraction.services.layout_detector import (
+                            LayoutDetector,
+                        )
 
-            # Use VLM-based extraction for visual documents to handle OCR limitations
-            if format_info.processing_category == ProcessingCategory.VISUAL:
-                visual_extraction_service = VisualDocumentExtractionService()
+                        layout_detector = LayoutDetector()
+                        layout_result = layout_detector.detect_from_path(document_path)
+                        layout_regions = layout_result.get_all_regions()
+                        logger.info(
+                            "Layout detected for tool agent",
+                            regions=len(layout_regions),
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Layout detection failed; proceeding without regions",
+                            exc_info=True,
+                        )
 
-                # Capture file_path and text (OCR) in closure for visual extraction
-                captured_file_path = document_path
-                captured_ocr_text = text
-
-                def extraction_func(
-                    t: str,  # noqa: ARG001
-                    s: SchemaInfo,
-                ) -> ExtractionResult:
-                    # For visual documents, use VLM to extract directly from image
-                    # The text parameter (t) is ignored but we pass OCR text as reference
-                    return visual_extraction_service.extract(
-                        image_source=captured_file_path,
-                        schema_info=s,
-                        ocr_text=captured_ocr_text,
-                    )
+                loop_result = extraction_agent.extract(
+                    text=text,
+                    schema_info=schema_info,
+                    format_info=format_info,
+                    layout_regions=layout_regions,
+                )
             else:
-                text_extraction_service = TextExtractionService()
+                # Legacy: multi-agent orchestration loop
+                agentic_loop = AgenticLoop()
 
-                def extraction_func(t: str, s: SchemaInfo) -> ExtractionResult:
-                    return text_extraction_service.extract(t, s)
+                # Import extraction services here to avoid circular imports
+                from agentic_document_extraction.services.extraction.text_extraction import (
+                    ExtractionResult,
+                    TextExtractionService,
+                )
+                from agentic_document_extraction.services.extraction.visual_document_extraction import (
+                    VisualDocumentExtractionService,
+                )
+                from agentic_document_extraction.services.schema_validator import (
+                    SchemaInfo,
+                )
 
-            loop_result = agentic_loop.run(
-                text=text,
-                schema_info=schema_info,
-                format_info=format_info,
-                extraction_func=extraction_func,
-                use_llm_verification=True,
-            )
+                # Use VLM-based extraction for visual documents
+                if format_info.processing_category == ProcessingCategory.VISUAL:
+                    visual_extraction_service = VisualDocumentExtractionService()
+
+                    captured_file_path = document_path
+                    captured_ocr_text = text
+
+                    def extraction_func(
+                        t: str,  # noqa: ARG001
+                        s: SchemaInfo,
+                    ) -> ExtractionResult:
+                        return visual_extraction_service.extract(
+                            image_source=captured_file_path,
+                            schema_info=s,
+                            ocr_text=captured_ocr_text,
+                        )
+                else:
+                    text_extraction_service = TextExtractionService()
+
+                    def extraction_func(t: str, s: SchemaInfo) -> ExtractionResult:
+                        return text_extraction_service.extract(t, s)
+
+                loop_result = agentic_loop.run(
+                    text=text,
+                    schema_info=schema_info,
+                    format_info=format_info,
+                    extraction_func=extraction_func,
+                    use_llm_verification=True,
+                )
 
             logger.info(
-                "Agentic loop completed",
+                "Extraction completed",
                 iterations=loop_result.iterations_completed,
                 converged=loop_result.converged,
             )

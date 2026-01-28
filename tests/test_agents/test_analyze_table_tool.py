@@ -9,7 +9,10 @@ import pytest
 from langchain_core.tools import ToolException
 from PIL import Image, ImageDraw
 
-from agentic_document_extraction.agents.tools.analyze_table import AnalyzeTable
+from agentic_document_extraction.agents.tools.analyze_table import (
+    AnalyzeTable,
+    analyze_table_impl,
+)
 from agentic_document_extraction.services.layout_detector import (
     LayoutRegion,
     RegionBoundingBox,
@@ -149,3 +152,43 @@ class TestAnalyzeTableTool:
         result = AnalyzeTable.invoke({"region_id": "region-1", "regions": regions})
         assert result["headers"]
         assert result["rows"]
+
+
+class TestAnalyzeTableImpl:
+    """Tests for the analyze_table_impl helper function."""
+
+    def test_impl_parses_response(self) -> None:
+        response_payload: dict[str, Any] = {
+            "headers": ["X", "Y"],
+            "rows": [{"X": "1", "Y": "2"}],
+            "notes": None,
+        }
+        regions = create_regions(create_simple_table_image())
+        with patch(
+            "agentic_document_extraction.agents.tools.analyze_table.call_vlm_with_image",
+            return_value=json.dumps(response_payload),
+        ):
+            result = analyze_table_impl("region-1", regions)
+
+        assert result["headers"] == ["X", "Y"]
+        assert result["rows"] == [{"X": "1", "Y": "2"}]
+
+    def test_impl_raises_on_missing_region(self) -> None:
+        regions = create_regions(create_simple_table_image())
+        with pytest.raises(ToolException, match="Unknown region_id"):
+            analyze_table_impl("nonexistent", regions)
+
+    def test_impl_raises_on_missing_image(self) -> None:
+        bbox = RegionBoundingBox(x0=0, y0=0, x1=100, y1=100)
+        regions = [
+            LayoutRegion(
+                region_type=RegionType.TABLE,
+                bbox=bbox,
+                confidence=0.9,
+                page_number=1,
+                region_id="no-img",
+                region_image=None,
+            )
+        ]
+        with pytest.raises(ToolException, match="Region image not provided"):
+            analyze_table_impl("no-img", regions)

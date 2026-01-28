@@ -8,7 +8,10 @@ from unittest.mock import patch
 import pytest
 from PIL import Image, ImageDraw
 
-from agentic_document_extraction.agents.tools.analyze_chart import AnalyzeChart
+from agentic_document_extraction.agents.tools.analyze_chart import (
+    AnalyzeChart,
+    analyze_chart_impl,
+)
 from agentic_document_extraction.services.layout_detector import (
     LayoutRegion,
     RegionBoundingBox,
@@ -109,3 +112,30 @@ class TestAnalyzeChartTool:
 
         assert result["chart_type"]
         assert result["trends"]
+
+
+class TestAnalyzeChartImpl:
+    """Tests for the analyze_chart_impl helper function."""
+
+    def test_impl_parses_response(self) -> None:
+        response_payload: dict[str, Any] = {
+            "chart_type": "pie",
+            "title": "Market Share",
+            "trends": "Dominant leader.",
+        }
+        regions = create_regions(create_chart_image())
+        with patch(
+            "agentic_document_extraction.agents.tools.analyze_chart.call_vlm_with_image",
+            return_value=json.dumps(response_payload),
+        ):
+            result = analyze_chart_impl("region-1", regions)
+
+        assert result["chart_type"] == "pie"
+        assert result["title"] == "Market Share"
+
+    def test_impl_raises_on_missing_region(self) -> None:
+        from langchain_core.tools import ToolException
+
+        regions = create_regions(create_chart_image())
+        with pytest.raises(ToolException, match="Unknown region_id"):
+            analyze_chart_impl("nonexistent", regions)

@@ -71,9 +71,8 @@ def sample_schema_file(temp_dir: Path, sample_schema: dict) -> Path:
     return schema_path
 
 
-def create_mock_agentic_loop():
-    """Create a mock agentic loop with all required attributes."""
-    mock_agentic_loop = MagicMock()
+def _create_mock_loop_result():
+    """Create a mock loop result usable by both AgenticLoop and ExtractionAgent."""
     mock_loop_result = MagicMock()
     mock_loop_result.iterations_completed = 1
     mock_loop_result.converged = True
@@ -86,8 +85,21 @@ def create_mock_agentic_loop():
     mock_final_verification.metrics.overall_confidence = 0.9
     mock_final_verification.to_dict.return_value = {"passed": True}
     mock_loop_result.final_verification = mock_final_verification
-    mock_agentic_loop.run.return_value = mock_loop_result
+    return mock_loop_result
+
+
+def create_mock_agentic_loop():
+    """Create a mock agentic loop with all required attributes."""
+    mock_agentic_loop = MagicMock()
+    mock_agentic_loop.run.return_value = _create_mock_loop_result()
     return mock_agentic_loop
+
+
+def create_mock_extraction_agent():
+    """Create a mock ExtractionAgent with all required attributes."""
+    mock_agent = MagicMock()
+    mock_agent.extract.return_value = _create_mock_loop_result()
+    return mock_agent
 
 
 def create_mock_markdown_generator():
@@ -126,14 +138,14 @@ class TestExtractionProcessorRouting:
     @patch(
         "agentic_document_extraction.services.extraction_processor.MarkdownGenerator"
     )
-    @patch("agentic_document_extraction.services.extraction_processor.AgenticLoop")
+    @patch("agentic_document_extraction.services.extraction_processor.ExtractionAgent")
     @patch(
         "agentic_document_extraction.services.extraction_processor.VisualTextExtractor"
     )
     async def test_png_file_routes_to_visual_extractor(
         self,
         mock_visual_extractor_class: MagicMock,
-        mock_agentic_loop_class: MagicMock,
+        mock_extraction_agent_class: MagicMock,
         mock_markdown_gen_class: MagicMock,
         sample_png_file: Path,
         sample_schema_file: Path,
@@ -142,7 +154,7 @@ class TestExtractionProcessorRouting:
         # Set up mocks
         mock_visual_extractor = create_mock_visual_extractor()
         mock_visual_extractor_class.return_value = mock_visual_extractor
-        mock_agentic_loop_class.return_value = create_mock_agentic_loop()
+        mock_extraction_agent_class.return_value = create_mock_extraction_agent()
         mock_markdown_gen_class.return_value = create_mock_markdown_generator()
 
         # Process the job
@@ -162,12 +174,12 @@ class TestExtractionProcessorRouting:
     @patch(
         "agentic_document_extraction.services.extraction_processor.MarkdownGenerator"
     )
-    @patch("agentic_document_extraction.services.extraction_processor.AgenticLoop")
+    @patch("agentic_document_extraction.services.extraction_processor.ExtractionAgent")
     @patch("agentic_document_extraction.services.extraction_processor.TextExtractor")
     async def test_txt_file_routes_to_text_extractor(
         self,
         mock_text_extractor_class: MagicMock,
-        mock_agentic_loop_class: MagicMock,
+        mock_extraction_agent_class: MagicMock,
         mock_markdown_gen_class: MagicMock,
         sample_txt_file: Path,
         sample_schema_file: Path,
@@ -176,7 +188,7 @@ class TestExtractionProcessorRouting:
         # Set up mocks
         mock_text_extractor = create_mock_text_extractor()
         mock_text_extractor_class.return_value = mock_text_extractor
-        mock_agentic_loop_class.return_value = create_mock_agentic_loop()
+        mock_extraction_agent_class.return_value = create_mock_extraction_agent()
         mock_markdown_gen_class.return_value = create_mock_markdown_generator()
 
         # Process the job
@@ -213,7 +225,7 @@ class TestExtractionProcessorVisualFormats:
     @patch(
         "agentic_document_extraction.services.extraction_processor.MarkdownGenerator"
     )
-    @patch("agentic_document_extraction.services.extraction_processor.AgenticLoop")
+    @patch("agentic_document_extraction.services.extraction_processor.ExtractionAgent")
     @patch(
         "agentic_document_extraction.services.extraction_processor.VisualTextExtractor"
     )
@@ -222,7 +234,7 @@ class TestExtractionProcessorVisualFormats:
         self,
         mock_format_detector_class: MagicMock,
         mock_visual_extractor_class: MagicMock,
-        mock_agentic_loop_class: MagicMock,
+        mock_extraction_agent_class: MagicMock,
         mock_markdown_gen_class: MagicMock,
         temp_dir: Path,
         sample_schema: dict,
@@ -259,7 +271,7 @@ class TestExtractionProcessorVisualFormats:
         # Set up mocks
         mock_visual_extractor = create_mock_visual_extractor()
         mock_visual_extractor_class.return_value = mock_visual_extractor
-        mock_agentic_loop_class.return_value = create_mock_agentic_loop()
+        mock_extraction_agent_class.return_value = create_mock_extraction_agent()
         mock_markdown_gen_class.return_value = create_mock_markdown_generator()
 
         # Process the job
@@ -287,14 +299,14 @@ class TestExtractionProcessorTextFormats:
     @patch(
         "agentic_document_extraction.services.extraction_processor.MarkdownGenerator"
     )
-    @patch("agentic_document_extraction.services.extraction_processor.AgenticLoop")
+    @patch("agentic_document_extraction.services.extraction_processor.ExtractionAgent")
     @patch("agentic_document_extraction.services.extraction_processor.TextExtractor")
     @patch("agentic_document_extraction.services.extraction_processor.FormatDetector")
     async def test_text_formats_use_text_extractor(
         self,
         mock_format_detector_class: MagicMock,
         mock_text_extractor_class: MagicMock,
-        mock_agentic_loop_class: MagicMock,
+        mock_extraction_agent_class: MagicMock,
         mock_markdown_gen_class: MagicMock,
         temp_dir: Path,
         sample_schema: dict,
@@ -327,7 +339,7 @@ class TestExtractionProcessorTextFormats:
         # Set up mocks
         mock_text_extractor = create_mock_text_extractor()
         mock_text_extractor_class.return_value = mock_text_extractor
-        mock_agentic_loop_class.return_value = create_mock_agentic_loop()
+        mock_extraction_agent_class.return_value = create_mock_extraction_agent()
         mock_markdown_gen_class.return_value = create_mock_markdown_generator()
 
         # Process the job
@@ -342,4 +354,134 @@ class TestExtractionProcessorTextFormats:
         # Verify text extractor was called
         mock_text_extractor.extract_from_path.assert_called_once()
         # JsonGenerator adds None for optional fields, so check required field
+        assert result["extracted_data"]["name"] == "test"
+
+
+class TestExtractionProcessorToolAgent:
+    """Tests for the use_tool_agent=True code path in extraction processor.
+
+    The default setting is use_tool_agent=True, so no app_settings mock needed.
+    """
+
+    @patch(
+        "agentic_document_extraction.services.extraction_processor.MarkdownGenerator"
+    )
+    @patch("agentic_document_extraction.services.layout_detector.LayoutDetector")
+    @patch("agentic_document_extraction.services.extraction_processor.ExtractionAgent")
+    @patch(
+        "agentic_document_extraction.services.extraction_processor.VisualTextExtractor"
+    )
+    async def test_visual_doc_calls_layout_detector(
+        self,
+        mock_visual_extractor_class: MagicMock,
+        mock_extraction_agent_class: MagicMock,
+        mock_layout_detector_class: MagicMock,
+        mock_markdown_gen_class: MagicMock,
+        sample_png_file: Path,
+        sample_schema_file: Path,
+    ) -> None:
+        """Visual doc with use_tool_agent=True calls LayoutDetector and passes regions."""
+        mock_visual_extractor = create_mock_visual_extractor()
+        mock_visual_extractor_class.return_value = mock_visual_extractor
+
+        # Set up layout detector mock
+        mock_layout_result = MagicMock()
+        mock_layout_result.get_all_regions.return_value = [MagicMock()]
+        mock_layout_detector_class.return_value.detect_from_path.return_value = (
+            mock_layout_result
+        )
+
+        mock_extraction_agent_class.return_value = create_mock_extraction_agent()
+        mock_markdown_gen_class.return_value = create_mock_markdown_generator()
+
+        result = await process_extraction_job(
+            job_id="test-visual-layout",
+            filename="test_image.png",
+            file_path=str(sample_png_file),
+            schema_path=str(sample_schema_file),
+            progress=None,
+        )
+
+        # LayoutDetector was instantiated and called
+        mock_layout_detector_class.assert_called_once()
+        mock_layout_detector_class.return_value.detect_from_path.assert_called_once()
+        # ExtractionAgent.extract received layout_regions
+        call_kwargs = mock_extraction_agent_class.return_value.extract.call_args
+        assert call_kwargs.kwargs.get("layout_regions") is not None
+        assert result["extracted_data"]["name"] == "test"
+
+    @patch(
+        "agentic_document_extraction.services.extraction_processor.MarkdownGenerator"
+    )
+    @patch("agentic_document_extraction.services.layout_detector.LayoutDetector")
+    @patch("agentic_document_extraction.services.extraction_processor.ExtractionAgent")
+    @patch(
+        "agentic_document_extraction.services.extraction_processor.VisualTextExtractor"
+    )
+    async def test_layout_detection_failure_proceeds_without_regions(
+        self,
+        mock_visual_extractor_class: MagicMock,
+        mock_extraction_agent_class: MagicMock,
+        mock_layout_detector_class: MagicMock,
+        mock_markdown_gen_class: MagicMock,
+        sample_png_file: Path,
+        sample_schema_file: Path,
+    ) -> None:
+        """When LayoutDetector raises, ExtractionAgent is still called with layout_regions=None."""
+        mock_visual_extractor = create_mock_visual_extractor()
+        mock_visual_extractor_class.return_value = mock_visual_extractor
+
+        # LayoutDetector raises
+        mock_layout_detector_class.return_value.detect_from_path.side_effect = (
+            RuntimeError("GPU OOM")
+        )
+
+        mock_extraction_agent_class.return_value = create_mock_extraction_agent()
+        mock_markdown_gen_class.return_value = create_mock_markdown_generator()
+
+        result = await process_extraction_job(
+            job_id="test-layout-fail",
+            filename="test_image.png",
+            file_path=str(sample_png_file),
+            schema_path=str(sample_schema_file),
+            progress=None,
+        )
+
+        # ExtractionAgent.extract still called, with layout_regions=None
+        call_kwargs = mock_extraction_agent_class.return_value.extract.call_args
+        assert call_kwargs.kwargs.get("layout_regions") is None
+        assert result["extracted_data"]["name"] == "test"
+
+    @patch(
+        "agentic_document_extraction.services.extraction_processor.MarkdownGenerator"
+    )
+    @patch("agentic_document_extraction.services.extraction_processor.ExtractionAgent")
+    @patch("agentic_document_extraction.services.extraction_processor.TextExtractor")
+    async def test_text_doc_skips_layout_detection(
+        self,
+        mock_text_extractor_class: MagicMock,
+        mock_extraction_agent_class: MagicMock,
+        mock_markdown_gen_class: MagicMock,
+        sample_txt_file: Path,
+        sample_schema_file: Path,
+    ) -> None:
+        """Text doc with use_tool_agent=True never instantiates LayoutDetector."""
+        mock_text_extractor = create_mock_text_extractor()
+        mock_text_extractor_class.return_value = mock_text_extractor
+        mock_extraction_agent_class.return_value = create_mock_extraction_agent()
+        mock_markdown_gen_class.return_value = create_mock_markdown_generator()
+
+        with patch(
+            "agentic_document_extraction.services.layout_detector.LayoutDetector"
+        ) as mock_ld:
+            result = await process_extraction_job(
+                job_id="test-text-no-layout",
+                filename="test.txt",
+                file_path=str(sample_txt_file),
+                schema_path=str(sample_schema_file),
+                progress=None,
+            )
+            # LayoutDetector never instantiated for text docs
+            mock_ld.assert_not_called()
+
         assert result["extracted_data"]["name"] == "test"
