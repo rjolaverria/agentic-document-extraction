@@ -15,6 +15,7 @@ from agentic_document_extraction.services.visual_text_extractor import (
     TextElement,
     VisualExtractionError,
     VisualExtractionResult,
+    VisualExtractionWithLayoutResult,
     VisualTextExtractor,
 )
 
@@ -902,3 +903,176 @@ class TestReadingOrderPreservation:
             assert elements[0].text == "First"
             assert elements[1].text == "Second"
             assert elements[2].text == "Third"
+
+
+class TestVisualExtractionWithLayoutResult:
+    """Tests for VisualExtractionWithLayoutResult class."""
+
+    def test_create_combined_result(self) -> None:
+        """Test creating a combined extraction with layout result."""
+        from agentic_document_extraction.services.layout_detector import (
+            LayoutDetectionResult,
+            LayoutRegion,
+            PageLayoutResult,
+            RegionBoundingBox,
+            RegionType,
+        )
+
+        # Create OCR result
+        bbox = BoundingBox(x0=0, y0=0, x1=100, y1=50)
+        element = TextElement(text="Test", bbox=bbox, confidence=0.9, page_number=1)
+        page = PageExtractionResult(
+            page_number=1,
+            text_elements=[element],
+            full_text="Test",
+            extraction_method=ExtractionMethod.OCR,
+            page_width=612.0,
+            page_height=792.0,
+            average_confidence=0.9,
+        )
+        ocr_result = VisualExtractionResult(
+            pages=[page],
+            full_text="Test",
+            total_pages=1,
+            extraction_method=ExtractionMethod.OCR,
+            average_confidence=0.9,
+        )
+
+        # Create layout result
+        region = LayoutRegion(
+            region_type=RegionType.TEXT,
+            bbox=RegionBoundingBox(x0=0, y0=0, x1=100, y1=50),
+            confidence=0.85,
+            page_number=1,
+            region_id="region_1",
+        )
+        page_layout = PageLayoutResult(
+            page_number=1,
+            regions=[region],
+            page_width=612.0,
+            page_height=792.0,
+        )
+        layout_result = LayoutDetectionResult(
+            pages=[page_layout],
+            total_pages=1,
+            total_regions=1,
+            model_name="test",
+        )
+
+        # Create combined result
+        combined = VisualExtractionWithLayoutResult(
+            ocr_result=ocr_result,
+            layout_result=layout_result,
+        )
+
+        assert combined.full_text == "Test"
+        assert combined.total_pages == 1
+        assert combined.average_confidence == 0.9
+        assert len(combined.get_all_regions()) == 1
+        assert len(combined.get_text_elements()) == 1
+
+    def test_combined_result_to_dict(self) -> None:
+        """Test converting combined result to dictionary."""
+        from agentic_document_extraction.services.layout_detector import (
+            LayoutDetectionResult,
+        )
+
+        ocr_result = VisualExtractionResult(
+            pages=[],
+            full_text="",
+            total_pages=0,
+            extraction_method=ExtractionMethod.OCR,
+            average_confidence=0.0,
+        )
+        layout_result = LayoutDetectionResult(
+            pages=[],
+            total_pages=0,
+            total_regions=0,
+            model_name="test",
+        )
+        combined = VisualExtractionWithLayoutResult(
+            ocr_result=ocr_result,
+            layout_result=layout_result,
+        )
+
+        result_dict = combined.to_dict()
+        assert "ocr_result" in result_dict
+        assert "layout_result" in result_dict
+
+
+class TestExtractWithLayout:
+    """Tests for the extract_with_layout method."""
+
+    def test_extract_with_layout_file_not_found(
+        self, extractor: VisualTextExtractor
+    ) -> None:
+        """Test that extracting from nonexistent file raises error."""
+        with pytest.raises(FileNotFoundError):
+            extractor.extract_with_layout("/nonexistent/path/file.png")
+
+    def test_extract_with_layout_returns_combined_result(
+        self,
+        extractor: VisualTextExtractor,
+        sample_image_with_text: bytes,
+        mock_ocr_data: list[list[object]],
+    ) -> None:
+        """Test that extract_with_layout returns combined result."""
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+            f.write(sample_image_with_text)
+            temp_path = f.name
+
+        try:
+            with (
+                patch.object(extractor, "_get_ocr_engine") as mock_engine,
+                patch.object(extractor, "_get_layout_engine") as mock_layout_engine,
+            ):
+                # Mock OCR
+                mock_engine.return_value.ocr.return_value = mock_ocr_data
+
+                # Mock layout detection
+                mock_layout_result = MagicMock()
+                mock_layout_engine.return_value.predict.return_value = [
+                    mock_layout_result
+                ]
+
+                result = extractor.extract_with_layout(temp_path)
+
+                assert isinstance(result, VisualExtractionWithLayoutResult)
+                assert result.total_pages == 1
+                assert "Hello" in result.full_text
+                assert "World" in result.full_text
+        finally:
+            Path(temp_path).unlink()
+
+    def test_extract_with_layout_handles_layout_failure(
+        self,
+        extractor: VisualTextExtractor,
+        sample_image_with_text: bytes,
+        mock_ocr_data: list[list[object]],
+    ) -> None:
+        """Test that layout detection failure returns empty layout but valid OCR."""
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+            f.write(sample_image_with_text)
+            temp_path = f.name
+
+        try:
+            with (
+                patch.object(extractor, "_get_ocr_engine") as mock_engine,
+                patch.object(extractor, "_get_layout_engine") as mock_layout_engine,
+            ):
+                # Mock OCR success
+                mock_engine.return_value.ocr.return_value = mock_ocr_data
+
+                # Mock layout detection failure
+                mock_layout_engine.side_effect = Exception("Layout engine failed")
+
+                result = extractor.extract_with_layout(temp_path)
+
+                # OCR should still work
+                assert isinstance(result, VisualExtractionWithLayoutResult)
+                assert result.total_pages == 1
+                assert "Hello" in result.full_text
+                # Layout should be empty
+                assert len(result.get_all_regions()) == 0
+        finally:
+            Path(temp_path).unlink()

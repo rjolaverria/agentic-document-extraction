@@ -23,8 +23,34 @@ import numpy as np
 from PIL import Image
 
 from agentic_document_extraction.config import settings
+from agentic_document_extraction.services.layout_detector import (
+    LayoutDetectionResult,
+    LayoutRegion,
+    PageLayoutResult,
+    RegionBoundingBox,
+    RegionType,
+)
 
 logger = logging.getLogger(__name__)
+
+
+# Mapping from PaddleOCR layout labels to RegionType
+PADDLE_LAYOUT_LABEL_MAP: dict[str, RegionType] = {
+    "text": RegionType.TEXT,
+    "title": RegionType.TITLE,
+    "table": RegionType.TABLE,
+    "figure": RegionType.PICTURE,
+    "picture": RegionType.PICTURE,
+    "list": RegionType.LIST_ITEM,
+    "formula": RegionType.FORMULA,
+    "header": RegionType.PAGE_HEADER,
+    "footer": RegionType.PAGE_FOOTER,
+    "caption": RegionType.CAPTION,
+    "footnote": RegionType.FOOTNOTE,
+    "reference": RegionType.TEXT,
+    "equation": RegionType.FORMULA,
+    "seal": RegionType.PICTURE,
+}
 
 
 class VisualExtractionError(Exception):
@@ -235,6 +261,51 @@ class VisualExtractionResult:
         return elements
 
 
+@dataclass
+class VisualExtractionWithLayoutResult:
+    """Result of visual extraction with layout detection.
+
+    Combines OCR text extraction with layout region detection
+    in a single unified result.
+    """
+
+    ocr_result: VisualExtractionResult
+    """OCR extraction results with text elements."""
+
+    layout_result: LayoutDetectionResult
+    """Layout detection results with regions."""
+
+    @property
+    def full_text(self) -> str:
+        """Full text content of the document."""
+        return self.ocr_result.full_text
+
+    @property
+    def total_pages(self) -> int:
+        """Total number of pages."""
+        return self.ocr_result.total_pages
+
+    @property
+    def average_confidence(self) -> float:
+        """Average confidence score."""
+        return self.ocr_result.average_confidence
+
+    def get_all_regions(self) -> list[LayoutRegion]:
+        """Get all layout regions from all pages."""
+        return self.layout_result.get_all_regions()
+
+    def get_text_elements(self) -> list[TextElement]:
+        """Get all text elements from all pages."""
+        return self.ocr_result.get_all_text_elements()
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary representation."""
+        return {
+            "ocr_result": self.ocr_result.to_dict(),
+            "layout_result": self.layout_result.to_dict(),
+        }
+
+
 @dataclass(frozen=True)
 class PaddleOCRConfig:
     """Configuration for PaddleOCR-VL."""
@@ -311,6 +382,7 @@ class VisualTextExtractor:
                 cpu_threads=settings.paddleocr_cpu_threads,
             )
         self._ocr_engine: Any | None = None
+        self._layout_engine: Any | None = None
 
     def extract_from_path(self, file_path: str | Path) -> VisualExtractionResult:
         """Extract text from a file path.
@@ -988,6 +1060,322 @@ class VisualTextExtractor:
             )
             sys.modules.setdefault("langchain.text_splitter", text_splitter_module)
             langchain_module.text_splitter = text_splitter_module
+
+    def extract_with_layout(
+        self, file_path: str | Path
+    ) -> VisualExtractionWithLayoutResult:
+        """Extract text and layout regions from a visual document.
+
+        Combines OCR text extraction with PaddleOCR layout detection
+        in a unified result. This method is optimized for the new
+        visual extraction pipeline.
+
+        Args:
+            file_path: Path to the file to extract from.
+
+        Returns:
+            VisualExtractionWithLayoutResult with both OCR text and layout regions.
+
+        Raises:
+            VisualExtractionError: If extraction fails.
+            FileNotFoundError: If the file does not exist.
+        """
+        path = Path(file_path)
+        if not path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        # Step 1: Extract text with OCR
+        ocr_result = self.extract_from_path(path)
+
+        # Step 2: Detect layout regions with PaddleOCR LayoutDetection
+        layout_result = self._detect_layout(path, ocr_result)
+
+        logger.info(
+            f"Extracted with layout: {ocr_result.total_pages} pages, "
+            f"{layout_result.total_regions} regions, "
+            f"avg_confidence={ocr_result.average_confidence:.2f}"
+        )
+
+        return VisualExtractionWithLayoutResult(
+            ocr_result=ocr_result,
+            layout_result=layout_result,
+        )
+
+    def _detect_layout(
+        self,
+        file_path: Path,
+        ocr_result: VisualExtractionResult,
+    ) -> LayoutDetectionResult:
+        """Detect layout regions using PaddleOCR LayoutDetection.
+
+        Args:
+            file_path: Path to the document file.
+            ocr_result: OCR result for page dimensions.
+
+        Returns:
+            LayoutDetectionResult with detected regions.
+        """
+        try:
+            layout_engine = self._get_layout_engine()
+        except Exception as e:
+            logger.warning(
+                f"Failed to initialize layout engine: {e}. Returning empty layout."
+            )
+            return LayoutDetectionResult(
+                pages=[],
+                total_pages=ocr_result.total_pages,
+                total_regions=0,
+                model_name="none",
+                metadata={"error": str(e)},
+            )
+
+        extension = file_path.suffix.lower()
+        pages: list[PageLayoutResult] = []
+        total_regions = 0
+        region_counter = 0
+
+        try:
+            if extension == ".pdf":
+                # Convert PDF pages to images for layout detection
+                from pdf2image import convert_from_path
+
+                pdf_images = convert_from_path(str(file_path), dpi=self.pdf_dpi)
+
+                for page_num, image in enumerate(pdf_images, start=1):
+                    page_result, region_counter = self._detect_layout_for_image(
+                        image, page_num, layout_engine, region_counter
+                    )
+                    pages.append(page_result)
+                    total_regions += len(page_result.regions)
+            else:
+                # Single image
+                image = Image.open(file_path)
+                if image.mode != "RGB":
+                    image = image.convert("RGB")
+
+                page_result, region_counter = self._detect_layout_for_image(
+                    image, 1, layout_engine, region_counter
+                )
+                pages.append(page_result)
+                total_regions = len(page_result.regions)
+
+        except Exception as e:
+            logger.warning(f"Layout detection failed: {e}")
+            # Return empty result on failure
+            return LayoutDetectionResult(
+                pages=[],
+                total_pages=ocr_result.total_pages,
+                total_regions=0,
+                model_name="PaddleOCR-LayoutDetection",
+                metadata={"error": str(e)},
+            )
+
+        return LayoutDetectionResult(
+            pages=pages,
+            total_pages=len(pages),
+            total_regions=total_regions,
+            model_name="PaddleOCR-LayoutDetection",
+        )
+
+    def _detect_layout_for_image(
+        self,
+        image: Image.Image,
+        page_num: int,
+        layout_engine: Any,
+        region_counter: int,
+    ) -> tuple[PageLayoutResult, int]:
+        """Detect layout regions for a single image.
+
+        Args:
+            image: PIL Image to analyze.
+            page_num: Page number (1-indexed).
+            layout_engine: PaddleOCR LayoutDetection engine.
+            region_counter: Current region counter for unique IDs.
+
+        Returns:
+            Tuple of (PageLayoutResult, updated region_counter).
+        """
+        image_width = float(image.width)
+        image_height = float(image.height)
+
+        # Convert to numpy array for PaddleOCR
+        img_array = np.array(image)
+
+        regions: list[LayoutRegion] = []
+
+        try:
+            # Run layout detection
+            output = layout_engine.predict(img_array)
+
+            # Process results
+            for res in output:
+                # PaddleOCR LayoutDetection returns dict-like results
+                if hasattr(res, "__iter__"):
+                    for item in res:
+                        region, region_counter = self._parse_layout_item(
+                            item, page_num, region_counter
+                        )
+                        if region:
+                            regions.append(region)
+                else:
+                    # Single result
+                    region, region_counter = self._parse_layout_item(
+                        res, page_num, region_counter
+                    )
+                    if region:
+                        regions.append(region)
+
+        except Exception as e:
+            logger.warning(f"Layout detection for page {page_num} failed: {e}")
+
+        # Sort regions by position (top to bottom, left to right)
+        regions.sort(key=lambda r: (r.bbox.y0, r.bbox.x0))
+
+        return (
+            PageLayoutResult(
+                page_number=page_num,
+                regions=regions,
+                page_width=image_width,
+                page_height=image_height,
+            ),
+            region_counter,
+        )
+
+    def _parse_layout_item(
+        self,
+        item: Any,
+        page_num: int,
+        region_counter: int,
+    ) -> tuple[LayoutRegion | None, int]:
+        """Parse a single layout detection item into a LayoutRegion.
+
+        Args:
+            item: Layout detection result item.
+            page_num: Page number.
+            region_counter: Current region counter.
+
+        Returns:
+            Tuple of (LayoutRegion or None, updated counter).
+        """
+        try:
+            # Handle different PaddleOCR output formats
+            if hasattr(item, "get"):
+                # Dict-like access (newer PaddleOCR format)
+                boxes = item.get("boxes", item.get("bbox", []))
+                labels = item.get("labels", item.get("label", []))
+                scores = item.get("scores", item.get("score", []))
+
+                # Process each detection
+                for i in range(len(boxes) if isinstance(boxes, list) else 1):
+                    box = boxes[i] if isinstance(boxes, list) else boxes
+                    label = labels[i] if isinstance(labels, list) else labels
+                    score = scores[i] if isinstance(scores, list) else scores
+
+                    if not box or len(box) < 4:
+                        continue
+
+                    # Convert label to RegionType
+                    label_str = str(label).lower() if label else "unknown"
+                    region_type = PADDLE_LAYOUT_LABEL_MAP.get(
+                        label_str, RegionType.UNKNOWN
+                    )
+
+                    region_counter += 1
+                    bbox = RegionBoundingBox(
+                        x0=float(box[0]),
+                        y0=float(box[1]),
+                        x1=float(box[2]),
+                        y1=float(box[3]),
+                    )
+
+                    return (
+                        LayoutRegion(
+                            region_type=region_type,
+                            bbox=bbox,
+                            confidence=float(score) if score else 0.5,
+                            page_number=page_num,
+                            region_id=f"paddle_p{page_num}_{region_counter}",
+                        ),
+                        region_counter,
+                    )
+
+            elif hasattr(item, "boxes") or hasattr(item, "bbox"):
+                # Object attribute access
+                boxes = getattr(item, "boxes", None) or getattr(item, "bbox", None)
+                labels = getattr(item, "labels", None) or getattr(item, "label", None)
+                scores = getattr(item, "scores", None) or getattr(item, "score", None)
+
+                if boxes is None:
+                    return None, region_counter
+
+                # Handle numpy arrays
+                if hasattr(boxes, "tolist"):
+                    boxes = boxes.tolist()
+                if labels is not None and hasattr(labels, "tolist"):
+                    labels = labels.tolist()
+                if scores is not None and hasattr(scores, "tolist"):
+                    scores = scores.tolist()
+
+                # Ensure lists
+                if not isinstance(boxes[0], (list, tuple)):
+                    boxes = [boxes]
+                if labels and not isinstance(labels, list):
+                    labels = [labels]
+                if scores and not isinstance(scores, list):
+                    scores = [scores]
+
+                for i, box in enumerate(boxes):
+                    if len(box) < 4:
+                        continue
+
+                    label = labels[i] if labels and i < len(labels) else "unknown"
+                    score = scores[i] if scores and i < len(scores) else 0.5
+
+                    label_str = str(label).lower()
+                    region_type = PADDLE_LAYOUT_LABEL_MAP.get(
+                        label_str, RegionType.UNKNOWN
+                    )
+
+                    region_counter += 1
+                    bbox = RegionBoundingBox(
+                        x0=float(box[0]),
+                        y0=float(box[1]),
+                        x1=float(box[2]),
+                        y1=float(box[3]),
+                    )
+
+                    return (
+                        LayoutRegion(
+                            region_type=region_type,
+                            bbox=bbox,
+                            confidence=float(score),
+                            page_number=page_num,
+                            region_id=f"paddle_p{page_num}_{region_counter}",
+                        ),
+                        region_counter,
+                    )
+
+        except Exception as e:
+            logger.debug(f"Failed to parse layout item: {e}")
+
+        return None, region_counter
+
+    def _get_layout_engine(self) -> Any:
+        """Initialize and cache the PaddleOCR LayoutDetection engine."""
+        if not hasattr(self, "_layout_engine") or self._layout_engine is None:
+            try:
+                self._ensure_langchain_docstore_stub()
+                from paddleocr import LayoutDetection
+
+                self._layout_engine = LayoutDetection(
+                    model_name="PP-DocLayoutV2",
+                )
+            except ImportError as exc:
+                raise VisualExtractionError(
+                    "PaddleOCR LayoutDetection is not available. "
+                    "Ensure paddleocr>=3.3 is installed."
+                ) from exc
+        return self._layout_engine
 
     def extract_pdf(self, content: bytes) -> VisualExtractionResult:
         """Public method to extract text from PDF content.

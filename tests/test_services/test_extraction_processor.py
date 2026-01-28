@@ -112,14 +112,42 @@ def create_mock_markdown_generator():
 
 
 def create_mock_visual_extractor():
-    """Create a mock visual text extractor."""
+    """Create a mock visual text extractor.
+
+    Creates a mock that works with the new unified extract_with_layout() method.
+    """
     mock_visual_extractor = MagicMock()
+
+    # Mock the combined extraction result (new pipeline)
+    mock_extraction_with_layout = MagicMock()
+    mock_extraction_with_layout.full_text = "Extracted text from image"
+    mock_extraction_with_layout.total_pages = 1
+    mock_extraction_with_layout.average_confidence = 0.85
+    mock_extraction_with_layout.get_all_regions.return_value = []
+
+    # Mock the OCR result inside the combined result
+    mock_ocr_result = MagicMock()
+    mock_ocr_result.extraction_method.value = "ocr"
+    mock_ocr_result.full_text = "Extracted text from image"
+    mock_ocr_result.total_pages = 1
+    mock_ocr_result.average_confidence = 0.85
+    mock_extraction_with_layout.ocr_result = mock_ocr_result
+
+    # Mock the layout result
+    mock_layout_result = MagicMock()
+    mock_layout_result.pages = []
+    mock_extraction_with_layout.layout_result = mock_layout_result
+
+    mock_visual_extractor.extract_with_layout.return_value = mock_extraction_with_layout
+
+    # Also mock extract_from_path for backward compatibility tests
     mock_visual_result = MagicMock()
     mock_visual_result.full_text = "Extracted text from image"
     mock_visual_result.extraction_method.value = "ocr"
     mock_visual_result.total_pages = 1
     mock_visual_result.average_confidence = 0.85
     mock_visual_extractor.extract_from_path.return_value = mock_visual_result
+
     return mock_visual_extractor
 
 
@@ -166,8 +194,8 @@ class TestExtractionProcessorRouting:
             progress=None,
         )
 
-        # Verify visual extractor was called (not text extractor)
-        mock_visual_extractor.extract_from_path.assert_called_once()
+        # Verify visual extractor's extract_with_layout was called (new unified pipeline)
+        mock_visual_extractor.extract_with_layout.assert_called_once()
         # JsonGenerator adds None for optional fields, so check required field
         assert result["extracted_data"]["name"] == "test"
 
@@ -283,8 +311,8 @@ class TestExtractionProcessorVisualFormats:
             progress=None,
         )
 
-        # Verify visual extractor was called
-        mock_visual_extractor.extract_from_path.assert_called_once()
+        # Verify visual extractor's extract_with_layout was called (new unified pipeline)
+        mock_visual_extractor.extract_with_layout.assert_called_once()
         # JsonGenerator adds None for optional fields, so check required field
         assert result["extracted_data"]["name"] == "test"
 
@@ -361,35 +389,54 @@ class TestExtractionProcessorToolAgent:
     """Tests for the use_tool_agent=True code path in extraction processor.
 
     The default setting is use_tool_agent=True, so no app_settings mock needed.
+    The new pipeline uses extract_with_layout() which combines OCR and layout detection.
     """
 
     @patch(
         "agentic_document_extraction.services.extraction_processor.MarkdownGenerator"
     )
-    @patch("agentic_document_extraction.services.layout_detector.LayoutDetector")
     @patch("agentic_document_extraction.services.extraction_processor.ExtractionAgent")
     @patch(
         "agentic_document_extraction.services.extraction_processor.VisualTextExtractor"
     )
-    async def test_visual_doc_calls_layout_detector(
+    async def test_visual_doc_with_layout_regions_passes_to_agent(
         self,
         mock_visual_extractor_class: MagicMock,
         mock_extraction_agent_class: MagicMock,
-        mock_layout_detector_class: MagicMock,
         mock_markdown_gen_class: MagicMock,
         sample_png_file: Path,
         sample_schema_file: Path,
     ) -> None:
-        """Visual doc with use_tool_agent=True calls LayoutDetector and passes regions."""
-        mock_visual_extractor = create_mock_visual_extractor()
-        mock_visual_extractor_class.return_value = mock_visual_extractor
+        """Visual doc with use_tool_agent=True uses unified pipeline and passes regions."""
+        # Set up mock visual extractor with layout regions
+        mock_visual_extractor = MagicMock()
+        mock_extraction_with_layout = MagicMock()
+        mock_extraction_with_layout.full_text = "Extracted text"
+        mock_extraction_with_layout.total_pages = 1
+        mock_extraction_with_layout.average_confidence = 0.9
 
-        # Set up layout detector mock
+        # Create mock layout region
+        mock_region = MagicMock()
+        mock_region.region_type.value = "table"
+        mock_extraction_with_layout.get_all_regions.return_value = [mock_region]
+
+        # Mock the OCR result
+        mock_ocr_result = MagicMock()
+        mock_ocr_result.extraction_method.value = "ocr"
+        mock_extraction_with_layout.ocr_result = mock_ocr_result
+
+        # Mock layout result with pages
+        mock_layout_page = MagicMock()
+        mock_layout_page.page_number = 1
+        mock_layout_page.regions = [mock_region]
         mock_layout_result = MagicMock()
-        mock_layout_result.get_all_regions.return_value = [MagicMock()]
-        mock_layout_detector_class.return_value.detect_from_path.return_value = (
-            mock_layout_result
+        mock_layout_result.pages = [mock_layout_page]
+        mock_extraction_with_layout.layout_result = mock_layout_result
+
+        mock_visual_extractor.extract_with_layout.return_value = (
+            mock_extraction_with_layout
         )
+        mock_visual_extractor_class.return_value = mock_visual_extractor
 
         mock_extraction_agent_class.return_value = create_mock_extraction_agent()
         mock_markdown_gen_class.return_value = create_mock_markdown_generator()
@@ -402,9 +449,8 @@ class TestExtractionProcessorToolAgent:
             progress=None,
         )
 
-        # LayoutDetector was instantiated and called
-        mock_layout_detector_class.assert_called_once()
-        mock_layout_detector_class.return_value.detect_from_path.assert_called_once()
+        # Unified extract_with_layout was called
+        mock_visual_extractor.extract_with_layout.assert_called_once()
         # ExtractionAgent.extract received layout_regions
         call_kwargs = mock_extraction_agent_class.return_value.extract.call_args
         assert call_kwargs.kwargs.get("layout_regions") is not None
@@ -413,43 +459,40 @@ class TestExtractionProcessorToolAgent:
     @patch(
         "agentic_document_extraction.services.extraction_processor.MarkdownGenerator"
     )
-    @patch("agentic_document_extraction.services.layout_detector.LayoutDetector")
     @patch("agentic_document_extraction.services.extraction_processor.ExtractionAgent")
     @patch(
         "agentic_document_extraction.services.extraction_processor.VisualTextExtractor"
     )
-    async def test_layout_detection_failure_proceeds_without_regions(
+    async def test_visual_doc_without_regions_uses_fallback(
         self,
         mock_visual_extractor_class: MagicMock,
         mock_extraction_agent_class: MagicMock,
-        mock_layout_detector_class: MagicMock,
         mock_markdown_gen_class: MagicMock,
         sample_png_file: Path,
         sample_schema_file: Path,
     ) -> None:
-        """When LayoutDetector raises, ExtractionAgent is still called with layout_regions=None."""
+        """When extract_with_layout returns no regions, fallback full-image region is used."""
         mock_visual_extractor = create_mock_visual_extractor()
         mock_visual_extractor_class.return_value = mock_visual_extractor
-
-        # LayoutDetector raises
-        mock_layout_detector_class.return_value.detect_from_path.side_effect = (
-            RuntimeError("GPU OOM")
-        )
 
         mock_extraction_agent_class.return_value = create_mock_extraction_agent()
         mock_markdown_gen_class.return_value = create_mock_markdown_generator()
 
         result = await process_extraction_job(
-            job_id="test-layout-fail",
+            job_id="test-no-regions",
             filename="test_image.png",
             file_path=str(sample_png_file),
             schema_path=str(sample_schema_file),
             progress=None,
         )
 
-        # ExtractionAgent.extract still called, with layout_regions=None
+        # ExtractionAgent.extract still called with fallback region
         call_kwargs = mock_extraction_agent_class.return_value.extract.call_args
-        assert call_kwargs.kwargs.get("layout_regions") is None
+        layout_regions = call_kwargs.kwargs.get("layout_regions")
+        # Should have fallback full-image region
+        assert layout_regions is not None
+        assert len(layout_regions) == 1
+        assert layout_regions[0].region_id == "fallback_full_image"
         assert result["extracted_data"]["name"] == "test"
 
     @patch(

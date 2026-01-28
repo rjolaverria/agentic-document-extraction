@@ -23,6 +23,9 @@ from agentic_document_extraction.models import ProcessingCategory
 from agentic_document_extraction.output.json_generator import JsonGenerator
 from agentic_document_extraction.output.markdown_generator import MarkdownGenerator
 from agentic_document_extraction.services.format_detector import FormatDetector
+from agentic_document_extraction.services.reading_order_detector import (
+    ReadingOrderDetector,
+)
 from agentic_document_extraction.services.schema_validator import SchemaValidator
 from agentic_document_extraction.services.text_extractor import TextExtractor
 from agentic_document_extraction.services.visual_text_extractor import (
@@ -169,6 +172,9 @@ async def process_extraction_job(
             )
 
             # Extract text based on document type
+            layout_regions = None
+            ordered_text = None
+
             if format_info.processing_category == ProcessingCategory.TEXT_BASED:
                 # Text-based extraction
                 text_extractor = TextExtractor()
@@ -176,19 +182,59 @@ async def process_extraction_job(
                 text = text_extraction_result.text
                 logger.info("Text extracted", length=len(text))
             else:
-                # Visual document - use OCR and layout detection
+                # Visual document - use unified OCR + layout extraction pipeline
                 visual_text_extractor = VisualTextExtractor()
-                visual_extraction_result = visual_text_extractor.extract_from_path(
+
+                await _set_progress(
+                    progress, "Extracting text and detecting layout regions"
+                )
+
+                # Use new unified extraction with layout
+                extraction_with_layout = visual_text_extractor.extract_with_layout(
                     document_path
                 )
-                text = visual_extraction_result.full_text
+                text = extraction_with_layout.full_text
+                layout_regions = extraction_with_layout.get_all_regions()
+
                 logger.info(
-                    "Text extracted from visual document",
+                    "Text and layout extracted from visual document",
                     length=len(text),
-                    method=visual_extraction_result.extraction_method.value,
-                    pages=visual_extraction_result.total_pages,
-                    confidence=visual_extraction_result.average_confidence,
+                    method=extraction_with_layout.ocr_result.extraction_method.value,
+                    pages=extraction_with_layout.total_pages,
+                    confidence=extraction_with_layout.average_confidence,
+                    regions=len(layout_regions),
                 )
+
+                # Apply reading order detection if we have regions
+                if layout_regions and extraction_with_layout.layout_result.pages:
+                    try:
+                        await _set_progress(progress, "Detecting reading order")
+
+                        reading_order_detector = ReadingOrderDetector()
+                        doc_reading_order = reading_order_detector.detect_reading_order(
+                            extraction_with_layout.layout_result.pages
+                        )
+
+                        # Get regions in reading order (excluding headers/footers)
+                        ordered_regions = doc_reading_order.get_all_regions_ordered(
+                            include_skipped=False
+                        )
+
+                        # Build ordered text from OCR text elements based on region order
+                        # For now, we use the full text as-is since OCR already provides
+                        # reading order. The layout regions are for tool-based extraction.
+                        ordered_text = text
+
+                        logger.info(
+                            "Reading order detected",
+                            total_regions=doc_reading_order.total_regions,
+                            ordered_count=len(ordered_regions),
+                        )
+                    except Exception:
+                        logger.warning(
+                            "Reading order detection failed; using original order",
+                            exc_info=True,
+                        )
 
             await _set_progress(progress, "Running agentic extraction loop")
 
@@ -196,9 +242,11 @@ async def process_extraction_job(
                 # New: single tool-using ExtractionAgent
                 extraction_agent = ExtractionAgent()
 
-                # For visual documents, run layout detection to get regions
-                layout_regions = None
-                if format_info.processing_category == ProcessingCategory.VISUAL:
+                # For visual documents, attach cropped images to regions
+                if (
+                    format_info.processing_category == ProcessingCategory.VISUAL
+                    and layout_regions is not None
+                ):
                     try:
                         from agentic_document_extraction.services.layout_detector import (
                             LayoutDetector,
@@ -207,10 +255,6 @@ async def process_extraction_job(
                             RegionImage,
                             RegionType,
                         )
-
-                        layout_detector = LayoutDetector()
-                        layout_result = layout_detector.detect_from_path(document_path)
-                        layout_regions = layout_result.get_all_regions()
 
                         # Attach cropped images to visual regions (TABLE, PICTURE)
                         visual_types = {RegionType.TABLE, RegionType.PICTURE}
@@ -225,8 +269,6 @@ async def process_extraction_job(
                             source_image = source_image.convert("RGB")
 
                         # Fallback: if no regions detected, treat whole image as PICTURE
-                        # This handles standalone charts/images where layout model
-                        # can't find distinct regions
                         if not layout_regions:
                             buffer = io.BytesIO()
                             source_image.save(buffer, format="PNG")
@@ -254,12 +296,13 @@ async def process_extraction_job(
                                 "No regions detected; using full image as PICTURE"
                             )
                         elif any(r.region_type in visual_types for r in layout_regions):
+                            # Create a temporary LayoutDetector just for cropping
+                            layout_detector = LayoutDetector()
                             for region in layout_regions:
                                 if region.region_type in visual_types:
                                     cropped = layout_detector.crop_region(
                                         source_image, region, padding=5
                                     )
-                                    # Encode as base64
                                     buffer = io.BytesIO()
                                     cropped.save(buffer, format="PNG")
                                     b64_str = base64.b64encode(
@@ -270,17 +313,20 @@ async def process_extraction_job(
                                     )
 
                         logger.info(
-                            "Layout detected for tool agent",
+                            "Layout regions prepared for tool agent",
                             regions=len(layout_regions),
                         )
                     except Exception:
                         logger.warning(
-                            "Layout detection failed; proceeding without regions",
+                            "Failed to attach images to regions",
                             exc_info=True,
                         )
 
+                # Use ordered text if available, otherwise use original text
+                extraction_text = ordered_text if ordered_text else text
+
                 loop_result = extraction_agent.extract(
-                    text=text,
+                    text=extraction_text,
                     schema_info=schema_info,
                     format_info=format_info,
                     layout_regions=layout_regions,

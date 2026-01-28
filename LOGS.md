@@ -2,6 +2,7 @@
 
 Each log entry lives in `logs/` as its own file. Add new logs there and reference them here.
 
+- 2026-01-28 Refactor: Visual Document Extraction Pipeline -> logs/2026-01-28-refactor-visual-extraction-pipeline.md
 - 2026-01-27 Refactor: Extraction Agent to Tool-Based Architecture -> logs/2026-01-27-refactor-extraction-agent-tool-based.md
 - 2026-01-27 Refactor: AnalyzeTable Tool Function Input -> logs/2026-01-27-refactor-analyze-table-tool.md
 - 2026-01-27 Refactor: Region Input Tool Interface -> logs/2026-01-27-refactor-region-tool-input.md
