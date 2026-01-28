@@ -202,6 +202,8 @@ async def process_extraction_job(
                     try:
                         from agentic_document_extraction.services.layout_detector import (
                             LayoutDetector,
+                            LayoutRegion,
+                            RegionBoundingBox,
                             RegionImage,
                             RegionType,
                         )
@@ -212,18 +214,46 @@ async def process_extraction_job(
 
                         # Attach cropped images to visual regions (TABLE, PICTURE)
                         visual_types = {RegionType.TABLE, RegionType.PICTURE}
-                        if layout_regions and any(
-                            r.region_type in visual_types for r in layout_regions
-                        ):
-                            import base64
-                            import io
 
-                            from PIL import Image
+                        import base64
+                        import io
 
-                            source_image: Image.Image = Image.open(document_path)
-                            if source_image.mode != "RGB":
-                                source_image = source_image.convert("RGB")
+                        from PIL import Image
 
+                        source_image: Image.Image = Image.open(document_path)
+                        if source_image.mode != "RGB":
+                            source_image = source_image.convert("RGB")
+
+                        # Fallback: if no regions detected, treat whole image as PICTURE
+                        # This handles standalone charts/images where layout model
+                        # can't find distinct regions
+                        if not layout_regions:
+                            buffer = io.BytesIO()
+                            source_image.save(buffer, format="PNG")
+                            b64_str = base64.b64encode(buffer.getvalue()).decode(
+                                "utf-8"
+                            )
+                            layout_regions = [
+                                LayoutRegion(
+                                    region_type=RegionType.PICTURE,
+                                    bbox=RegionBoundingBox(
+                                        x0=0,
+                                        y0=0,
+                                        x1=float(source_image.width),
+                                        y1=float(source_image.height),
+                                    ),
+                                    confidence=1.0,
+                                    page_number=1,
+                                    region_id="fallback_full_image",
+                                    region_image=RegionImage(
+                                        image=source_image, base64=b64_str
+                                    ),
+                                )
+                            ]
+                            logger.info(
+                                "No regions detected; using full image as PICTURE"
+                            )
+                        elif any(r.region_type in visual_types for r in layout_regions):
                             for region in layout_regions:
                                 if region.region_type in visual_types:
                                     cropped = layout_detector.crop_region(
