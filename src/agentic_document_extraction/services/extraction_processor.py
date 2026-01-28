@@ -202,11 +202,43 @@ async def process_extraction_job(
                     try:
                         from agentic_document_extraction.services.layout_detector import (
                             LayoutDetector,
+                            RegionImage,
+                            RegionType,
                         )
 
                         layout_detector = LayoutDetector()
                         layout_result = layout_detector.detect_from_path(document_path)
                         layout_regions = layout_result.get_all_regions()
+
+                        # Attach cropped images to visual regions (TABLE, PICTURE)
+                        visual_types = {RegionType.TABLE, RegionType.PICTURE}
+                        if layout_regions and any(
+                            r.region_type in visual_types for r in layout_regions
+                        ):
+                            import base64
+                            import io
+
+                            from PIL import Image
+
+                            source_image: Image.Image = Image.open(document_path)
+                            if source_image.mode != "RGB":
+                                source_image = source_image.convert("RGB")
+
+                            for region in layout_regions:
+                                if region.region_type in visual_types:
+                                    cropped = layout_detector.crop_region(
+                                        source_image, region, padding=5
+                                    )
+                                    # Encode as base64
+                                    buffer = io.BytesIO()
+                                    cropped.save(buffer, format="PNG")
+                                    b64_str = base64.b64encode(
+                                        buffer.getvalue()
+                                    ).decode("utf-8")
+                                    region.region_image = RegionImage(
+                                        image=cropped, base64=b64_str
+                                    )
+
                         logger.info(
                             "Layout detected for tool agent",
                             regions=len(layout_regions),
