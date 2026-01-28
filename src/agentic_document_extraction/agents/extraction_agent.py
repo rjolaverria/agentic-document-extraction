@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -193,12 +194,18 @@ class ExtractionAgent:
         )
 
         # Build agent with structured output from schema
+        # Sanitize schema title for OpenAI's response_format (must match ^[a-zA-Z0-9_-]+$)
+        response_schema = dict(schema_info.schema)
+        if "title" in response_schema:
+            sanitized = re.sub(r"[^a-zA-Z0-9_-]", "_", response_schema["title"])
+            response_schema["title"] = sanitized
+
         agent = create_agent(
             model=llm,
             tools=tools,
             system_prompt=system_prompt,
             state_schema=ExtractionAgentState if tools else None,
-            response_format=schema_info.schema,
+            response_format=response_schema,
         )
 
         # Invoke

@@ -812,41 +812,83 @@ class VisualTextExtractor:
                 and isinstance(item[1][0], str)
             )
 
-        ocr_lines = ocr_output
-        if (
-            ocr_output
-            and not _is_line(ocr_output[0])
-            and isinstance(ocr_output[0], list)
-        ):
-            ocr_lines = ocr_output[0]
+        def _is_ocr_result(item: Any) -> bool:
+            """Check if item is a new-style OCRResult object."""
+            return hasattr(item, "get") and "rec_texts" in item
 
         full_text_parts: list[str] = []
-        for line in ocr_lines:
-            if not _is_line(line):
-                continue
-            points, (text, confidence) = line
-            if not text:
-                continue
 
-            x_coords = [point[0] for point in points]
-            y_coords = [point[1] for point in points]
-            bbox = BoundingBox(
-                x0=float(min(x_coords)),
-                y0=float(min(y_coords)),
-                x1=float(max(x_coords)),
-                y1=float(max(y_coords)),
-            )
+        # Handle new OCRResult format (PaddleOCR v3+)
+        if ocr_output and _is_ocr_result(ocr_output[0]):
+            page_result = ocr_output[0]
+            rec_texts = page_result.get("rec_texts", [])
+            rec_scores = page_result.get("rec_scores", [])
+            rec_polys = page_result.get("rec_polys", [])
 
-            confidences.append(float(confidence))
-            full_text_parts.append(text)
-            text_elements.append(
-                TextElement(
-                    text=text,
-                    bbox=bbox,
-                    confidence=float(confidence),
-                    page_number=page_num,
+            for i, text in enumerate(rec_texts):
+                if not text:
+                    continue
+                confidence = rec_scores[i] if i < len(rec_scores) else 0.0
+                points = rec_polys[i] if i < len(rec_polys) else None
+
+                if points is not None and len(points) >= 4:
+                    x_coords = [p[0] for p in points]
+                    y_coords = [p[1] for p in points]
+                    bbox = BoundingBox(
+                        x0=float(min(x_coords)),
+                        y0=float(min(y_coords)),
+                        x1=float(max(x_coords)),
+                        y1=float(max(y_coords)),
+                    )
+                else:
+                    bbox = BoundingBox(x0=0, y0=0, x1=0, y1=0)
+
+                confidences.append(float(confidence))
+                full_text_parts.append(text)
+                text_elements.append(
+                    TextElement(
+                        text=text,
+                        bbox=bbox,
+                        confidence=float(confidence),
+                        page_number=page_num,
+                    )
                 )
-            )
+        else:
+            # Handle legacy format: list of [points, (text, confidence)]
+            ocr_lines = ocr_output
+            if (
+                ocr_output
+                and not _is_line(ocr_output[0])
+                and isinstance(ocr_output[0], list)
+            ):
+                ocr_lines = ocr_output[0]
+
+            for line in ocr_lines:
+                if not _is_line(line):
+                    continue
+                points, (text, confidence) = line
+                if not text:
+                    continue
+
+                x_coords = [point[0] for point in points]
+                y_coords = [point[1] for point in points]
+                bbox = BoundingBox(
+                    x0=float(min(x_coords)),
+                    y0=float(min(y_coords)),
+                    x1=float(max(x_coords)),
+                    y1=float(max(y_coords)),
+                )
+
+                confidences.append(float(confidence))
+                full_text_parts.append(text)
+                text_elements.append(
+                    TextElement(
+                        text=text,
+                        bbox=bbox,
+                        confidence=float(confidence),
+                        page_number=page_num,
+                    )
+                )
 
         full_text = "\n".join(full_text_parts)
 
