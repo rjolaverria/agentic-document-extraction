@@ -1,0 +1,44 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GDP social health index",
+  "description": "Schema for extracting data from a scanned image containing a chart of GDP social health index",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "social_health_scores": {
+      "type": "array",
+      "description": "Index of social health score (0-100) over the years",
+      "items": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number"
+          }
+        },
+        "required": ["year", "score"]
+      }
+    },
+    "gdp": {
+      "type": "array",
+      "description": "GDP in billions chained 2005 dollars over the years",
+      "items": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "string"
+          },
+          "gdp": {
+            "type": "number"
+          }
+        },
+        "required": ["year", "gdp"]
+      }
+    }
+  },
+  "required": ["title", "social_health_scores", "gdp"]
+}

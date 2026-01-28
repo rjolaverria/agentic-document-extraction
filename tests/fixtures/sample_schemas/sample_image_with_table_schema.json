@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Shares of US Gross Domestic Product",
+  "description": "Schema for extracting data from a scanned image containing a table of shares of US GDP",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "years": {
+      "type": "array",
+      "description": "Shares of US GDP over years (in percentage)",
+      "items": {
+        "type": "object",
+        "properties": {
+          "year": {
+            "type": "number"
+          },
+          "personal_consumption": {
+            "type": "number"
+          },
+          "business_capital_spending": {
+            "type": "number"
+          },
+          "residential_building": {
+            "type": "number"
+          },
+          "government_spending": {
+            "type": "number"
+          },
+          "net_exports": {
+            "type": "number"
+          }
+        },
+        "required": ["year", "personal_consumption", "business_capital_spending", "residential_building", "government_spending", "net_exports"]
+      }
+    }
+  },
+  "required": ["title", "years"]
+}
