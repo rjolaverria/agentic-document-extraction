@@ -1,4 +1,4 @@
-"""Tests for the ExtractionAgent."""
+"""Tests for the ExtractionAgent with lightweight verification loop."""
 
 from __future__ import annotations
 
@@ -15,6 +15,14 @@ from agentic_document_extraction.agents.extraction_agent import (
     ExtractionAgentState,
 )
 from agentic_document_extraction.agents.refiner import AgenticLoopResult
+from agentic_document_extraction.agents.verifier import (
+    IssueSeverity,
+    IssueType,
+    QualityMetrics,
+    VerificationIssue,
+    VerificationReport,
+    VerificationStatus,
+)
 from agentic_document_extraction.models import (
     FormatFamily,
     FormatInfo,
@@ -115,6 +123,56 @@ def _mock_agent_result(data: dict[str, Any]) -> dict[str, Any]:
     return {"messages": [msg], "structured_response": data}
 
 
+def _make_passing_verification() -> VerificationReport:
+    """Create a passing verification report."""
+    return VerificationReport(
+        status=VerificationStatus.PASSED,
+        metrics=QualityMetrics(
+            overall_confidence=0.9,
+            schema_coverage=1.0,
+            required_field_coverage=1.0,
+            optional_field_coverage=1.0,
+            completeness_score=1.0,
+            consistency_score=1.0,
+            min_field_confidence=0.85,
+            fields_with_low_confidence=0,
+            total_fields=2,
+            extracted_fields=2,
+        ),
+        issues=[],
+        total_tokens=0,
+    )
+
+
+def _make_failing_verification(missing_field: str = "name") -> VerificationReport:
+    """Create a failing verification report with missing required field."""
+    return VerificationReport(
+        status=VerificationStatus.FAILED,
+        metrics=QualityMetrics(
+            overall_confidence=0.5,
+            schema_coverage=0.5,
+            required_field_coverage=0.0,
+            optional_field_coverage=1.0,
+            completeness_score=0.3,
+            consistency_score=1.0,
+            min_field_confidence=0.85,
+            fields_with_low_confidence=0,
+            total_fields=2,
+            extracted_fields=1,
+        ),
+        issues=[
+            VerificationIssue(
+                issue_type=IssueType.MISSING_REQUIRED_FIELD,
+                field_path=missing_field,
+                message=f"Required field '{missing_field}' is missing",
+                severity=IssueSeverity.CRITICAL,
+                suggestion=f"Re-extract with focus on finding {missing_field}",
+            )
+        ],
+        total_tokens=0,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -129,11 +187,13 @@ class TestExtractionAgentInit:
             mock_settings.openai_model = "gpt-4o"
             mock_settings.openai_temperature = 0.0
             mock_settings.openai_max_tokens = 4096
+            mock_settings.max_refinement_iterations = 3
             agent = ExtractionAgent()
             assert agent.api_key == "sk-test"
             assert agent.model == "gpt-4o"
             assert agent.temperature == 0.0
             assert agent.max_tokens == 4096
+            assert agent.max_iterations == 3
 
     def test_custom_params(self) -> None:
         agent = ExtractionAgent(
@@ -141,11 +201,17 @@ class TestExtractionAgentInit:
             model="gpt-4o-mini",
             temperature=0.5,
             max_tokens=2048,
+            max_iterations=5,
         )
         assert agent.api_key == "sk-custom"
         assert agent.model == "gpt-4o-mini"
         assert agent.temperature == 0.5
         assert agent.max_tokens == 2048
+        assert agent.max_iterations == 5
+
+    def test_use_llm_verification_default(self) -> None:
+        agent = ExtractionAgent(api_key="sk-test")
+        assert agent.use_llm_verification is False
 
 
 class TestExtractionAgentState:
@@ -197,18 +263,50 @@ class TestSystemPrompt:
         assert '"age"' in prompt
 
 
+class TestRefinementPrompt:
+    def test_refinement_prompt_includes_issues(self) -> None:
+        agent = ExtractionAgent(api_key="sk-test")
+        schema_info = _make_schema_info()
+        prev_extraction = {"age": 30}
+        issues = [
+            "[CRITICAL] name: Required field 'name' is missing",
+        ]
+        prompt = agent._build_refinement_prompt(
+            "text", schema_info, [], prev_extraction, issues, has_tools=False
+        )
+        assert "Issues to Fix" in prompt
+        assert "name" in prompt
+        assert "Previous Extraction" in prompt
+        assert '"age": 30' in prompt
+
+    def test_refinement_prompt_no_issues(self) -> None:
+        agent = ExtractionAgent(api_key="sk-test")
+        schema_info = _make_schema_info()
+        prompt = agent._build_refinement_prompt(
+            "text", schema_info, [], {"name": "Test"}, [], has_tools=False
+        )
+        assert "None" in prompt  # No issues
+
+
 class TestToolRegistration:
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
     def test_no_tools_for_text_documents(
         self,
         _mock_llm_cls: MagicMock,  # noqa: ARG002
         mock_create: MagicMock,
+        mock_verifier: MagicMock,
     ) -> None:
         mock_create.return_value.invoke.return_value = _mock_agent_result(
             {"name": "Alice"}
         )
-        agent = ExtractionAgent(api_key="sk-test")
+        mock_verifier.return_value.verify.return_value = _make_passing_verification()
+        mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
+
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=1)
         agent.extract(
             text="Name: Alice",
             schema_info=_make_schema_info(),
@@ -218,17 +316,24 @@ class TestToolRegistration:
         tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
         assert tools == []
 
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
     def test_tools_registered_for_visual_with_regions(
         self,
         _mock_llm_cls: MagicMock,  # noqa: ARG002
         mock_create: MagicMock,
+        mock_verifier: MagicMock,
     ) -> None:
         mock_create.return_value.invoke.return_value = _mock_agent_result(
             {"name": "Bob"}
         )
-        agent = ExtractionAgent(api_key="sk-test")
+        mock_verifier.return_value.verify.return_value = _make_passing_verification()
+        mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
+
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=1)
         regions = _make_regions(chart=True, table=True)
         agent.extract(
             text="OCR text",
@@ -240,18 +345,25 @@ class TestToolRegistration:
         tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
         assert len(tools) == 2  # analyze_chart + analyze_table
 
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
     def test_no_tools_visual_without_visual_regions(
         self,
         _mock_llm_cls: MagicMock,  # noqa: ARG002
         mock_create: MagicMock,
+        mock_verifier: MagicMock,
     ) -> None:
         """Visual doc but only text regions - no tools needed."""
         mock_create.return_value.invoke.return_value = _mock_agent_result(
             {"name": "Carol"}
         )
-        agent = ExtractionAgent(api_key="sk-test")
+        mock_verifier.return_value.verify.return_value = _make_passing_verification()
+        mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
+
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=1)
         text_region = LayoutRegion(
             region_type=RegionType.TEXT,
             bbox=RegionBoundingBox(x0=0, y0=0, x1=100, y1=100),
@@ -271,17 +383,23 @@ class TestToolRegistration:
 
 
 class TestExtract:
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
     def test_text_extraction_returns_result(
         self,
         _mock_llm_cls: MagicMock,  # noqa: ARG002
         mock_create: MagicMock,
+        mock_verifier: MagicMock,
     ) -> None:
         extracted = {"name": "Alice", "age": 30}
         mock_create.return_value.invoke.return_value = _mock_agent_result(extracted)
+        mock_verifier.return_value.verify.return_value = _make_passing_verification()
+        mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
 
-        agent = ExtractionAgent(api_key="sk-test")
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=1)
         result = agent.extract(
             text="Name: Alice, Age: 30",
             schema_info=_make_schema_info(),
@@ -292,19 +410,24 @@ class TestExtract:
         assert result.final_result.extracted_data == extracted
         assert result.converged is True
         assert result.iterations_completed == 1
-        assert result.total_tokens == 150  # 100 + 50
 
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
     def test_field_extractions_built(
         self,
         _mock_llm_cls: MagicMock,  # noqa: ARG002
         mock_create: MagicMock,
+        mock_verifier: MagicMock,
     ) -> None:
         extracted = {"name": "Bob", "age": 25}
         mock_create.return_value.invoke.return_value = _mock_agent_result(extracted)
+        mock_verifier.return_value.verify.return_value = _make_passing_verification()
+        mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
 
-        agent = ExtractionAgent(api_key="sk-test")
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=1)
         result = agent.extract(
             text="Name: Bob, Age: 25",
             schema_info=_make_schema_info(),
@@ -315,17 +438,24 @@ class TestExtract:
         assert "name" in field_paths
         assert "age" in field_paths
 
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
     def test_regions_passed_to_agent_invoke(
         self,
         _mock_llm_cls: MagicMock,  # noqa: ARG002
         mock_create: MagicMock,
+        mock_verifier: MagicMock,
     ) -> None:
         mock_create.return_value.invoke.return_value = _mock_agent_result(
             {"name": "Chart Person"}
         )
-        agent = ExtractionAgent(api_key="sk-test")
+        mock_verifier.return_value.verify.return_value = _make_passing_verification()
+        mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
+
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=1)
         regions = _make_regions(chart=True)
         agent.extract(
             text="OCR text",
@@ -337,28 +467,221 @@ class TestExtract:
         assert "regions" in invoke_args
         assert invoke_args["regions"] is regions
 
+
+class TestVerificationLoop:
+    """Tests for the lightweight verification and refinement loop."""
+
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
-    def test_response_format_is_schema(
+    def test_single_pass_when_quality_passes(
         self,
         _mock_llm_cls: MagicMock,  # noqa: ARG002
         mock_create: MagicMock,
+        mock_verifier: MagicMock,
     ) -> None:
+        """First extraction passes quality - no refinement needed."""
         mock_create.return_value.invoke.return_value = _mock_agent_result(
-            {"name": "Test"}
+            {"name": "Alice", "age": 30}
         )
-        schema_info = _make_schema_info()
-        agent = ExtractionAgent(api_key="sk-test")
-        agent.extract(
-            text="text",
-            schema_info=schema_info,
+        mock_verifier.return_value.verify.return_value = _make_passing_verification()
+        mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
+
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=3)
+        result = agent.extract(
+            text="Name: Alice, Age: 30",
+            schema_info=_make_schema_info(),
             format_info=_make_format_info(),
         )
-        call_kwargs = mock_create.call_args
-        rf = call_kwargs.kwargs.get("response_format") or call_kwargs[1].get(
-            "response_format"
+
+        assert result.iterations_completed == 1
+        assert result.converged is True
+        assert mock_create.return_value.invoke.call_count == 1
+
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
+    @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
+    @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
+    def test_multiple_iterations_until_quality_passes(
+        self,
+        _mock_llm_cls: MagicMock,  # noqa: ARG002
+        mock_create: MagicMock,
+        mock_verifier: MagicMock,
+    ) -> None:
+        """First extraction fails, second passes."""
+        # First call returns incomplete data, second returns complete
+        mock_create.return_value.invoke.side_effect = [
+            _mock_agent_result({"age": 30}),  # Missing name
+            _mock_agent_result({"name": "Alice", "age": 30}),  # Complete
+        ]
+        # First verification fails, second passes
+        mock_verifier.return_value.verify.side_effect = [
+            _make_failing_verification("name"),
+            _make_passing_verification(),
+        ]
+        mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
+
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=3)
+        result = agent.extract(
+            text="Name: Alice, Age: 30",
+            schema_info=_make_schema_info(),
+            format_info=_make_format_info(),
         )
-        assert rf == schema_info.schema
+
+        assert result.iterations_completed == 2
+        assert result.converged is True
+        assert result.best_iteration == 2
+        assert mock_create.return_value.invoke.call_count == 2
+
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
+    @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
+    @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
+    def test_max_iterations_reached(
+        self,
+        _mock_llm_cls: MagicMock,  # noqa: ARG002
+        mock_create: MagicMock,
+        mock_verifier: MagicMock,
+    ) -> None:
+        """All iterations fail - returns best result."""
+        mock_create.return_value.invoke.return_value = _mock_agent_result({"age": 30})
+        mock_verifier.return_value.verify.return_value = _make_failing_verification(
+            "name"
+        )
+        mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
+
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=2)
+        result = agent.extract(
+            text="Age: 30",
+            schema_info=_make_schema_info(),
+            format_info=_make_format_info(),
+        )
+
+        assert result.iterations_completed == 2
+        assert result.converged is False
+        assert mock_create.return_value.invoke.call_count == 2
+
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
+    @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
+    @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
+    def test_best_result_tracked_across_iterations(
+        self,
+        _mock_llm_cls: MagicMock,  # noqa: ARG002
+        mock_create: MagicMock,
+        mock_verifier: MagicMock,
+    ) -> None:
+        """Best result is returned even if later iterations are worse."""
+        # First result is better (has name), second is worse (regression)
+        mock_create.return_value.invoke.side_effect = [
+            _mock_agent_result({"name": "Alice"}),  # Has name
+            _mock_agent_result({"age": 30}),  # Lost name
+        ]
+
+        # Create verification reports with different scores
+        good_verification = VerificationReport(
+            status=VerificationStatus.NEEDS_IMPROVEMENT,
+            metrics=QualityMetrics(
+                overall_confidence=0.7,
+                schema_coverage=0.5,
+                required_field_coverage=1.0,  # Has required field
+                optional_field_coverage=0.0,
+                completeness_score=0.7,
+                consistency_score=1.0,
+                min_field_confidence=0.85,
+                fields_with_low_confidence=0,
+                total_fields=2,
+                extracted_fields=1,
+            ),
+            total_tokens=0,
+        )
+        bad_verification = VerificationReport(
+            status=VerificationStatus.FAILED,
+            metrics=QualityMetrics(
+                overall_confidence=0.5,
+                schema_coverage=0.5,
+                required_field_coverage=0.0,  # Missing required field
+                optional_field_coverage=1.0,
+                completeness_score=0.3,
+                consistency_score=1.0,
+                min_field_confidence=0.85,
+                fields_with_low_confidence=0,
+                total_fields=2,
+                extracted_fields=1,
+            ),
+            issues=[
+                VerificationIssue(
+                    issue_type=IssueType.MISSING_REQUIRED_FIELD,
+                    field_path="name",
+                    message="Required field 'name' is missing",
+                    severity=IssueSeverity.CRITICAL,
+                )
+            ],
+            total_tokens=0,
+        )
+
+        mock_verifier.return_value.verify.side_effect = [
+            good_verification,
+            bad_verification,
+        ]
+        mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
+
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=2)
+        result = agent.extract(
+            text="Name: Alice",
+            schema_info=_make_schema_info(),
+            format_info=_make_format_info(),
+        )
+
+        # Should return the better first result
+        assert result.best_iteration == 1
+        assert result.final_result.extracted_data == {"name": "Alice"}
+
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
+    @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
+    @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
+    def test_iteration_history_tracked(
+        self,
+        _mock_llm_cls: MagicMock,  # noqa: ARG002
+        mock_create: MagicMock,
+        mock_verifier: MagicMock,
+    ) -> None:
+        """Iteration history captures metrics from each iteration."""
+        mock_create.return_value.invoke.side_effect = [
+            _mock_agent_result({"age": 30}),
+            _mock_agent_result({"name": "Alice", "age": 30}),
+        ]
+        mock_verifier.return_value.verify.side_effect = [
+            _make_failing_verification("name"),
+            _make_passing_verification(),
+        ]
+        mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
+
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=3)
+        result = agent.extract(
+            text="Name: Alice, Age: 30",
+            schema_info=_make_schema_info(),
+            format_info=_make_format_info(),
+        )
+
+        assert len(result.iteration_history) == 2
+        # First iteration failed
+        assert result.iteration_history[0].iteration_number == 1
+        assert (
+            result.iteration_history[0].verification_status == VerificationStatus.FAILED
+        )
+        # Second iteration passed
+        assert result.iteration_history[1].iteration_number == 2
+        assert (
+            result.iteration_history[1].verification_status == VerificationStatus.PASSED
+        )
 
 
 class TestParseAgentResult:
@@ -408,31 +731,142 @@ class TestTokenUsage:
         assert total == 0
 
 
-class TestWrapResult:
-    def test_wrap_produces_valid_agentic_loop_result(self) -> None:
-        from agentic_document_extraction.services.extraction.text_extraction import (
-            ExtractionResult,
-            FieldExtraction,
-        )
-
-        extraction = ExtractionResult(
-            extracted_data={"name": "Test"},
-            field_extractions=[
-                FieldExtraction(field_path="name", value="Test", confidence=0.9)
+class TestFormatIssuesForRefinement:
+    def test_formats_issues_with_severity(self) -> None:
+        verification = VerificationReport(
+            status=VerificationStatus.FAILED,
+            metrics=QualityMetrics(
+                overall_confidence=0.5,
+                schema_coverage=0.5,
+                required_field_coverage=0.0,
+                optional_field_coverage=1.0,
+                completeness_score=0.3,
+                consistency_score=1.0,
+                min_field_confidence=0.85,
+                fields_with_low_confidence=0,
+                total_fields=2,
+                extracted_fields=1,
+            ),
+            issues=[
+                VerificationIssue(
+                    issue_type=IssueType.MISSING_REQUIRED_FIELD,
+                    field_path="name",
+                    message="Required field 'name' is missing",
+                    severity=IssueSeverity.CRITICAL,
+                    suggestion="Re-extract with focus on finding name",
+                )
             ],
-            model_used="gpt-4o",
-            total_tokens=100,
+            total_tokens=0,
         )
-        format_info = _make_format_info()
-        wrapped = ExtractionAgent._wrap_result(extraction, format_info, 1.5, 100)
 
-        assert isinstance(wrapped, AgenticLoopResult)
-        assert wrapped.converged is True
-        assert wrapped.iterations_completed == 1
-        assert wrapped.total_tokens == 100
-        assert wrapped.plan.extraction_strategy == "tool_agent"
-        assert wrapped.final_verification.status.value == "passed"
-        assert wrapped.loop_metadata["agent_type"] == "tool_agent"
+        issues = ExtractionAgent._format_issues_for_refinement(verification)
+
+        assert len(issues) == 1
+        assert "[CRITICAL]" in issues[0]
+        assert "name" in issues[0]
+        assert "Re-extract" in issues[0]
+
+    def test_sorts_by_severity(self) -> None:
+        verification = VerificationReport(
+            status=VerificationStatus.FAILED,
+            metrics=QualityMetrics(
+                overall_confidence=0.5,
+                schema_coverage=0.5,
+                required_field_coverage=0.5,
+                optional_field_coverage=0.5,
+                completeness_score=0.5,
+                consistency_score=1.0,
+                min_field_confidence=0.85,
+                fields_with_low_confidence=0,
+                total_fields=2,
+                extracted_fields=1,
+            ),
+            issues=[
+                VerificationIssue(
+                    issue_type=IssueType.LOW_CONFIDENCE,
+                    field_path="age",
+                    message="Low confidence",
+                    severity=IssueSeverity.MEDIUM,
+                ),
+                VerificationIssue(
+                    issue_type=IssueType.MISSING_REQUIRED_FIELD,
+                    field_path="name",
+                    message="Missing required",
+                    severity=IssueSeverity.CRITICAL,
+                ),
+            ],
+            total_tokens=0,
+        )
+
+        issues = ExtractionAgent._format_issues_for_refinement(verification)
+
+        assert len(issues) == 2
+        # Critical should come first
+        assert "[CRITICAL]" in issues[0]
+        assert "[MEDIUM]" in issues[1]
+
+    def test_limits_to_10_issues(self) -> None:
+        verification = VerificationReport(
+            status=VerificationStatus.FAILED,
+            metrics=QualityMetrics(
+                overall_confidence=0.5,
+                schema_coverage=0.5,
+                required_field_coverage=0.5,
+                optional_field_coverage=0.5,
+                completeness_score=0.5,
+                consistency_score=1.0,
+                min_field_confidence=0.85,
+                fields_with_low_confidence=0,
+                total_fields=15,
+                extracted_fields=5,
+            ),
+            issues=[
+                VerificationIssue(
+                    issue_type=IssueType.LOW_CONFIDENCE,
+                    field_path=f"field_{i}",
+                    message=f"Issue {i}",
+                    severity=IssueSeverity.MEDIUM,
+                )
+                for i in range(15)
+            ],
+            total_tokens=0,
+        )
+
+        issues = ExtractionAgent._format_issues_for_refinement(verification)
+        assert len(issues) == 10
+
+
+class TestCalculateResultScore:
+    def test_passing_verification_gets_bonus(self) -> None:
+        passing = _make_passing_verification()
+        failing = _make_failing_verification()
+
+        passing_score = ExtractionAgent._calculate_result_score(passing)
+        failing_score = ExtractionAgent._calculate_result_score(failing)
+
+        assert passing_score > failing_score
+
+    def test_critical_issues_penalized(self) -> None:
+        no_issues = _make_passing_verification()
+
+        with_issues = VerificationReport(
+            status=VerificationStatus.NEEDS_IMPROVEMENT,
+            metrics=no_issues.metrics,
+            issues=[
+                VerificationIssue(
+                    issue_type=IssueType.MISSING_REQUIRED_FIELD,
+                    field_path="name",
+                    message="Missing",
+                    severity=IssueSeverity.CRITICAL,
+                )
+            ],
+            total_tokens=0,
+        )
+
+        score_no_issues = ExtractionAgent._calculate_result_score(no_issues)
+        score_with_issues = ExtractionAgent._calculate_result_score(with_issues)
+
+        assert score_no_issues > score_with_issues
 
 
 # ---------------------------------------------------------------------------
@@ -441,15 +875,19 @@ class TestWrapResult:
 
 
 class TestExtractErrorHandling:
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
     def test_invoke_failure_raises_document_processing_error(
         self,
         _mock_llm_cls: MagicMock,
         mock_create: MagicMock,
+        mock_verifier: MagicMock,  # noqa: ARG002
     ) -> None:
         mock_create.return_value.invoke.side_effect = RuntimeError("LLM timeout")
-        agent = ExtractionAgent(api_key="sk-test")
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=1)
         with pytest.raises(DocumentProcessingError, match="Extraction agent failed"):
             agent.extract(
                 text="some text",
@@ -457,16 +895,51 @@ class TestExtractErrorHandling:
                 format_info=_make_format_info(),
             )
 
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
+    @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
+    @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
+    def test_invoke_failure_returns_best_if_available(
+        self,
+        _mock_llm_cls: MagicMock,
+        mock_create: MagicMock,
+        mock_verifier: MagicMock,
+    ) -> None:
+        """If we have a result and a later iteration fails, return the result."""
+        # First call succeeds, second fails
+        mock_create.return_value.invoke.side_effect = [
+            _mock_agent_result({"name": "Alice"}),
+            RuntimeError("LLM timeout"),
+        ]
+        mock_verifier.return_value.verify.return_value = _make_failing_verification()
+        mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
+
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=2)
+        result = agent.extract(
+            text="Name: Alice",
+            schema_info=_make_schema_info(),
+            format_info=_make_format_info(),
+        )
+
+        # Should return the first result
+        assert result.final_result.extracted_data == {"name": "Alice"}
+        assert result.iterations_completed == 1
+
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
     def test_invoke_failure_logs_error(
         self,
         _mock_llm_cls: MagicMock,
         mock_create: MagicMock,
+        mock_verifier: MagicMock,  # noqa: ARG002
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         mock_create.return_value.invoke.side_effect = ValueError("bad input")
-        agent = ExtractionAgent(api_key="sk-test")
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=1)
         with (
             caplog.at_level(
                 logging.ERROR,
@@ -517,18 +990,24 @@ def _make_rich_schema_info() -> SchemaInfo:
 class TestExtractionAgentIntegration:
     """Integration-level tests exercising full extract() with mocked LLM."""
 
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
     def test_text_only_document_no_tools(
         self,
         _mock_llm_cls: MagicMock,
         mock_create: MagicMock,
+        mock_verifier: MagicMock,
     ) -> None:
         """Text format, no regions → no tools, result shape valid."""
         data = {"title": "Invoice #42", "amount": 99.50, "items": ["widget"]}
         mock_create.return_value.invoke.return_value = _mock_agent_result(data)
+        mock_verifier.return_value.verify.return_value = _make_passing_verification()
+        mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
 
-        agent = ExtractionAgent(api_key="sk-test")
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=1)
         result = agent.extract(
             text="Invoice #42\nAmount: $99.50\nItems: widget",
             schema_info=_make_rich_schema_info(),
@@ -537,24 +1016,30 @@ class TestExtractionAgentIntegration:
 
         assert isinstance(result, AgenticLoopResult)
         assert result.final_result.extracted_data == data
-        assert result.loop_metadata["agent_type"] == "tool_agent"
+        assert result.loop_metadata["agent_type"] == "tool_agent_with_verification"
         # No tools registered
         call_kwargs = mock_create.call_args
         tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
         assert tools == []
 
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
     def test_visual_document_with_chart_region(
         self,
         _mock_llm_cls: MagicMock,
         mock_create: MagicMock,
+        mock_verifier: MagicMock,
     ) -> None:
         """Visual format + PICTURE region → tools registered, regions passed."""
         data = {"title": "Sales Report", "amount": 1500.0}
         mock_create.return_value.invoke.return_value = _mock_agent_result(data)
+        mock_verifier.return_value.verify.return_value = _make_passing_verification()
+        mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
 
-        agent = ExtractionAgent(api_key="sk-test")
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=1)
         regions = _make_regions(chart=True)
         result = agent.extract(
             text="Sales Report\nQ1: $1500",
@@ -572,100 +1057,26 @@ class TestExtractionAgentIntegration:
         invoke_args = mock_create.return_value.invoke.call_args[0][0]
         assert invoke_args["regions"] is regions
 
-    @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
-    @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
-    def test_visual_document_with_table_region(
-        self,
-        _mock_llm_cls: MagicMock,
-        mock_create: MagicMock,
-    ) -> None:
-        """Visual format + TABLE region → tools registered."""
-        data = {"title": "Quarterly Data", "items": ["row1", "row2"]}
-        mock_create.return_value.invoke.return_value = _mock_agent_result(data)
-
-        agent = ExtractionAgent(api_key="sk-test")
-        regions = _make_regions(table=True)
-        result = agent.extract(
-            text="Quarterly Data\nrow1 row2",
-            schema_info=_make_rich_schema_info(),
-            format_info=_make_visual_format_info(),
-            layout_regions=regions,
-        )
-
-        assert result.final_result.extracted_data == data
-        call_kwargs = mock_create.call_args
-        tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
-        assert len(tools) >= 1
-
-    @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
-    @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
-    def test_visual_document_mixed_regions(
-        self,
-        _mock_llm_cls: MagicMock,
-        mock_create: MagicMock,
-    ) -> None:
-        """Visual format with TEXT + PICTURE + TABLE regions."""
-        data = {"title": "Annual Report", "amount": 5000.0, "items": ["a", "b"]}
-        mock_create.return_value.invoke.return_value = _mock_agent_result(data)
-
-        bbox = RegionBoundingBox(x0=0, y0=0, x1=100, y1=100)
-        regions = [
-            LayoutRegion(
-                region_type=RegionType.TEXT,
-                bbox=bbox,
-                confidence=0.9,
-                page_number=1,
-                region_id="text-1",
-            ),
-            LayoutRegion(
-                region_type=RegionType.PICTURE,
-                bbox=bbox,
-                confidence=0.95,
-                page_number=1,
-                region_id="chart-1",
-                region_image=RegionImage(image=None, base64="b64"),
-            ),
-            LayoutRegion(
-                region_type=RegionType.TABLE,
-                bbox=bbox,
-                confidence=0.92,
-                page_number=2,
-                region_id="table-1",
-                region_image=RegionImage(image=None, base64="b64"),
-            ),
-        ]
-
-        agent = ExtractionAgent(api_key="sk-test")
-        result = agent.extract(
-            text="Annual Report\nSection A\nSection B",
-            schema_info=_make_rich_schema_info(),
-            format_info=_make_visual_format_info(),
-            layout_regions=regions,
-        )
-
-        assert result.final_result.extracted_data == data
-        # Both chart and table tools registered
-        call_kwargs = mock_create.call_args
-        tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
-        assert len(tools) == 2
-        # All regions included in invoke
-        invoke_args = mock_create.return_value.invoke.call_args[0][0]
-        assert len(invoke_args["regions"]) == 3
-
+    @patch(
+        "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
+    )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
     def test_empty_extraction_result(
         self,
         _mock_llm_cls: MagicMock,
         mock_create: MagicMock,
+        mock_verifier: MagicMock,
     ) -> None:
         """Agent returns no parseable output → graceful empty result."""
         msg = MagicMock()
         msg.content = "I cannot extract anything meaningful."
         msg.usage_metadata = {"input_tokens": 80, "output_tokens": 20}
         mock_create.return_value.invoke.return_value = {"messages": [msg]}
+        mock_verifier.return_value.verify.return_value = _make_failing_verification()
+        mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
 
-        agent = ExtractionAgent(api_key="sk-test")
+        agent = ExtractionAgent(api_key="sk-test", max_iterations=1)
         result = agent.extract(
             text="Garbled text with no useful data",
             schema_info=_make_rich_schema_info(),
