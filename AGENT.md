@@ -36,11 +36,11 @@ FastAPI Service
     ↓
 POST /extract (file + schema)
     ↓
-Document Upload & Validation (Stories 1.2, 1.4)
+Document Upload & Validation
     ↓
-Format Detection (Story 1.3)
+Format Detection
     ↓
-    ├─→ TEXT-BASED PATH (Stories 2.1-2.3)
+    ├─→ TEXT-BASED PATH
     │       ↓
     │   Text Extraction
     │       ↓
@@ -48,23 +48,68 @@ Format Detection (Story 1.3)
     │       ↓
     │   JSON + Markdown Output
     │
-    └─→ VISUAL PATH (Stories 3.1-3.5)
+    └─→ VISUAL PATH
             ↓
-        OCR / Text Extraction (3.1)
+        PaddleOCR Text Extraction
+        • Text strings with bounding boxes
+        • Confidence scores
             ↓
-        Layout Detection - HF Transformers (3.2)
+        PaddleOCR Layout Detection
+        • Tables, charts, text blocks
+        • Region bounding boxes
             ↓
-        Reading Order - LayoutReader (3.3)
+        LayoutReader Reading Order
+        • Determines reading order
+        • Handles multi-column layouts
             ↓
-        Region-Based VLM - LangChain + GPT-4V (3.4)
+        Tool-Based Extraction Agent
+        • Single LangChain agent
+        • Receives OCR text + regions + schema
+        • Invokes analyze_chart/analyze_table tools
             ↓
-        Synthesis - LangChain (3.5)
+        Lightweight Verification Loop
+        • Rule-based quality checks
+        • Iterative refinement if needed
     ↓
-LangChain Agentic Loop (Stories 4.1-4.3)
+Response (JSON + Markdown + Quality Report)
+```
+
+### Tool-Based Extraction Architecture
+
+The extraction system uses a single LangChain agent with specialized tools:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ExtractionAgent (LangChain)                                │
+│                                                             │
+│  System Prompt contains:                                    │
+│  • All OCR text (reading order)                             │
+│  • Layout region IDs and types                              │
+│  • Target JSON schema                                       │
+│  • Tool descriptions                                        │
+│                                                             │
+│  ┌──────────────────┐  ┌──────────────────┐                │
+│  │ analyze_chart    │  │ analyze_table    │                │
+│  │ Tool             │  │ Tool             │                │
+│  │                  │  │                  │                │
+│  │ Sends cropped    │  │ Sends cropped    │                │
+│  │ image to VLM     │  │ image to VLM     │                │
+│  │                  │  │                  │                │
+│  │ Returns:         │  │ Returns:         │                │
+│  │ • Chart type     │  │ • Headers        │                │
+│  │ • Axes           │  │ • Rows           │                │
+│  │ • Data points    │  │ • Values         │                │
+│  │ • Trends         │  │ • Notes          │                │
+│  └──────────────────┘  └──────────────────┘                │
+│                                                             │
+│  Lightweight Verification Loop:                             │
+│  1. Extract using tool-based agent                          │
+│  2. Verify quality (rule-based, no LLM call)                │
+│  3. If issues found, provide feedback and re-extract        │
+│  4. Return best result with quality metrics                 │
+└─────────────────────────────────────────────────────────────┘
     ↓
-Planning Agent → Execution → Verification Agent → Refinement (if needed)
-    ↓
-Response (JSON + Markdown + Metadata)
+Structured JSON Output
 ```
 
 ### Module Structure
@@ -72,34 +117,49 @@ Response (JSON + Markdown + Metadata)
 ```
 src/agentic_document_extraction/
 ├── __init__.py
-├── api.py                          # FastAPI application (Story 1.1, 1.2)
-├── config.py                       # Configuration management (Story 5.3)
-├── models.py                       # Pydantic models for requests/responses
+├── api.py                          # FastAPI application and endpoints
+├── config.py                       # Configuration management
+├── models.py                       # Pydantic models (FormatInfo, ProcessingCategory)
+├── docket_tasks.py                 # Docket async task definitions
 ├── services/
 │   ├── __init__.py
-│   ├── format_detector.py          # Story 1.3
-│   ├── schema_validator.py         # Story 1.4
-│   ├── text_extractor.py           # Story 2.1, 3.1
-│   ├── layout_detector.py          # Story 3.2 (HF transformers)
-│   ├── reading_order_detector.py   # Story 3.3 (LayoutReader)
+│   ├── format_detector.py          # Document format detection
+│   ├── schema_validator.py         # JSON schema validation and metadata
+│   ├── text_extractor.py           # Text-based document extraction
+│   ├── visual_text_extractor.py    # PaddleOCR text extraction for visual docs
+│   ├── layout_detector.py          # PaddleOCR layout region detection
+│   ├── reading_order_detector.py   # LayoutReader reading order detection
+│   ├── extraction_processor.py     # Main extraction orchestration
+│   ├── docket_client.py            # Docket API client
+│   ├── docket_jobs.py              # Job management
 │   └── extraction/
 │       ├── __init__.py
-│       ├── text_extraction.py      # Story 2.2 (LangChain + GPT-4)
-│       ├── visual_extraction.py    # Story 3.4 (LangChain + GPT-4V)
-│       └── synthesis.py            # Story 3.5 (LangChain)
+│       ├── text_extraction.py      # LLM-based text extraction (ExtractionResult)
+│       ├── visual_document_extraction.py  # Visual document processing
+│       ├── region_visual_extraction.py    # Region-level extraction
+│       └── synthesis.py            # Multi-region result synthesis
 ├── agents/
 │   ├── __init__.py
-│   ├── planner.py                  # Story 4.1
-│   ├── verifier.py                 # Story 4.2
-│   └── refiner.py                  # Story 4.3
+│   ├── extraction_agent.py         # PRIMARY: Tool-based extraction agent
+│   ├── planner.py                  # Extraction planning (data models)
+│   ├── verifier.py                 # Quality verification (rule-based + LLM)
+│   ├── refiner.py                  # Refinement agent and AgenticLoopResult
+│   └── tools/
+│       ├── __init__.py
+│       ├── analyze_chart.py        # Chart/graph analysis VLM tool
+│       ├── analyze_table.py        # Table analysis VLM tool
+│       ├── vlm_utils.py            # VLM integration utilities
+│       └── region_utils.py         # Region processing utilities
 ├── output/
 │   ├── __init__.py
-│   ├── json_generator.py           # Story 2.3
-│   └── markdown_generator.py       # Story 2.3
+│   ├── json_generator.py           # JSON output generation
+│   ├── markdown_generator.py       # Markdown output generation
+│   └── output_service.py           # Output service orchestration
 └── utils/
     ├── __init__.py
-    ├── logging.py                  # Story 5.2
-    └── exceptions.py               # Story 5.2
+    ├── agent_helpers.py            # LangChain agent utilities
+    ├── logging.py                  # Structured logging
+    └── exceptions.py               # Custom exception types
 
 tests/
 ├── __init__.py
@@ -126,20 +186,27 @@ tests/
 - **API Framework**: FastAPI with async endpoints where appropriate
 - **Document loading**: Use langchain `Document` and the document loaders for reading data from different sources.
 - **LLM Orchestration**: LangChain with langchain-openai for all LLM/VLM interactions
-- **LLM/VLM Provider**: OpenAI (GPT-4, GPT-4 Turbo, GPT-4V) with reasoning capabilities
-- **Layout Detection**: Open-source models via Hugging Face `transformers` library
+- **LLM/VLM Provider**: OpenAI (GPT-4o, GPT-4 Turbo) for extraction and vision tasks
+- **OCR & Layout Detection**: PaddleOCR for both text extraction and layout region detection
+- **Reading Order**: LayoutReader model for determining reading order of detected regions
 - **Processing Strategy**:
   - Text-based documents (txt, csv): Direct text extraction → LangChain LLM processing
-  - Visual documents (pdf, images, office docs): OCR → Layout detection (HF transformers) → Reading order detection (LayoutReader) → Region segmentation → VLM processing (LangChain + GPT-4V) → Synthesis (LangChain)
-- **Agentic architecture**: LangChain agents for planning, execution, verification, and refinement
+  - Visual documents (pdf, images, office docs): PaddleOCR text extraction → PaddleOCR layout detection → LayoutReader reading order → Tool-based extraction agent with VLM tools
+- **Agentic architecture**: Single tool-based LangChain agent with lightweight verification loop
+  - `ExtractionAgent`: Primary agent with analyze_chart/analyze_table tools
+  - `QualityVerificationAgent`: Rule-based quality verification
+  - Iterative refinement based on quality feedback
+- **Job Processing**: Docket for async job management with Redis backend
 - **Dependencies**:
   - API: `fastapi`, `uvicorn`, `python-multipart`, `pydantic`, `pydantic-settings`
   - LLM/VLM: `langchain`, `langchain-openai`, `openai`
-  - Layout detection: `transformers`, `torch`, `pillow`
+  - OCR & Layout: `paddleocr`, `paddlepaddle`, `pillow`
+  - Reading Order: `transformers`, `torch` (for LayoutReader model)
+  - PDF Processing: `pypdf`, `pdfplumber`, `pdf2image`
   - Text extraction: `chardet`, `pandas`
-  - OCR & PDF: `pypdf` or `pdfplumber`, `paddleocr`, `paddlepaddle`, `pdf2image`, `pillow`
   - Document conversion: `python-docx`, `python-pptx`, `openpyxl`
   - Schema validation: `jsonschema`
+  - Job Management: `docket`
   - Testing: `pytest`, `pytest-cov`, `httpx`, `pytest-asyncio`
-  - Logging: `structlog` (optional) or standard `logging`
+  - Logging: standard `logging` with structured output
 - Avoid introducing unnecessary dependencies; if a dependency is justified, add it via `uv add` and explain its purpose in code comments or docstrings where relevant.

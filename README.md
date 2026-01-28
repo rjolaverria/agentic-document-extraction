@@ -6,8 +6,10 @@ A vision-first, agentic document extraction system built as a FastAPI service. T
 
 - **Multi-format support**: Process text files, CSVs, PDFs, images, Office documents, and more
 - **Vision-first approach**: Treats visual documents (PDFs, images) as visual objects, understanding layout and spatial relationships
+- **Tool-based extraction**: Single LangChain agent with specialized tools for charts and tables
+- **PaddleOCR integration**: Uses PaddleOCR for both text extraction and layout region detection
 - **LayoutReader ordering**: Uses LayoutReader to determine reading order of detected regions without LLM calls
-- **Agentic processing**: Uses plan→execute→verify→refine loops to iteratively improve extraction quality
+- **Lightweight verification loop**: Rule-based quality checks with iterative refinement
 - **Async job processing**: Docket-backed background jobs with status tracking and progress reporting
 - **Structured output**: Returns both JSON (matching your schema) and Markdown summaries
 - **Quality verification**: Built-in quality checks with configurable confidence thresholds
@@ -645,29 +647,43 @@ uv run mypy src
 
 ```
 src/agentic_document_extraction/
-├── api.py                     # FastAPI application
-├── config.py                  # Configuration management
-├── models.py                  # Pydantic models
+├── api.py                        # FastAPI application
+├── config.py                     # Configuration management
+├── models.py                     # Pydantic models
+├── docket_tasks.py               # Async job definitions
 ├── services/
-│   ├── format_detector.py     # Document format detection
-│   ├── schema_validator.py    # JSON schema validation
-│   ├── text_extractor.py      # Text extraction
-│   ├── layout_detector.py     # Visual layout detection
-│   ├── reading_order.py       # Reading order detection
+│   ├── format_detector.py        # Document format detection
+│   ├── schema_validator.py       # JSON schema validation
+│   ├── text_extractor.py         # Text-based extraction
+│   ├── visual_text_extractor.py  # PaddleOCR text extraction
+│   ├── layout_detector.py        # PaddleOCR layout detection
+│   ├── reading_order_detector.py # LayoutReader reading order
+│   ├── extraction_processor.py   # Main orchestration
+│   ├── docket_client.py          # Docket API client
+│   ├── docket_jobs.py            # Job management
 │   └── extraction/
-│       ├── text_extraction.py # LLM text extraction
-│       ├── visual_extraction.py # VLM visual extraction
-│       └── synthesis.py       # Result synthesis
+│       ├── text_extraction.py    # LLM text extraction
+│       ├── visual_document_extraction.py  # Visual processing
+│       ├── region_visual_extraction.py    # Region extraction
+│       └── synthesis.py          # Result synthesis
 ├── agents/
-│   ├── planner.py            # Extraction planning agent
-│   ├── verifier.py           # Quality verification agent
-│   └── refiner.py            # Iterative refinement agent
+│   ├── extraction_agent.py       # Tool-based extraction agent
+│   ├── planner.py                # Extraction planning
+│   ├── verifier.py               # Quality verification
+│   ├── refiner.py                # Refinement agent
+│   └── tools/
+│       ├── analyze_chart.py      # Chart analysis VLM tool
+│       ├── analyze_table.py      # Table analysis VLM tool
+│       ├── vlm_utils.py          # VLM utilities
+│       └── region_utils.py       # Region utilities
 ├── output/
-│   ├── json_generator.py     # JSON output generation
-│   └── markdown_generator.py # Markdown output generation
+│   ├── json_generator.py         # JSON output generation
+│   ├── markdown_generator.py     # Markdown output generation
+│   └── output_service.py         # Output orchestration
 └── utils/
-    ├── logging.py            # Structured logging
-    └── exceptions.py         # Custom exceptions
+    ├── agent_helpers.py          # LangChain utilities
+    ├── logging.py                # Structured logging
+    └── exceptions.py             # Custom exceptions
 ```
 
 ## License
