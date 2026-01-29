@@ -5,6 +5,11 @@ from agentic_document_extraction.agents.tools.analyze_chart import (
     analyze_chart,
     analyze_chart_impl,
 )
+from agentic_document_extraction.agents.tools.analyze_diagram import (
+    AnalyzeDiagram,
+    analyze_diagram,
+    analyze_diagram_impl,
+)
 from agentic_document_extraction.agents.tools.analyze_form import (
     AnalyzeForm,
     analyze_form,
@@ -23,11 +28,14 @@ from agentic_document_extraction.agents.tools.analyze_table import (
 
 __all__ = [
     "AnalyzeChart",
+    "AnalyzeDiagram",
     "AnalyzeForm",
     "AnalyzeSignature",
     "AnalyzeTable",
     "analyze_chart",
     "analyze_chart_impl",
+    "analyze_diagram",
+    "analyze_diagram_impl",
     "analyze_form",
     "analyze_form_impl",
     "analyze_signature",

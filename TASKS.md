@@ -47,7 +47,7 @@ Each task lives in `tasks/` as its own file. Add new tasks there and reference t
 - [x] Update Architecture Documentation -> tasks/0043-update-architecture-documentation.md
 - [x] Implement AnalyzeForm Tool for LangChain Agent -> tasks/0044-implement-analyze-form-tool.md
 - [x] Implement AnalyzeSignature Tool for LangChain Agent -> tasks/0045-implement-analyze-signature-tool.md
-- [ ] Implement AnalyzeDiagram Tool for LangChain Agent -> tasks/0046-implement-analyze-diagram-tool.md
+- [x] Implement AnalyzeDiagram Tool for LangChain Agent -> tasks/0046-implement-analyze-diagram-tool.md
 - [ ] Implement AnalyzeHandwriting Tool for LangChain Agent -> tasks/0047-implement-analyze-handwriting-tool.md
 - [ ] Implement AnalyzeImage Tool for LangChain Agent -> tasks/0048-implement-analyze-image-tool.md
 - [ ] Implement AnalyzeLogo Tool for LangChain Agent -> tasks/0049-implement-analyze-logo-tool.md

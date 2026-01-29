@@ -19,22 +19,22 @@ The AnalyzeDiagram tool enables the agent to:
 - Describe overall structure and purpose
 
 ## Acceptance Criteria
-- [ ] Create `AnalyzeDiagramTool` class implementing LangChain `BaseTool`
-- [ ] Tool accepts region_id parameter
-- [ ] Crops image region using bounding boxes from layout detection
-- [ ] Sends cropped image to GPT-4V with diagram analysis prompt
-- [ ] Returns structured output with:
+- [x] Create `AnalyzeDiagramTool` class implementing LangChain `BaseTool`
+- [x] Tool accepts region_id parameter
+- [x] Crops image region using bounding boxes from layout detection
+- [x] Sends cropped image to GPT-4V with diagram analysis prompt
+- [x] Returns structured output with:
   - Diagram type (flowchart, network, architecture, org chart, etc.)
   - Nodes/components with labels and types
   - Connections/edges with direction and labels
   - Flow sequence or hierarchy
   - Decision points and branches
   - Overall purpose/description
-- [ ] Tool description clearly explains when to use (for diagram regions)
-- [ ] Integration with PaddleOCR layout detection results
-- [ ] Unit tests for tool functionality
-- [ ] Integration tests with sample diagrams
-- [ ] Error handling for invalid region IDs or failed VLM calls
+- [x] Tool description clearly explains when to use (for diagram regions)
+- [x] Integration with PaddleOCR layout detection results
+- [x] Unit tests for tool functionality
+- [x] Integration tests with sample diagrams
+- [x] Error handling for invalid region IDs or failed VLM calls
 
 ## Tool Schema
 ```python
