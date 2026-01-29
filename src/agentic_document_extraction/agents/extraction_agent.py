@@ -36,6 +36,7 @@ from agentic_document_extraction.agents.refiner import (
     IterationMetrics,
 )
 from agentic_document_extraction.agents.tools.analyze_chart import analyze_chart
+from agentic_document_extraction.agents.tools.analyze_form import analyze_form
 from agentic_document_extraction.agents.tools.analyze_table import analyze_table
 from agentic_document_extraction.agents.verifier import (
     IssueSeverity,
@@ -147,9 +148,12 @@ alone is insufficient.
 _TOOL_INSTRUCTIONS_VISUAL = """\
 5. When a schema field likely comes from a chart/graph region, call
    `analyze_chart` with that region's `region_id`.
-6. When a schema field likely comes from a table region, call
+6. When a schema field likely comes from a form region with checkboxes,
+   radio buttons, or handwritten entries, call `analyze_form` with that
+   region's `region_id`.
+7. When a schema field likely comes from a table region, call
    `analyze_table` with that region's `region_id`.
-7. You may call tools multiple times for different regions.
+8. You may call tools multiple times for different regions.
 """
 
 
@@ -227,6 +231,8 @@ class ExtractionAgent:
         if is_visual and has_visual_regions:
             if analyze_chart is not None:
                 tools.append(analyze_chart)
+            if analyze_form is not None:
+                tools.append(analyze_form)
             if analyze_table is not None:
                 tools.append(analyze_table)
 

@@ -18,21 +18,21 @@ The AnalyzeForm tool enables the agent to extract structured data from forms by:
 - Extracting field labels, values, types, and states
 
 ## Acceptance Criteria
-- [ ] Create `AnalyzeFormTool` class implementing LangChain `BaseTool`
-- [ ] Tool accepts region_id parameter
-- [ ] Crops image region using bounding boxes from layout detection
-- [ ] Sends cropped image to GPT-4V with form extraction prompt
-- [ ] Returns structured output with fields array containing:
+- [x] Create `AnalyzeFormTool` class implementing LangChain `BaseTool`
+- [x] Tool accepts region_id parameter
+- [x] Crops image region using bounding boxes from layout detection
+- [x] Sends cropped image to GPT-4V with form extraction prompt
+- [x] Returns structured output with fields array containing:
   - Field label/name
   - Field value (text, checkbox state, selection)
   - Field type (text, checkbox, radio, dropdown, signature)
   - Handwritten flag (boolean)
   - Required flag (if detectable)
-- [ ] Tool description clearly explains when to use (for form regions)
-- [ ] Integration with PaddleOCR layout detection results
-- [ ] Unit tests for tool functionality
-- [ ] Integration tests with sample forms
-- [ ] Error handling for invalid region IDs or failed VLM calls
+- [x] Tool description clearly explains when to use (for form regions)
+- [x] Integration with PaddleOCR layout detection results
+- [x] Unit tests for tool functionality
+- [x] Integration tests with sample forms
+- [x] Error handling for invalid region IDs or failed VLM calls
 
 ## Tool Schema
 ```python

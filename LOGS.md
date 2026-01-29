@@ -2,6 +2,7 @@
 
 Each log entry lives in `logs/` as its own file. Add new logs there and reference them here.
 
+- 2026-01-28 Feature: AnalyzeForm Tool for LangChain Agent -> logs/0044-implement-analyze-form-tool.md
 - 2026-01-28 Docs: Update Architecture Documentation -> logs/2026-01-28-docs-update-architecture-documentation.md
 - 2026-01-28 Refactor: Tool-Based Agent Lightweight Verification Loop -> logs/2026-01-28-refactor-tool-agent-verification-loop.md
 - 2026-01-28 Refactor: Visual Document Extraction Pipeline -> logs/2026-01-28-refactor-visual-extraction-pipeline.md

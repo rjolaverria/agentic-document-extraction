@@ -45,7 +45,7 @@ Each task lives in `tasks/` as its own file. Add new tasks there and reference t
 - [x] Refactor Visual Document Extraction Pipeline -> tasks/0041-refactor-visual-extraction-pipeline.md
 - [x] Simplify Agentic Loop for Tool-Based Architecture -> tasks/0042-simplify-agentic-loop-tool-based.md
 - [x] Update Architecture Documentation -> tasks/0043-update-architecture-documentation.md
-- [ ] Implement AnalyzeForm Tool for LangChain Agent -> tasks/0044-implement-analyze-form-tool.md
+- [x] Implement AnalyzeForm Tool for LangChain Agent -> tasks/0044-implement-analyze-form-tool.md
 - [ ] Implement AnalyzeSignature Tool for LangChain Agent -> tasks/0045-implement-analyze-signature-tool.md
 - [ ] Implement AnalyzeDiagram Tool for LangChain Agent -> tasks/0046-implement-analyze-diagram-tool.md
 - [ ] Implement AnalyzeHandwriting Tool for LangChain Agent -> tasks/0047-implement-analyze-handwriting-tool.md

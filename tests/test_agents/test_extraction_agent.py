@@ -343,7 +343,7 @@ class TestToolRegistration:
         )
         call_kwargs = mock_create.call_args
         tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
-        assert len(tools) == 2  # analyze_chart + analyze_table
+        assert len(tools) == 3  # analyze_chart + analyze_form + analyze_table
 
     @patch(
         "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
