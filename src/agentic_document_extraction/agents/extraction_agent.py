@@ -3,9 +3,9 @@
 Replaces the multi-agent orchestration loop (planner + verifier + refiner)
 with a single ``ExtractionAgent`` built on :func:`langchain.agents.create_agent`.
 The agent receives OCR text, layout region metadata, and a target JSON schema
-in its system prompt, autonomously invokes ``analyze_chart`` / ``analyze_table``
-tools for visual regions, and returns structured JSON output matching the
-user schema.
+in its system prompt, autonomously invokes ``analyze_chart``, ``analyze_table``,
+``analyze_form``, and ``analyze_image`` tools for visual regions, and returns
+structured JSON output matching the user schema.
 
 The agent includes a lightweight verification and refinement loop that:
 1. Performs extraction using the tool-based agent
@@ -37,6 +37,7 @@ from agentic_document_extraction.agents.refiner import (
 )
 from agentic_document_extraction.agents.tools.analyze_chart import analyze_chart
 from agentic_document_extraction.agents.tools.analyze_form import analyze_form
+from agentic_document_extraction.agents.tools.analyze_image import analyze_image
 from agentic_document_extraction.agents.tools.analyze_table import analyze_table
 from agentic_document_extraction.agents.verifier import (
     IssueSeverity,
@@ -233,6 +234,8 @@ class ExtractionAgent:
                 tools.append(analyze_chart)
             if analyze_form is not None:
                 tools.append(analyze_form)
+            if analyze_image is not None:
+                tools.append(analyze_image)
             if analyze_table is not None:
                 tools.append(analyze_table)
 

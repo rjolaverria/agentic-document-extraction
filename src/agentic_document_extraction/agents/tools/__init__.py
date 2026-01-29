@@ -20,6 +20,11 @@ from agentic_document_extraction.agents.tools.analyze_handwriting import (
     analyze_handwriting,
     analyze_handwriting_impl,
 )
+from agentic_document_extraction.agents.tools.analyze_image import (
+    AnalyzeImage,
+    analyze_image,
+    analyze_image_impl,
+)
 from agentic_document_extraction.agents.tools.analyze_signature import (
     AnalyzeSignature,
     analyze_signature,
@@ -36,6 +41,7 @@ __all__ = [
     "AnalyzeDiagram",
     "AnalyzeForm",
     "AnalyzeHandwriting",
+    "AnalyzeImage",
     "AnalyzeSignature",
     "AnalyzeTable",
     "analyze_chart",
@@ -46,6 +52,8 @@ __all__ = [
     "analyze_form_impl",
     "analyze_handwriting",
     "analyze_handwriting_impl",
+    "analyze_image",
+    "analyze_image_impl",
     "analyze_signature",
     "analyze_signature_impl",
     "analyze_table",

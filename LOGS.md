@@ -2,6 +2,7 @@
 
 Each log entry lives in `logs/` as its own file. Add new logs there and reference them here.
 
+- 2026-01-29 Feature: AnalyzeImage Tool for LangChain Agent -> logs/0048-implement-analyze-image-tool.md
 - 2026-01-28 Feature: AnalyzeHandwriting Tool for LangChain Agent -> logs/0047-implement-analyze-handwriting-tool.md
 - 2026-01-29 Feature: AnalyzeDiagram Tool for LangChain Agent -> logs/0046-implement-analyze-diagram-tool.md
 - 2026-01-28 Feature: AnalyzeSignature Tool for LangChain Agent -> logs/0045-implement-analyze-signature-tool.md
