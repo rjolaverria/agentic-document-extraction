@@ -289,17 +289,24 @@ class TestRefinementPrompt:
 
 
 class TestToolRegistration:
+    """Tests for tool registration - all 9 tools always provided.
+
+    Per Task 0051, the agent should always have all tools available and
+    let the LLM decide which tools to use based on context.
+    """
+
     @patch(
         "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
     )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
-    def test_no_tools_for_text_documents(
+    def test_all_tools_registered_for_text_documents(
         self,
         _mock_llm_cls: MagicMock,  # noqa: ARG002
         mock_create: MagicMock,
         mock_verifier: MagicMock,
     ) -> None:
+        """Text documents get all 9 tools - agent decides whether to use them."""
         mock_create.return_value.invoke.return_value = _mock_agent_result(
             {"name": "Alice"}
         )
@@ -314,19 +321,21 @@ class TestToolRegistration:
         )
         call_kwargs = mock_create.call_args
         tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
-        assert tools == []
+        # All 9 tools always provided
+        assert len(tools) == 9
 
     @patch(
         "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
     )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
-    def test_tools_registered_for_visual_with_regions(
+    def test_all_tools_registered_for_visual_with_regions(
         self,
         _mock_llm_cls: MagicMock,  # noqa: ARG002
         mock_create: MagicMock,
         mock_verifier: MagicMock,
     ) -> None:
+        """Visual documents with regions get all 9 tools."""
         mock_create.return_value.invoke.return_value = _mock_agent_result(
             {"name": "Bob"}
         )
@@ -351,13 +360,13 @@ class TestToolRegistration:
     )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
-    def test_no_tools_visual_without_visual_regions(
+    def test_all_tools_registered_visual_without_visual_regions(
         self,
         _mock_llm_cls: MagicMock,  # noqa: ARG002
         mock_create: MagicMock,
         mock_verifier: MagicMock,
     ) -> None:
-        """Visual doc but only text regions - no tools needed."""
+        """Visual doc with only text regions still gets all 9 tools."""
         mock_create.return_value.invoke.return_value = _mock_agent_result(
             {"name": "Carol"}
         )
@@ -380,7 +389,8 @@ class TestToolRegistration:
         )
         call_kwargs = mock_create.call_args
         tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
-        assert len(tools) == 0
+        # All 9 tools always provided
+        assert len(tools) == 9
 
 
 class TestExtract:
@@ -996,13 +1006,13 @@ class TestExtractionAgentIntegration:
     )
     @patch("agentic_document_extraction.agents.extraction_agent.create_agent")
     @patch("agentic_document_extraction.agents.extraction_agent.ChatOpenAI")
-    def test_text_only_document_no_tools(
+    def test_text_only_document_all_tools_registered(
         self,
         _mock_llm_cls: MagicMock,
         mock_create: MagicMock,
         mock_verifier: MagicMock,
     ) -> None:
-        """Text format, no regions → no tools, result shape valid."""
+        """Text format, no regions → all 9 tools registered, agent decides usage."""
         data = {"title": "Invoice #42", "amount": 99.50, "items": ["widget"]}
         mock_create.return_value.invoke.return_value = _mock_agent_result(data)
         mock_verifier.return_value.verify.return_value = _make_passing_verification()
@@ -1018,10 +1028,10 @@ class TestExtractionAgentIntegration:
         assert isinstance(result, AgenticLoopResult)
         assert result.final_result.extracted_data == data
         assert result.loop_metadata["agent_type"] == "tool_agent_with_verification"
-        # No tools registered
+        # All 9 tools always registered
         call_kwargs = mock_create.call_args
         tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
-        assert tools == []
+        assert len(tools) == 9
 
     @patch(
         "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
@@ -1050,10 +1060,10 @@ class TestExtractionAgentIntegration:
         )
 
         assert result.final_result.extracted_data == data
-        # Tools should be registered
+        # All 9 tools should be registered
         call_kwargs = mock_create.call_args
         tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
-        assert len(tools) >= 1
+        assert len(tools) == 9
         # Regions passed to invoke
         invoke_args = mock_create.return_value.invoke.call_args[0][0]
         assert invoke_args["regions"] is regions

@@ -53,15 +53,12 @@ from agentic_document_extraction.agents.verifier import (
     VerificationStatus,
 )
 from agentic_document_extraction.config import settings
-from agentic_document_extraction.models import FormatInfo, ProcessingCategory
+from agentic_document_extraction.models import FormatInfo
 from agentic_document_extraction.services.extraction.text_extraction import (
     ExtractionResult,
     FieldExtraction,
 )
-from agentic_document_extraction.services.layout_detector import (
-    LayoutRegion,
-    RegionType,
-)
+from agentic_document_extraction.services.layout_detector import LayoutRegion
 from agentic_document_extraction.services.schema_validator import SchemaInfo
 from agentic_document_extraction.utils.exceptions import DocumentProcessingError
 
@@ -239,33 +236,21 @@ class ExtractionAgent:
         start_time = time.time()
         regions = layout_regions or []
 
-        # Determine if we need visual tools
-        has_visual_regions = any(
-            r.region_type in (RegionType.PICTURE, RegionType.TABLE) for r in regions
-        )
-        is_visual = format_info.processing_category == ProcessingCategory.VISUAL
-
-        # Build tools list
+        # Build tools list - always provide all tools, let agent decide
         tools: list[Any] = []
-        if is_visual and has_visual_regions:
-            if analyze_chart is not None:
-                tools.append(analyze_chart)
-            if analyze_diagram is not None:
-                tools.append(analyze_diagram)
-            if analyze_form is not None:
-                tools.append(analyze_form)
-            if analyze_handwriting is not None:
-                tools.append(analyze_handwriting)
-            if analyze_image is not None:
-                tools.append(analyze_image)
-            if analyze_logo is not None:
-                tools.append(analyze_logo)
-            if analyze_math is not None:
-                tools.append(analyze_math)
-            if analyze_signature is not None:
-                tools.append(analyze_signature)
-            if analyze_table is not None:
-                tools.append(analyze_table)
+        for tool in [
+            analyze_chart,
+            analyze_diagram,
+            analyze_form,
+            analyze_handwriting,
+            analyze_image,
+            analyze_logo,
+            analyze_math,
+            analyze_signature,
+            analyze_table,
+        ]:
+            if tool is not None:
+                tools.append(tool)
 
         # Build LLM
         llm = ChatOpenAI(
