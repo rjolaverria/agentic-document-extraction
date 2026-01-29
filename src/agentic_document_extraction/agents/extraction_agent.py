@@ -36,8 +36,14 @@ from agentic_document_extraction.agents.refiner import (
     IterationMetrics,
 )
 from agentic_document_extraction.agents.tools.analyze_chart import analyze_chart
+from agentic_document_extraction.agents.tools.analyze_diagram import analyze_diagram
 from agentic_document_extraction.agents.tools.analyze_form import analyze_form
+from agentic_document_extraction.agents.tools.analyze_handwriting import (
+    analyze_handwriting,
+)
 from agentic_document_extraction.agents.tools.analyze_image import analyze_image
+from agentic_document_extraction.agents.tools.analyze_logo import analyze_logo
+from agentic_document_extraction.agents.tools.analyze_signature import analyze_signature
 from agentic_document_extraction.agents.tools.analyze_table import analyze_table
 from agentic_document_extraction.agents.verifier import (
     IssueSeverity,
@@ -149,12 +155,20 @@ alone is insufficient.
 _TOOL_INSTRUCTIONS_VISUAL = """\
 5. When a schema field likely comes from a chart/graph region, call
    `analyze_chart` with that region's `region_id`.
-6. When a schema field likely comes from a form region with checkboxes,
+6. When a schema field likely comes from a diagram (flowchart, org chart,
+   process diagram), call `analyze_diagram` with that region's `region_id`.
+7. When a schema field likely comes from a form region with checkboxes,
    radio buttons, or handwritten entries, call `analyze_form` with that
    region's `region_id`.
-7. When a schema field likely comes from a table region, call
+8. When a schema field contains handwritten text, call `analyze_handwriting`
+   with that region's `region_id`.
+9. When you need to identify a company logo, certification badge (ISO, FDA, CE),
+   official seal, or brand mark, call `analyze_logo` with that region's `region_id`.
+10. When a schema field likely comes from a signature block (signatures, stamps,
+   seals), call `analyze_signature` with that region's `region_id`.
+11. When a schema field likely comes from a table region, call
    `analyze_table` with that region's `region_id`.
-8. You may call tools multiple times for different regions.
+12. You may call tools multiple times for different regions.
 """
 
 
@@ -232,10 +246,18 @@ class ExtractionAgent:
         if is_visual and has_visual_regions:
             if analyze_chart is not None:
                 tools.append(analyze_chart)
+            if analyze_diagram is not None:
+                tools.append(analyze_diagram)
             if analyze_form is not None:
                 tools.append(analyze_form)
+            if analyze_handwriting is not None:
+                tools.append(analyze_handwriting)
             if analyze_image is not None:
                 tools.append(analyze_image)
+            if analyze_logo is not None:
+                tools.append(analyze_logo)
+            if analyze_signature is not None:
+                tools.append(analyze_signature)
             if analyze_table is not None:
                 tools.append(analyze_table)
 
