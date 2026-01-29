@@ -343,8 +343,8 @@ class TestToolRegistration:
         )
         call_kwargs = mock_create.call_args
         tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
-        # All 8 visual analysis tools registered
-        assert len(tools) == 8
+        # All 9 visual analysis tools registered
+        assert len(tools) == 9
 
     @patch(
         "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"

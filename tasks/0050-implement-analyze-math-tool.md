@@ -26,20 +26,20 @@ The AnalyzeMath tool enables the agent to:
 - Provide plain-text descriptions
 
 ## Acceptance Criteria
-- [ ] Create `AnalyzeMathTool` class implementing LangChain `BaseTool`
-- [ ] Tool accepts region_id parameter
-- [ ] Crops image region using bounding boxes from layout detection
-- [ ] Sends cropped image to GPT-4V with math extraction prompt
-- [ ] Returns structured output with:
+- [x] Create `AnalyzeMathTool` class implementing LangChain `BaseTool`
+- [x] Tool accepts region_id parameter
+- [x] Crops image region using bounding boxes from layout detection
+- [x] Sends cropped image to GPT-4V with math extraction prompt
+- [x] Returns structured output with:
   - LaTeX representation
   - Plain text description
   - Content type (equation, formula, notation)
   - Variables and their meanings (if inferable)
-- [ ] Tool description clearly explains when to use (for math regions)
-- [ ] Integration with PaddleOCR layout detection results
-- [ ] Unit tests for tool functionality
-- [ ] Integration tests with sample scientific documents
-- [ ] Error handling for invalid region IDs or failed VLM calls
+- [x] Tool description clearly explains when to use (for math regions)
+- [x] Integration with PaddleOCR layout detection results
+- [x] Unit tests for tool functionality
+- [x] Integration tests with sample scientific documents
+- [x] Error handling for invalid region IDs or failed VLM calls
 
 ## Tool Schema
 ```python

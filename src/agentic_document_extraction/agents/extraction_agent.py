@@ -43,6 +43,7 @@ from agentic_document_extraction.agents.tools.analyze_handwriting import (
 )
 from agentic_document_extraction.agents.tools.analyze_image import analyze_image
 from agentic_document_extraction.agents.tools.analyze_logo import analyze_logo
+from agentic_document_extraction.agents.tools.analyze_math import analyze_math
 from agentic_document_extraction.agents.tools.analyze_signature import analyze_signature
 from agentic_document_extraction.agents.tools.analyze_table import analyze_table
 from agentic_document_extraction.agents.verifier import (
@@ -164,11 +165,14 @@ _TOOL_INSTRUCTIONS_VISUAL = """\
    with that region's `region_id`.
 9. When you need to identify a company logo, certification badge (ISO, FDA, CE),
    official seal, or brand mark, call `analyze_logo` with that region's `region_id`.
-10. When a schema field likely comes from a signature block (signatures, stamps,
+10. When a schema field contains mathematical equations, chemical formulas,
+   matrices, or scientific notation, call `analyze_math` with that region's
+   `region_id` to get accurate LaTeX transcription.
+11. When a schema field likely comes from a signature block (signatures, stamps,
    seals), call `analyze_signature` with that region's `region_id`.
-11. When a schema field likely comes from a table region, call
+12. When a schema field likely comes from a table region, call
    `analyze_table` with that region's `region_id`.
-12. You may call tools multiple times for different regions.
+13. You may call tools multiple times for different regions.
 """
 
 
@@ -256,6 +260,8 @@ class ExtractionAgent:
                 tools.append(analyze_image)
             if analyze_logo is not None:
                 tools.append(analyze_logo)
+            if analyze_math is not None:
+                tools.append(analyze_math)
             if analyze_signature is not None:
                 tools.append(analyze_signature)
             if analyze_table is not None:

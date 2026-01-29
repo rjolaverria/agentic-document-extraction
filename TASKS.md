@@ -51,4 +51,4 @@ Each task lives in `tasks/` as its own file. Add new tasks there and reference t
 - [x] Implement AnalyzeHandwriting Tool for LangChain Agent -> tasks/0047-implement-analyze-handwriting-tool.md
 - [x] Implement AnalyzeImage Tool for LangChain Agent -> tasks/0048-implement-analyze-image-tool.md
 - [x] Implement AnalyzeLogo Tool for LangChain Agent -> tasks/0049-implement-analyze-logo-tool.md
-- [ ] Implement AnalyzeMath Tool for LangChain Agent -> tasks/0050-implement-analyze-math-tool.md
+- [x] Implement AnalyzeMath Tool for LangChain Agent -> tasks/0050-implement-analyze-math-tool.md
