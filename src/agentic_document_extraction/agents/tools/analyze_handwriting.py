@@ -303,10 +303,24 @@ def analyze_handwriting(
     context: Annotated[str | None, "Optional surrounding context"] = None,
     state: Annotated[dict[str, Any], InjectedState] = None,  # type: ignore[assignment]
 ) -> dict[str, Any]:
-    """Analyze a handwritten text region by its ID to transcribe the handwriting.
-    Use when you need to read handwritten notes, margin annotations, corrections,
-    form answers, or any other handwritten content that standard OCR may struggle with.
-    Optionally provide surrounding context to help disambiguate unclear text."""
+    """Recognize and transcribe handwritten text from images.
+
+    Use this tool when:
+    - The region contains handwritten text that OCR could not read accurately
+    - You need to transcribe handwritten notes, annotations, or entries
+    - The text style is cursive, print, or mixed handwriting
+
+    Do NOT use when:
+    - The text is typed/printed (OCR should handle it)
+    - The content is a signature (use analyze_signature_agent)
+
+    Args:
+        region_id: The ID from the Document Regions table (e.g., "region_4")
+        context: Optional surrounding text to help disambiguate unclear words
+
+    Returns:
+        JSON with transcribed_text, confidence, annotation_type, style, is_legible
+    """
     if state is None:
         state = {}
     regions: list[LayoutRegion] = state.get("regions", [])

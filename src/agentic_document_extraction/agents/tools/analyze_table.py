@@ -108,8 +108,22 @@ def analyze_table(
     region_id: str,
     state: Annotated[dict[str, Any], InjectedState],
 ) -> dict[str, Any]:
-    """Analyze a table region by its ID to extract structured data
-    (headers and rows). Use when OCR text alone cannot reliably
-    capture table structure."""
+    """Extract structured tabular data from table images.
+
+    Use this tool when:
+    - The region_type is TABLE
+    - You need to extract rows, columns, headers, and cell values
+    - The OCR text shows table content but lacks structure
+
+    Do NOT use when:
+    - The region is a chart or graph (use analyze_chart_agent)
+    - The content is a form with labels and fields (use analyze_form_agent)
+
+    Args:
+        region_id: The ID from the Document Regions table (e.g., "region_2")
+
+    Returns:
+        JSON with headers (list), rows (list of dicts), and notes
+    """
     regions: list[LayoutRegion] = state.get("regions", [])
     return analyze_table_impl(region_id, regions)

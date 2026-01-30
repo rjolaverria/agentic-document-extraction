@@ -257,10 +257,22 @@ def analyze_math(
     region_id: str,
     state: Annotated[dict[str, Any], InjectedState],
 ) -> dict[str, Any]:
-    """Analyze a mathematical content region by its ID to extract equations,
-    chemical formulas, and scientific notation. Use when you need to
-    accurately transcribe mathematical equations, chemical formulas,
-    matrices, or scientific notation that standard OCR cannot handle.
-    Returns LaTeX representation and plain text description."""
+    """Extract mathematical equations, formulas, and scientific notation.
+
+    Use this tool when:
+    - The region contains mathematical equations or formulas
+    - You need LaTeX representation of complex math notation
+    - The content includes chemical formulas, matrices, or scientific notation
+
+    Do NOT use when:
+    - The content is regular text with simple numbers
+    - The math is simple enough to read from OCR text (e.g., "2 + 2 = 4")
+
+    Args:
+        region_id: The ID from the Document Regions table (e.g., "region_8")
+
+    Returns:
+        JSON with content_type, latex, plain_text, variables
+    """
     regions: list[LayoutRegion] = state.get("regions", [])
     return analyze_math_impl(region_id, regions)

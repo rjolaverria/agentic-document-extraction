@@ -334,9 +334,22 @@ def analyze_diagram(
     region_id: str,
     state: Annotated[dict[str, Any], InjectedState],
 ) -> dict[str, Any]:
-    """Analyze a diagram region by its ID to extract structural information
-    including nodes, connections, and process flow. Use when you need to
-    understand flowcharts, network diagrams, system architecture diagrams,
-    organizational charts, sequence diagrams, or entity-relationship diagrams."""
+    """Extract structure and relationships from diagrams, flowcharts, and org charts.
+
+    Use this tool when:
+    - The region_type is PICTURE and contains a flowchart, process diagram, or org chart
+    - You need to extract nodes, connections, flow direction, or hierarchy
+    - The OCR text captures labels but not the visual relationships
+
+    Do NOT use when:
+    - The image is a data chart or graph (use analyze_chart_agent)
+    - The image is a photo or illustration (use analyze_image_agent)
+
+    Args:
+        region_id: The ID from the Document Regions table (e.g., "region_5")
+
+    Returns:
+        JSON with diagram_type, nodes, connections, flow_sequence, decision_points
+    """
     regions: list[LayoutRegion] = state.get("regions", [])
     return analyze_diagram_impl(region_id, regions)

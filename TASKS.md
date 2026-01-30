@@ -54,7 +54,7 @@ Each task lives in `tasks/` as its own file. Add new tasks there and reference t
 - [x] Implement AnalyzeMath Tool for LangChain Agent -> tasks/0050-implement-analyze-math-tool.md
 - [x] Refactor Agent to Always Provide All Tools -> tasks/0051-refactor-agent-always-provide-tools.md
 - [x] Remove try/except ImportError Pattern for InjectedState -> tasks/0052-remove-injectedstate-try-except.md
-- [ ] Improve Tool Descriptions for Autonomous Selection -> tasks/0053-improve-tool-descriptions.md
+- [x] Improve Tool Descriptions for Autonomous Selection -> tasks/0053-improve-tool-descriptions.md
 - [ ] Add Tool Usage to System Prompt for All Documents -> tasks/0054-tool-instructions-system-prompt.md
 - [ ] Evaluate create_react_agent Migration -> tasks/0055-evaluate-create-react-agent.md
 - [ ] Add Unit Tests for Tool-Based Agent -> tasks/0056-unit-tests-tool-based-agent.md

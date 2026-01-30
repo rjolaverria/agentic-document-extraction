@@ -115,8 +115,23 @@ def analyze_chart(
     region_id: str,
     state: Annotated[dict[str, Any], InjectedState],
 ) -> dict[str, Any]:
-    """Analyze a chart/graph region by its ID to extract structured data
-    (chart type, axes, data points, trends). Use when OCR text alone
-    cannot capture chart information."""
+    """Extract structured data from chart or graph images.
+
+    Use this tool when:
+    - The region_type is PICTURE and contains a chart, graph, or plot
+    - You need axis labels, data points, trends, or legend information
+    - The OCR text does not contain the numerical data visible in the chart
+
+    Do NOT use when:
+    - The region is a TABLE (use analyze_table_agent instead)
+    - The image is a diagram, flowchart, or org chart (use analyze_diagram_agent)
+    - The image is a photo or illustration (use analyze_image_agent)
+
+    Args:
+        region_id: The ID from the Document Regions table (e.g., "region_3")
+
+    Returns:
+        JSON with chart_type, title, x_axis, y_axis, key_data_points, trends, legend
+    """
     regions: list[LayoutRegion] = state.get("regions", [])
     return analyze_chart_impl(region_id, regions)

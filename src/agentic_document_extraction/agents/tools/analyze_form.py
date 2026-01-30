@@ -192,9 +192,22 @@ def analyze_form(
     region_id: str,
     state: Annotated[dict[str, Any], InjectedState],
 ) -> dict[str, Any]:
-    """Analyze a form region by its ID to extract structured form data
-    including text fields, checkboxes, radio buttons, dropdowns, and
-    signature fields. Use when you need to extract form field values,
-    especially for checkbox states or handwritten entries."""
+    """Extract form fields, checkboxes, and filled values from form images.
+
+    Use this tool when:
+    - The region contains a form with labeled fields, checkboxes, or radio buttons
+    - You need to extract field labels paired with their values
+    - The form may have handwritten entries in fields
+
+    Do NOT use when:
+    - The content is a simple table without form elements (use analyze_table_agent)
+    - The content is purely handwritten text (use analyze_handwriting_agent)
+
+    Args:
+        region_id: The ID from the Document Regions table (e.g., "region_1")
+
+    Returns:
+        JSON with form_title, fields (list of label/value/type dicts), notes
+    """
     regions: list[LayoutRegion] = state.get("regions", [])
     return analyze_form_impl(region_id, regions)

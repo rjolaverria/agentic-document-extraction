@@ -354,11 +354,25 @@ def analyze_image(
     focus: Annotated[str | None, "Optional focus for analysis"] = None,
     state: Annotated[dict[str, Any], InjectedState] = None,  # type: ignore[assignment]
 ) -> dict[str, Any]:
-    """Analyze an embedded image region by its ID to identify and describe objects.
-    Use when you need to analyze product photos, damage assessment images, inventory
-    items, equipment photos, or any visual content that requires object detection,
-    counting, or condition assessment. Optionally specify a focus like 'count items',
-    'assess damage', or 'identify products' to guide the analysis."""
+    """Analyze photos, illustrations, or general images for content description.
+
+    Use this tool when:
+    - The region_type is PICTURE and contains a photo, illustration, or artwork
+    - You need to identify objects, people, scenes, or assess image content
+    - You need to count items or describe visual attributes
+
+    Do NOT use when:
+    - The image is a chart or graph (use analyze_chart_agent)
+    - The image is a diagram or flowchart (use analyze_diagram_agent)
+    - The image is a logo or seal (use analyze_logo_agent)
+
+    Args:
+        region_id: The ID from the Document Regions table (e.g., "region_6")
+        focus: Optional specific aspect to analyze (e.g., "count items", "assess damage")
+
+    Returns:
+        JSON with description, objects (list), total_items, condition_assessment
+    """
     if state is None:
         state = {}
     regions: list[LayoutRegion] = state.get("regions", [])

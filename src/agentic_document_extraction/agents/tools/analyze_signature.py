@@ -230,9 +230,22 @@ def analyze_signature(
     region_id: str,
     state: Annotated[dict[str, Any], InjectedState],
 ) -> dict[str, Any]:
-    """Analyze a signature block region by its ID to extract signature information
-    including signer name, title, date, stamps, seals, and certification marks.
-    Use when you need to verify signature presence, extract signer details,
-    or identify official stamps and certifications."""
+    """Extract signature blocks, stamps, and authentication marks.
+
+    Use this tool when:
+    - The region contains handwritten signatures
+    - You need to identify official stamps or seals on signatures
+    - The region has a signature block with printed name and date
+
+    Do NOT use when:
+    - The content is a logo or certification badge (use analyze_logo_agent)
+    - The content is general handwriting (use analyze_handwriting_agent)
+
+    Args:
+        region_id: The ID from the Document Regions table (e.g., "region_9")
+
+    Returns:
+        JSON with signature_present, signer_name, date_signed, stamp_type, stamp_text
+    """
     regions: list[LayoutRegion] = state.get("regions", [])
     return analyze_signature_impl(region_id, regions)

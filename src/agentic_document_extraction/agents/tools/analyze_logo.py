@@ -223,10 +223,22 @@ def analyze_logo(
     region_id: str,
     state: Annotated[dict[str, Any], InjectedState],
 ) -> dict[str, Any]:
-    """Analyze a logo or brand mark region by its ID to identify company logos,
-    certification badges, official seals, and brand marks. Use when you need to
-    identify a company or organization from a logo, verify certification badges
-    (ISO, FDA, CE, USDA), detect official seals, or extract text associated with
-    brand marks."""
+    """Identify logos, certification badges, seals, and brand marks.
+
+    Use this tool when:
+    - The region contains a company logo, brand mark, or trademark
+    - You need to identify certification badges (ISO, FDA, CE, USDA, etc.)
+    - The region contains official seals or stamps (not signatures)
+
+    Do NOT use when:
+    - The image is a signature (use analyze_signature_agent)
+    - The image is a general photo (use analyze_image_agent)
+
+    Args:
+        region_id: The ID from the Document Regions table (e.g., "region_7")
+
+    Returns:
+        JSON with logo_type, organization_name, certification_type, associated_text
+    """
     regions: list[LayoutRegion] = state.get("regions", [])
     return analyze_logo_impl(region_id, regions)
