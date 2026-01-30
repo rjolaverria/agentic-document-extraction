@@ -2,6 +2,7 @@
 
 Each log entry lives in `logs/` as its own file. Add new logs there and reference them here.
 
+- 2026-01-30 Tests: Unit Tests for Tool-Based Agent -> logs/0056-unit-tests-tool-based-agent.md
 - 2026-01-30 Investigation: Evaluate create_react_agent migration -> logs/2026-01-30-investigation-create-react-agent-migration.md
 - 2026-01-30 Enhancement: Tool Instructions in System Prompt for All Documents -> logs/0054-tool-instructions-system-prompt.md
 - 2026-01-30 Enhancement: Improve Tool Descriptions for Autonomous Selection -> logs/0053-improve-tool-descriptions.md
