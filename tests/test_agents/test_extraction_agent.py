@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from agentic_document_extraction.agents.extraction_agent import (
-    _TOOL_INSTRUCTIONS_VISUAL,
     ExtractionAgent,
     ExtractionAgentState,
 )
@@ -220,50 +219,90 @@ class TestExtractionAgentState:
 
 
 class TestSystemPrompt:
-    def test_text_only_prompt_no_tools(self) -> None:
+    """Tests for system prompt building.
+
+    Per Task 0054, tool instructions are always included in the system prompt.
+    The agent decides when to use tools based on document content and regions.
+    """
+
+    def test_text_only_prompt_includes_tool_instructions(self) -> None:
+        """Tool instructions are always included - agent decides usage."""
         agent = ExtractionAgent(api_key="sk-test")
         schema_info = _make_schema_info()
-        prompt = agent._build_system_prompt(
-            "Hello world text", schema_info, regions=[], has_tools=False
-        )
+        prompt = agent._build_system_prompt("Hello world text", schema_info, regions=[])
         assert "Hello world text" in prompt
         assert "Target JSON Schema" in prompt
-        assert _TOOL_INSTRUCTIONS_VISUAL not in prompt
-        assert "Document Regions" not in prompt
+        # Tool instructions always included (Task 0054)
+        assert "Visual Analysis Tools" in prompt
+        assert "When to use tools" in prompt
+        assert "When NOT to use tools" in prompt
+        # No regions section/table when no regions (section starts with ## Document Regions)
+        assert "## Document Regions" not in prompt
+        assert "| region_id |" not in prompt  # No table header
 
-    def test_visual_prompt_with_regions_and_tools(self) -> None:
+    def test_visual_prompt_with_regions(self) -> None:
         agent = ExtractionAgent(api_key="sk-test")
         schema_info = _make_schema_info()
         regions = _make_regions(chart=True, table=True)
         prompt = agent._build_system_prompt(
-            "OCR text here", schema_info, regions=regions, has_tools=True
+            "OCR text here", schema_info, regions=regions
         )
         assert "OCR text here" in prompt
         assert "chart-1" in prompt
         assert "table-1" in prompt
-        assert "analyze_chart" in prompt or "analyze_table" in prompt
+        assert "analyze_chart" in prompt
+        assert "analyze_table" in prompt
         assert "Document Regions" in prompt
+        # Tool instructions always included
+        assert "Visual Analysis Tools" in prompt
 
     def test_long_text_truncated(self) -> None:
         agent = ExtractionAgent(api_key="sk-test")
         schema_info = _make_schema_info()
         long_text = "x" * 20000
-        prompt = agent._build_system_prompt(
-            long_text, schema_info, regions=[], has_tools=False
-        )
+        prompt = agent._build_system_prompt(long_text, schema_info, regions=[])
         assert "[text truncated]" in prompt
 
     def test_schema_included(self) -> None:
         agent = ExtractionAgent(api_key="sk-test")
         schema_info = _make_schema_info()
-        prompt = agent._build_system_prompt(
-            "text", schema_info, regions=[], has_tools=False
-        )
+        prompt = agent._build_system_prompt("text", schema_info, regions=[])
         assert '"name"' in prompt
         assert '"age"' in prompt
 
+    def test_tool_instructions_include_all_tools(self) -> None:
+        """All 9 tools are documented in the instructions."""
+        agent = ExtractionAgent(api_key="sk-test")
+        schema_info = _make_schema_info()
+        prompt = agent._build_system_prompt("text", schema_info, regions=[])
+        # All 9 tools should be mentioned
+        assert "analyze_chart" in prompt
+        assert "analyze_table" in prompt
+        assert "analyze_diagram" in prompt
+        assert "analyze_form" in prompt
+        assert "analyze_handwriting" in prompt
+        assert "analyze_image" in prompt
+        assert "analyze_logo" in prompt
+        assert "analyze_math" in prompt
+        assert "analyze_signature" in prompt
+
+    def test_tool_instructions_include_skip_guidance(self) -> None:
+        """Instructions guide agent to skip tools when not needed."""
+        agent = ExtractionAgent(api_key="sk-test")
+        schema_info = _make_schema_info()
+        prompt = agent._build_system_prompt("text", schema_info, regions=[])
+        # Guidance on when NOT to use tools
+        assert "When NOT to use tools" in prompt
+        assert "OCR text" in prompt
+        assert "skip tool calls" in prompt
+
 
 class TestRefinementPrompt:
+    """Tests for refinement prompt building.
+
+    Per Task 0054, tool instructions are always included in refinement prompts.
+    """
+
     def test_refinement_prompt_includes_issues(self) -> None:
         agent = ExtractionAgent(api_key="sk-test")
         schema_info = _make_schema_info()
@@ -272,20 +311,24 @@ class TestRefinementPrompt:
             "[CRITICAL] name: Required field 'name' is missing",
         ]
         prompt = agent._build_refinement_prompt(
-            "text", schema_info, [], prev_extraction, issues, has_tools=False
+            "text", schema_info, [], prev_extraction, issues
         )
         assert "Issues to Fix" in prompt
         assert "name" in prompt
         assert "Previous Extraction" in prompt
         assert '"age": 30' in prompt
+        # Tool instructions always included (Task 0054)
+        assert "Visual Analysis Tools" in prompt
 
     def test_refinement_prompt_no_issues(self) -> None:
         agent = ExtractionAgent(api_key="sk-test")
         schema_info = _make_schema_info()
         prompt = agent._build_refinement_prompt(
-            "text", schema_info, [], {"name": "Test"}, [], has_tools=False
+            "text", schema_info, [], {"name": "Test"}, []
         )
         assert "None" in prompt  # No issues
+        # Tool instructions always included
+        assert "Visual Analysis Tools" in prompt
 
 
 class TestToolRegistration:

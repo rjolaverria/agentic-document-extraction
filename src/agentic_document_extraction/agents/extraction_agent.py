@@ -150,26 +150,38 @@ alone is insufficient.
 |-----------|------|------|------------|
 """
 
-_TOOL_INSTRUCTIONS_VISUAL = """\
-5. When a schema field likely comes from a chart/graph region, call
-   `analyze_chart` with that region's `region_id`.
-6. When a schema field likely comes from a diagram (flowchart, org chart,
-   process diagram), call `analyze_diagram` with that region's `region_id`.
-7. When a schema field likely comes from a form region with checkboxes,
-   radio buttons, or handwritten entries, call `analyze_form` with that
-   region's `region_id`.
-8. When a schema field contains handwritten text, call `analyze_handwriting`
-   with that region's `region_id`.
-9. When you need to identify a company logo, certification badge (ISO, FDA, CE),
-   official seal, or brand mark, call `analyze_logo` with that region's `region_id`.
-10. When a schema field contains mathematical equations, chemical formulas,
-   matrices, or scientific notation, call `analyze_math` with that region's
-   `region_id` to get accurate LaTeX transcription.
-11. When a schema field likely comes from a signature block (signatures, stamps,
-   seals), call `analyze_signature` with that region's `region_id`.
-12. When a schema field likely comes from a table region, call
-   `analyze_table` with that region's `region_id`.
-13. You may call tools multiple times for different regions.
+_TOOL_INSTRUCTIONS = """\
+
+## Visual Analysis Tools
+
+You have access to visual analysis tools for extracting data from document regions.
+Use these tools ONLY when the OCR text above is insufficient for a schema field.
+
+**When to use tools:**
+- The Document Regions table shows PICTURE or TABLE regions that may contain data
+- A schema field requires data that appears to be in an image (chart, table, form)
+- OCR text is missing, garbled, or incomplete for visual content
+
+**When NOT to use tools:**
+- All required data is already in the OCR text above
+- The document has no PICTURE or TABLE regions (only TEXT regions)
+- Simple text extraction is sufficient to fill the schema
+
+**Available tools:**
+- `analyze_chart`: Extract data from charts and graphs (bar, line, pie, etc.)
+- `analyze_table`: Extract structured data from tables (headers, rows, values)
+- `analyze_diagram`: Extract flowcharts, org charts, process diagrams
+- `analyze_form`: Extract form fields, checkboxes, radio buttons, values
+- `analyze_handwriting`: Transcribe handwritten text
+- `analyze_image`: Describe photos, illustrations, general images
+- `analyze_logo`: Identify logos, certifications (ISO, FDA, CE), brand marks
+- `analyze_math`: Extract equations, formulas, scientific notation (LaTeX)
+- `analyze_signature`: Extract signature blocks, stamps, seals
+
+**How to use:**
+5. Call tools with the `region_id` from the Document Regions table above.
+6. You may call multiple tools for different regions as needed.
+7. If the OCR text already contains all the data you need, skip tool calls.
 """
 
 
@@ -303,9 +315,7 @@ class ExtractionAgent:
 
             # Build system prompt (initial or refinement)
             if iteration == 1 or previous_extraction is None:
-                system_prompt = self._build_system_prompt(
-                    text, schema_info, regions, has_tools=bool(tools)
-                )
+                system_prompt = self._build_system_prompt(text, schema_info, regions)
             else:
                 system_prompt = self._build_refinement_prompt(
                     text,
@@ -313,7 +323,6 @@ class ExtractionAgent:
                     regions,
                     previous_extraction,
                     previous_issues or [],
-                    has_tools=bool(tools),
                 )
 
             # Create agent for this iteration
@@ -464,12 +473,17 @@ class ExtractionAgent:
         text: str,
         schema_info: SchemaInfo,
         regions: list[LayoutRegion],
-        *,
-        has_tools: bool,
     ) -> str:
-        """Assemble the initial extraction system prompt."""
+        """Assemble the initial extraction system prompt.
+
+        Tool instructions are always included since all 9 tools are always
+        provided (per Task 0051). The agent decides when to use them based
+        on document content. Instructions guide the agent to skip tools when
+        OCR text is sufficient.
+        """
         region_section = self._build_region_section(regions)
-        tool_instructions = _TOOL_INSTRUCTIONS_VISUAL if has_tools else ""
+        # Always include tool instructions - agent decides when to use
+        tool_instructions = _TOOL_INSTRUCTIONS
         ocr_text = self._truncate_text(text)
 
         return _SYSTEM_PROMPT_TEMPLATE.format(
@@ -486,12 +500,15 @@ class ExtractionAgent:
         regions: list[LayoutRegion],
         previous_extraction: dict[str, Any],
         issues: list[str],
-        *,
-        has_tools: bool,
     ) -> str:
-        """Assemble the refinement system prompt with feedback."""
+        """Assemble the refinement system prompt with feedback.
+
+        Tool instructions are always included since all 9 tools are always
+        provided (per Task 0051).
+        """
         region_section = self._build_region_section(regions)
-        tool_instructions = _TOOL_INSTRUCTIONS_VISUAL if has_tools else ""
+        # Always include tool instructions - agent decides when to use
+        tool_instructions = _TOOL_INSTRUCTIONS
         ocr_text = self._truncate_text(text)
         issues_text = "\n".join(f"- {issue}" for issue in issues) if issues else "None"
 

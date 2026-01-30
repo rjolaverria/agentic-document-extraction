@@ -16,12 +16,12 @@ After Task 0051, tools will always be provided to the agent. The system prompt s
 3. Guide the agent on when to skip tool usage (e.g., simple text extraction)
 
 ## Acceptance Criteria
-- [ ] Always include tool instructions in system prompt when tools are provided
-- [ ] Update instructions to explain tools are optional based on document content
-- [ ] Add guidance for when to skip tool usage
-- [ ] Simplify the prompt logic (remove conditional has_tools checks where possible)
-- [ ] Unit tests pass
-- [ ] Agent correctly decides when to use/skip tools
+- [x] Always include tool instructions in system prompt when tools are provided
+- [x] Update instructions to explain tools are optional based on document content
+- [x] Add guidance for when to skip tool usage
+- [x] Simplify the prompt logic (remove conditional has_tools checks where possible)
+- [x] Unit tests pass
+- [x] Agent correctly decides when to use/skip tools
 
 ## Current Implementation
 
