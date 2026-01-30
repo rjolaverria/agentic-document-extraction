@@ -6,6 +6,7 @@ import logging
 from typing import Annotated, Any
 
 from langchain_core.tools import ToolException, tool
+from langgraph.prebuilt import InjectedState
 
 from agentic_document_extraction.agents.tools.vlm_utils import (
     call_vlm_with_image,
@@ -347,24 +348,18 @@ def AnalyzeImage(
     return analyze_image_impl(region_id, regions, focus)
 
 
-try:
-    from langchain.tools import InjectedState
-
-    @tool("analyze_image_agent")
-    def analyze_image(
-        region_id: str,
-        focus: Annotated[str | None, "Optional focus for analysis"] = None,
-        state: Annotated[dict[str, Any], InjectedState] = None,  # type: ignore[assignment]
-    ) -> dict[str, Any]:
-        """Analyze an embedded image region by its ID to identify and describe objects.
-        Use when you need to analyze product photos, damage assessment images, inventory
-        items, equipment photos, or any visual content that requires object detection,
-        counting, or condition assessment. Optionally specify a focus like 'count items',
-        'assess damage', or 'identify products' to guide the analysis."""
-        if state is None:
-            state = {}
-        regions: list[LayoutRegion] = state.get("regions", [])
-        return analyze_image_impl(region_id, regions, focus)
-
-except ImportError:  # pragma: no cover
-    analyze_image = None  # type: ignore[assignment]
+@tool("analyze_image_agent")
+def analyze_image(
+    region_id: str,
+    focus: Annotated[str | None, "Optional focus for analysis"] = None,
+    state: Annotated[dict[str, Any], InjectedState] = None,  # type: ignore[assignment]
+) -> dict[str, Any]:
+    """Analyze an embedded image region by its ID to identify and describe objects.
+    Use when you need to analyze product photos, damage assessment images, inventory
+    items, equipment photos, or any visual content that requires object detection,
+    counting, or condition assessment. Optionally specify a focus like 'count items',
+    'assess damage', or 'identify products' to guide the analysis."""
+    if state is None:
+        state = {}
+    regions: list[LayoutRegion] = state.get("regions", [])
+    return analyze_image_impl(region_id, regions, focus)

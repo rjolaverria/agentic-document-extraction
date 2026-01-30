@@ -6,6 +6,7 @@ import logging
 from typing import Annotated, Any
 
 from langchain_core.tools import ToolException, tool
+from langgraph.prebuilt import InjectedState
 
 from agentic_document_extraction.agents.tools.vlm_utils import (
     call_vlm_with_image,
@@ -224,20 +225,14 @@ def AnalyzeSignature(region_id: str, regions: list[LayoutRegion]) -> dict[str, A
     return analyze_signature_impl(region_id, regions)
 
 
-try:
-    from langchain.tools import InjectedState
-
-    @tool("analyze_signature_agent")
-    def analyze_signature(
-        region_id: str,
-        state: Annotated[dict[str, Any], InjectedState],
-    ) -> dict[str, Any]:
-        """Analyze a signature block region by its ID to extract signature information
-        including signer name, title, date, stamps, seals, and certification marks.
-        Use when you need to verify signature presence, extract signer details,
-        or identify official stamps and certifications."""
-        regions: list[LayoutRegion] = state.get("regions", [])
-        return analyze_signature_impl(region_id, regions)
-
-except ImportError:  # pragma: no cover
-    analyze_signature = None  # type: ignore[assignment]
+@tool("analyze_signature_agent")
+def analyze_signature(
+    region_id: str,
+    state: Annotated[dict[str, Any], InjectedState],
+) -> dict[str, Any]:
+    """Analyze a signature block region by its ID to extract signature information
+    including signer name, title, date, stamps, seals, and certification marks.
+    Use when you need to verify signature presence, extract signer details,
+    or identify official stamps and certifications."""
+    regions: list[LayoutRegion] = state.get("regions", [])
+    return analyze_signature_impl(region_id, regions)

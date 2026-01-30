@@ -237,8 +237,7 @@ class ExtractionAgent:
         regions = layout_regions or []
 
         # Build tools list - always provide all tools, let agent decide
-        tools: list[Any] = []
-        for tool in [
+        tools: list[Any] = [
             analyze_chart,
             analyze_diagram,
             analyze_form,
@@ -248,9 +247,7 @@ class ExtractionAgent:
             analyze_math,
             analyze_signature,
             analyze_table,
-        ]:
-            if tool is not None:
-                tools.append(tool)
+        ]
 
         # Build LLM
         llm = ChatOpenAI(

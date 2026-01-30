@@ -6,6 +6,7 @@ import logging
 from typing import Annotated, Any
 
 from langchain_core.tools import ToolException, tool
+from langgraph.prebuilt import InjectedState
 
 from agentic_document_extraction.agents.tools.vlm_utils import (
     call_vlm_with_image,
@@ -217,21 +218,15 @@ def AnalyzeLogo(region_id: str, regions: list[LayoutRegion]) -> dict[str, Any]:
     return analyze_logo_impl(region_id, regions)
 
 
-try:
-    from langchain.tools import InjectedState
-
-    @tool("analyze_logo_agent")
-    def analyze_logo(
-        region_id: str,
-        state: Annotated[dict[str, Any], InjectedState],
-    ) -> dict[str, Any]:
-        """Analyze a logo or brand mark region by its ID to identify company logos,
-        certification badges, official seals, and brand marks. Use when you need to
-        identify a company or organization from a logo, verify certification badges
-        (ISO, FDA, CE, USDA), detect official seals, or extract text associated with
-        brand marks."""
-        regions: list[LayoutRegion] = state.get("regions", [])
-        return analyze_logo_impl(region_id, regions)
-
-except ImportError:  # pragma: no cover
-    analyze_logo = None  # type: ignore[assignment]
+@tool("analyze_logo_agent")
+def analyze_logo(
+    region_id: str,
+    state: Annotated[dict[str, Any], InjectedState],
+) -> dict[str, Any]:
+    """Analyze a logo or brand mark region by its ID to identify company logos,
+    certification badges, official seals, and brand marks. Use when you need to
+    identify a company or organization from a logo, verify certification badges
+    (ISO, FDA, CE, USDA), detect official seals, or extract text associated with
+    brand marks."""
+    regions: list[LayoutRegion] = state.get("regions", [])
+    return analyze_logo_impl(region_id, regions)

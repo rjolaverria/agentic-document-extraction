@@ -6,6 +6,7 @@ import logging
 from typing import Annotated, Any
 
 from langchain_core.tools import ToolException, tool
+from langgraph.prebuilt import InjectedState
 
 from agentic_document_extraction.agents.tools.vlm_utils import (
     call_vlm_with_image,
@@ -296,23 +297,17 @@ def AnalyzeHandwriting(
     return analyze_handwriting_impl(region_id, regions, context)
 
 
-try:
-    from langchain.tools import InjectedState
-
-    @tool("analyze_handwriting_agent")
-    def analyze_handwriting(
-        region_id: str,
-        context: Annotated[str | None, "Optional surrounding context"] = None,
-        state: Annotated[dict[str, Any], InjectedState] = None,  # type: ignore[assignment]
-    ) -> dict[str, Any]:
-        """Analyze a handwritten text region by its ID to transcribe the handwriting.
-        Use when you need to read handwritten notes, margin annotations, corrections,
-        form answers, or any other handwritten content that standard OCR may struggle with.
-        Optionally provide surrounding context to help disambiguate unclear text."""
-        if state is None:
-            state = {}
-        regions: list[LayoutRegion] = state.get("regions", [])
-        return analyze_handwriting_impl(region_id, regions, context)
-
-except ImportError:  # pragma: no cover
-    analyze_handwriting = None  # type: ignore[assignment]
+@tool("analyze_handwriting_agent")
+def analyze_handwriting(
+    region_id: str,
+    context: Annotated[str | None, "Optional surrounding context"] = None,
+    state: Annotated[dict[str, Any], InjectedState] = None,  # type: ignore[assignment]
+) -> dict[str, Any]:
+    """Analyze a handwritten text region by its ID to transcribe the handwriting.
+    Use when you need to read handwritten notes, margin annotations, corrections,
+    form answers, or any other handwritten content that standard OCR may struggle with.
+    Optionally provide surrounding context to help disambiguate unclear text."""
+    if state is None:
+        state = {}
+    regions: list[LayoutRegion] = state.get("regions", [])
+    return analyze_handwriting_impl(region_id, regions, context)

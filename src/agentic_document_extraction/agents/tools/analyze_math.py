@@ -6,6 +6,7 @@ import logging
 from typing import Annotated, Any
 
 from langchain_core.tools import ToolException, tool
+from langgraph.prebuilt import InjectedState
 
 from agentic_document_extraction.agents.tools.vlm_utils import (
     call_vlm_with_image,
@@ -251,21 +252,15 @@ def AnalyzeMath(region_id: str, regions: list[LayoutRegion]) -> dict[str, Any]:
     return analyze_math_impl(region_id, regions)
 
 
-try:
-    from langchain.tools import InjectedState
-
-    @tool("analyze_math_agent")
-    def analyze_math(
-        region_id: str,
-        state: Annotated[dict[str, Any], InjectedState],
-    ) -> dict[str, Any]:
-        """Analyze a mathematical content region by its ID to extract equations,
-        chemical formulas, and scientific notation. Use when you need to
-        accurately transcribe mathematical equations, chemical formulas,
-        matrices, or scientific notation that standard OCR cannot handle.
-        Returns LaTeX representation and plain text description."""
-        regions: list[LayoutRegion] = state.get("regions", [])
-        return analyze_math_impl(region_id, regions)
-
-except ImportError:  # pragma: no cover
-    analyze_math = None  # type: ignore[assignment]
+@tool("analyze_math_agent")
+def analyze_math(
+    region_id: str,
+    state: Annotated[dict[str, Any], InjectedState],
+) -> dict[str, Any]:
+    """Analyze a mathematical content region by its ID to extract equations,
+    chemical formulas, and scientific notation. Use when you need to
+    accurately transcribe mathematical equations, chemical formulas,
+    matrices, or scientific notation that standard OCR cannot handle.
+    Returns LaTeX representation and plain text description."""
+    regions: list[LayoutRegion] = state.get("regions", [])
+    return analyze_math_impl(region_id, regions)

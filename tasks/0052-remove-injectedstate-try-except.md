@@ -28,12 +28,12 @@ This pattern was added for backwards compatibility with older LangChain versions
 4. This pattern makes the code harder to understand and maintain
 
 ## Acceptance Criteria
-- [ ] Remove try/except blocks around InjectedState imports in all 9 tool files
-- [ ] Import InjectedState directly at the top of each tool file
-- [ ] Remove `if analyze_X is not None` checks in extraction_agent.py
-- [ ] Verify minimum LangChain version in pyproject.toml includes InjectedState
-- [ ] All unit tests pass
-- [ ] Integration tests pass
+- [x] Remove try/except blocks around InjectedState imports in all 9 tool files
+- [x] Import InjectedState directly at the top of each tool file
+- [x] Remove `if analyze_X is not None` checks in extraction_agent.py
+- [x] Verify minimum LangChain version in pyproject.toml includes InjectedState
+- [x] All unit tests pass
+- [x] Integration tests pass
 
 ## Files to Modify
 

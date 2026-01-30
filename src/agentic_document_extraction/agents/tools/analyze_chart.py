@@ -6,6 +6,7 @@ import logging
 from typing import Annotated, Any
 
 from langchain_core.tools import ToolException, tool
+from langgraph.prebuilt import InjectedState
 
 from agentic_document_extraction.agents.tools.vlm_utils import (
     call_vlm_with_image,
@@ -109,19 +110,13 @@ def AnalyzeChart(region_id: str, regions: list[LayoutRegion]) -> dict[str, Any]:
     return analyze_chart_impl(region_id, regions)
 
 
-try:
-    from langchain.tools import InjectedState
-
-    @tool("analyze_chart_agent")
-    def analyze_chart(
-        region_id: str,
-        state: Annotated[dict[str, Any], InjectedState],
-    ) -> dict[str, Any]:
-        """Analyze a chart/graph region by its ID to extract structured data
-        (chart type, axes, data points, trends). Use when OCR text alone
-        cannot capture chart information."""
-        regions: list[LayoutRegion] = state.get("regions", [])
-        return analyze_chart_impl(region_id, regions)
-
-except ImportError:  # pragma: no cover
-    analyze_chart = None  # type: ignore[assignment]
+@tool("analyze_chart_agent")
+def analyze_chart(
+    region_id: str,
+    state: Annotated[dict[str, Any], InjectedState],
+) -> dict[str, Any]:
+    """Analyze a chart/graph region by its ID to extract structured data
+    (chart type, axes, data points, trends). Use when OCR text alone
+    cannot capture chart information."""
+    regions: list[LayoutRegion] = state.get("regions", [])
+    return analyze_chart_impl(region_id, regions)

@@ -6,6 +6,7 @@ import logging
 from typing import Annotated, Any
 
 from langchain_core.tools import ToolException, tool
+from langgraph.prebuilt import InjectedState
 
 from agentic_document_extraction.agents.tools.vlm_utils import (
     call_vlm_with_image,
@@ -102,19 +103,13 @@ def AnalyzeTable(region_id: str, regions: list[LayoutRegion]) -> dict[str, Any]:
     return analyze_table_impl(region_id, regions)
 
 
-try:
-    from langchain.tools import InjectedState
-
-    @tool("analyze_table_agent")
-    def analyze_table(
-        region_id: str,
-        state: Annotated[dict[str, Any], InjectedState],
-    ) -> dict[str, Any]:
-        """Analyze a table region by its ID to extract structured data
-        (headers and rows). Use when OCR text alone cannot reliably
-        capture table structure."""
-        regions: list[LayoutRegion] = state.get("regions", [])
-        return analyze_table_impl(region_id, regions)
-
-except ImportError:  # pragma: no cover
-    analyze_table = None  # type: ignore[assignment]
+@tool("analyze_table_agent")
+def analyze_table(
+    region_id: str,
+    state: Annotated[dict[str, Any], InjectedState],
+) -> dict[str, Any]:
+    """Analyze a table region by its ID to extract structured data
+    (headers and rows). Use when OCR text alone cannot reliably
+    capture table structure."""
+    regions: list[LayoutRegion] = state.get("regions", [])
+    return analyze_table_impl(region_id, regions)
