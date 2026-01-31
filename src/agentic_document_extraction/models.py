@@ -266,6 +266,7 @@ class ProcessingCategory(str, Enum):
 
     TEXT_BASED = "text_based"
     VISUAL = "visual"
+    STRUCTURED = "structured"
 
 
 class FormatFamily(str, Enum):

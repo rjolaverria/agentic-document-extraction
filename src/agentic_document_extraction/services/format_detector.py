@@ -113,11 +113,16 @@ MIME_TO_FORMAT_FAMILY: dict[str, FormatFamily] = {
 
 # Processing category by MIME type
 # Text-based: txt, csv - can be processed directly
+# Structured: native parsing (e.g., spreadsheets)
 # Visual: everything else - requires visual processing pipeline
 MIME_TO_PROCESSING_CATEGORY: dict[str, ProcessingCategory] = {
     # Text-based documents
     "text/plain": ProcessingCategory.TEXT_BASED,
     "text/csv": ProcessingCategory.TEXT_BASED,
+    # Structured documents
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": (
+        ProcessingCategory.STRUCTURED
+    ),
     # Visual documents
     "application/pdf": ProcessingCategory.VISUAL,
     "application/msword": ProcessingCategory.VISUAL,
@@ -130,9 +135,6 @@ MIME_TO_PROCESSING_CATEGORY: dict[str, ProcessingCategory] = {
         ProcessingCategory.VISUAL
     ),
     "application/vnd.oasis.opendocument.presentation": ProcessingCategory.VISUAL,
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": (
-        ProcessingCategory.VISUAL
-    ),
     "image/jpeg": ProcessingCategory.VISUAL,
     "image/png": ProcessingCategory.VISUAL,
     "image/bmp": ProcessingCategory.VISUAL,
@@ -412,3 +414,15 @@ class FormatDetector:
             True if visual, False if text-based.
         """
         return format_info.processing_category == ProcessingCategory.VISUAL
+
+    @staticmethod
+    def is_structured(format_info: FormatInfo) -> bool:
+        """Check if a format should be processed with the structured pipeline.
+
+        Args:
+            format_info: FormatInfo to check.
+
+        Returns:
+            True if structured, False otherwise.
+        """
+        return format_info.processing_category == ProcessingCategory.STRUCTURED

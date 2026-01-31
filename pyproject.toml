@@ -16,6 +16,7 @@ dependencies = [
     "langchain-community>=0.4.1",
     "langchain-openai>=1.1.7",
     "openai>=2.15.0",
+    "openpyxl>=3.1.5",
     "paddleocr>=3.3.3",
     "paddlepaddle>=3.3.0",
     "pandas>=2.3.3",
@@ -112,6 +113,8 @@ module = [
     "pdf2image.*",
     "docket",
     "docket.*",
+    "openpyxl",
+    "openpyxl.*",
 ]
 ignore_missing_imports = true
 

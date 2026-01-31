@@ -349,7 +349,7 @@ class TestToolRegistration:
         mock_create: MagicMock,
         mock_verifier: MagicMock,
     ) -> None:
-        """Text documents get all 9 tools - agent decides whether to use them."""
+        """Text documents get all 10 tools - agent decides whether to use them."""
         mock_create.return_value.invoke.return_value = _mock_agent_result(
             {"name": "Alice"}
         )
@@ -364,8 +364,8 @@ class TestToolRegistration:
         )
         call_kwargs = mock_create.call_args
         tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
-        # All 9 tools always provided
-        assert len(tools) == 9
+        # All 10 tools always provided
+        assert len(tools) == 10
 
     @patch(
         "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
@@ -378,7 +378,7 @@ class TestToolRegistration:
         mock_create: MagicMock,
         mock_verifier: MagicMock,
     ) -> None:
-        """Visual documents with regions get all 9 tools."""
+        """Visual documents with regions get all 10 tools."""
         mock_create.return_value.invoke.return_value = _mock_agent_result(
             {"name": "Bob"}
         )
@@ -395,8 +395,8 @@ class TestToolRegistration:
         )
         call_kwargs = mock_create.call_args
         tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
-        # All 9 visual analysis tools registered
-        assert len(tools) == 9
+        # All 10 tools registered
+        assert len(tools) == 10
 
     @patch(
         "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
@@ -409,7 +409,7 @@ class TestToolRegistration:
         mock_create: MagicMock,
         mock_verifier: MagicMock,
     ) -> None:
-        """Visual doc with only text regions still gets all 9 tools."""
+        """Visual doc with only text regions still gets all 10 tools."""
         mock_create.return_value.invoke.return_value = _mock_agent_result(
             {"name": "Carol"}
         )
@@ -432,8 +432,8 @@ class TestToolRegistration:
         )
         call_kwargs = mock_create.call_args
         tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
-        # All 9 tools always provided
-        assert len(tools) == 9
+        # All 10 tools always provided
+        assert len(tools) == 10
 
 
 class TestExtract:
@@ -1055,7 +1055,7 @@ class TestExtractionAgentIntegration:
         mock_create: MagicMock,
         mock_verifier: MagicMock,
     ) -> None:
-        """Text format, no regions → all 9 tools registered, agent decides usage."""
+        """Text format, no regions → all 10 tools registered, agent decides usage."""
         data = {"title": "Invoice #42", "amount": 99.50, "items": ["widget"]}
         mock_create.return_value.invoke.return_value = _mock_agent_result(data)
         mock_verifier.return_value.verify.return_value = _make_passing_verification()
@@ -1071,10 +1071,10 @@ class TestExtractionAgentIntegration:
         assert isinstance(result, AgenticLoopResult)
         assert result.final_result.extracted_data == data
         assert result.loop_metadata["agent_type"] == "tool_agent_with_verification"
-        # All 9 tools always registered
+        # All 10 tools always registered
         call_kwargs = mock_create.call_args
         tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
-        assert len(tools) == 9
+        assert len(tools) == 10
 
     @patch(
         "agentic_document_extraction.agents.extraction_agent.QualityVerificationAgent"
@@ -1103,10 +1103,10 @@ class TestExtractionAgentIntegration:
         )
 
         assert result.final_result.extracted_data == data
-        # All 9 tools should be registered
+        # All 10 tools should be registered
         call_kwargs = mock_create.call_args
         tools = call_kwargs.kwargs.get("tools") or call_kwargs[1].get("tools", [])
-        assert len(tools) == 9
+        assert len(tools) == 10
         # Regions passed to invoke
         invoke_args = mock_create.return_value.invoke.call_args[0][0]
         assert invoke_args["regions"] is regions

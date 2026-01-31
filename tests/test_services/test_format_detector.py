@@ -330,6 +330,10 @@ class TestProcessingCategoryClassification:
         [
             ("text/plain", ProcessingCategory.TEXT_BASED),
             ("text/csv", ProcessingCategory.TEXT_BASED),
+            (
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ProcessingCategory.STRUCTURED,
+            ),
             ("application/pdf", ProcessingCategory.VISUAL),
             ("application/msword", ProcessingCategory.VISUAL),
             (
@@ -527,6 +531,16 @@ class TestStaticMethods:
         assert FormatDetector.is_visual(text_info) is False
         assert FormatDetector.is_visual(visual_info) is True
 
+    def test_is_structured(self) -> None:
+        """Test is_structured static method."""
+        structured_info = FormatInfo(
+            mime_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            extension=".xlsx",
+            format_family=FormatFamily.SPREADSHEET,
+            processing_category=ProcessingCategory.STRUCTURED,
+        )
+        assert FormatDetector.is_structured(structured_info) is True
+
 
 class TestSupportedFormatsCompleteness:
     """Tests to verify all required formats are supported."""
@@ -577,7 +591,6 @@ class TestSupportedFormatsCompleteness:
             "application/vnd.ms-powerpoint",
             "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "application/vnd.oasis.opendocument.presentation",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             "image/jpeg",
             "image/png",
             "image/bmp",
@@ -590,3 +603,12 @@ class TestSupportedFormatsCompleteness:
         for mime in visual_mimes:
             assert mime in SUPPORTED_MIME_TYPES
             assert MIME_TO_PROCESSING_CATEGORY[mime] == ProcessingCategory.VISUAL
+
+    def test_structured_formats_correct(self) -> None:
+        """Verify structured formats are correctly categorized."""
+        structured_mimes = [
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ]
+        for mime in structured_mimes:
+            assert mime in SUPPORTED_MIME_TYPES
+            assert MIME_TO_PROCESSING_CATEGORY[mime] == ProcessingCategory.STRUCTURED

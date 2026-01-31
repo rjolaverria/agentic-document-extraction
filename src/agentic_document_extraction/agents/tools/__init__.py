@@ -40,6 +40,9 @@ from agentic_document_extraction.agents.tools.analyze_signature import (
     analyze_signature,
     analyze_signature_impl,
 )
+from agentic_document_extraction.agents.tools.analyze_spreadsheet import (
+    analyze_spreadsheet,
+)
 from agentic_document_extraction.agents.tools.analyze_table import (
     AnalyzeTable,
     analyze_table,
@@ -74,4 +77,5 @@ __all__ = [
     "analyze_signature_impl",
     "analyze_table",
     "analyze_table_impl",
+    "analyze_spreadsheet",
 ]

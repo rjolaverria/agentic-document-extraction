@@ -161,7 +161,7 @@ def test_all_tool_names_registered_and_non_null(
     schema_info_basic,
     format_info_text,
 ) -> None:
-    """All 9 tools should be present with explicit names for autonomous selection."""
+    """All 10 tools should be present with explicit names for autonomous selection."""
     mock_create.return_value.invoke.return_value = _agent_result({"name": "Alice"})
     mock_verifier.return_value.verify.return_value = _passing_verification()
     mock_verifier.return_value.get_default_thresholds.return_value = MagicMock()
@@ -185,6 +185,7 @@ def test_all_tool_names_registered_and_non_null(
         "analyze_math_agent",
         "analyze_signature_agent",
         "analyze_table_agent",
+        "analyze_spreadsheet",
     }
     assert tool_names == expected
 

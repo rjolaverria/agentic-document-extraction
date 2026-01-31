@@ -45,6 +45,9 @@ from agentic_document_extraction.agents.tools.analyze_image import analyze_image
 from agentic_document_extraction.agents.tools.analyze_logo import analyze_logo
 from agentic_document_extraction.agents.tools.analyze_math import analyze_math
 from agentic_document_extraction.agents.tools.analyze_signature import analyze_signature
+from agentic_document_extraction.agents.tools.analyze_spreadsheet import (
+    analyze_spreadsheet,
+)
 from agentic_document_extraction.agents.tools.analyze_table import analyze_table
 from agentic_document_extraction.agents.verifier import (
     IssueSeverity,
@@ -53,6 +56,7 @@ from agentic_document_extraction.agents.verifier import (
     VerificationStatus,
 )
 from agentic_document_extraction.config import settings
+from agentic_document_extraction.excel_document import ExcelDocument
 from agentic_document_extraction.models import FormatInfo
 from agentic_document_extraction.services.extraction.text_extraction import (
     ExtractionResult,
@@ -73,6 +77,7 @@ class ExtractionAgentState(AgentState):  # type: ignore[type-arg]
     """Agent state that carries layout regions for tool injection."""
 
     regions: list[LayoutRegion]
+    spreadsheet: ExcelDocument | None
 
 
 # ---------------------------------------------------------------------------
@@ -92,6 +97,7 @@ commentary, no markdown fences.
 ```
 
 {region_section}
+{spreadsheet_section}
 
 ## Target JSON Schema
 ```json
@@ -125,6 +131,7 @@ Your previous extraction had the following quality issues that need to be addres
 ```
 
 {region_section}
+{spreadsheet_section}
 
 ## Target JSON Schema
 ```json
@@ -177,11 +184,13 @@ Use these tools ONLY when the OCR text above is insufficient for a schema field.
 - `analyze_logo`: Identify logos, certifications (ISO, FDA, CE), brand marks
 - `analyze_math`: Extract equations, formulas, scientific notation (LaTeX)
 - `analyze_signature`: Extract signature blocks, stamps, seals
+- `analyze_spreadsheet`: Access native Excel cell values, formulas, and ranges
 
 **How to use:**
 5. Call tools with the `region_id` from the Document Regions table above.
-6. You may call multiple tools for different regions as needed.
-7. If the OCR text already contains all the data you need, skip tool calls.
+6. For spreadsheets, call `analyze_spreadsheet` with optional sheet name, row range, or columns.
+7. You may call multiple tools as needed.
+8. If the OCR text or spreadsheet preview already contains the data, skip tool calls.
 """
 
 
@@ -233,6 +242,7 @@ class ExtractionAgent:
         schema_info: SchemaInfo,
         format_info: FormatInfo,
         layout_regions: list[LayoutRegion] | None = None,
+        spreadsheet: ExcelDocument | None = None,
     ) -> AgenticLoopResult:
         """Run the extraction agent with lightweight verification loop.
 
@@ -259,6 +269,7 @@ class ExtractionAgent:
             analyze_math,
             analyze_signature,
             analyze_table,
+            analyze_spreadsheet,
         ]
 
         # Build LLM
@@ -315,7 +326,9 @@ class ExtractionAgent:
 
             # Build system prompt (initial or refinement)
             if iteration == 1 or previous_extraction is None:
-                system_prompt = self._build_system_prompt(text, schema_info, regions)
+                system_prompt = self._build_system_prompt(
+                    text, schema_info, regions, spreadsheet
+                )
             else:
                 system_prompt = self._build_refinement_prompt(
                     text,
@@ -323,6 +336,7 @@ class ExtractionAgent:
                     regions,
                     previous_extraction,
                     previous_issues or [],
+                    spreadsheet,
                 )
 
             # Create agent for this iteration
@@ -350,6 +364,7 @@ class ExtractionAgent:
             }
             if tools:
                 invoke_input["regions"] = regions
+                invoke_input["spreadsheet"] = spreadsheet
 
             try:
                 result = agent.invoke(invoke_input)  # type: ignore[arg-type]
@@ -473,6 +488,7 @@ class ExtractionAgent:
         text: str,
         schema_info: SchemaInfo,
         regions: list[LayoutRegion],
+        spreadsheet: ExcelDocument | None = None,
     ) -> str:
         """Assemble the initial extraction system prompt.
 
@@ -482,6 +498,7 @@ class ExtractionAgent:
         OCR text is sufficient.
         """
         region_section = self._build_region_section(regions)
+        spreadsheet_section = self._build_spreadsheet_section(spreadsheet)
         # Always include tool instructions - agent decides when to use
         tool_instructions = _TOOL_INSTRUCTIONS
         ocr_text = self._truncate_text(text)
@@ -489,6 +506,7 @@ class ExtractionAgent:
         return _SYSTEM_PROMPT_TEMPLATE.format(
             ocr_text=ocr_text,
             region_section=region_section,
+            spreadsheet_section=spreadsheet_section,
             schema_json=json.dumps(schema_info.schema, indent=2),
             tool_instructions=tool_instructions,
         )
@@ -500,6 +518,7 @@ class ExtractionAgent:
         regions: list[LayoutRegion],
         previous_extraction: dict[str, Any],
         issues: list[str],
+        spreadsheet: ExcelDocument | None = None,
     ) -> str:
         """Assemble the refinement system prompt with feedback.
 
@@ -507,6 +526,7 @@ class ExtractionAgent:
         provided (per Task 0051).
         """
         region_section = self._build_region_section(regions)
+        spreadsheet_section = self._build_spreadsheet_section(spreadsheet)
         # Always include tool instructions - agent decides when to use
         tool_instructions = _TOOL_INSTRUCTIONS
         ocr_text = self._truncate_text(text)
@@ -517,6 +537,7 @@ class ExtractionAgent:
             previous_extraction=json.dumps(previous_extraction, indent=2),
             ocr_text=ocr_text,
             region_section=region_section,
+            spreadsheet_section=spreadsheet_section,
             schema_json=json.dumps(schema_info.schema, indent=2),
             tool_instructions=tool_instructions,
         )
@@ -534,6 +555,23 @@ class ExtractionAgent:
                 f"| {r.page_number} | {r.confidence:.2f} |"
             )
         return _REGION_TABLE_HEADER + "\n".join(rows)
+
+    @staticmethod
+    def _build_spreadsheet_section(spreadsheet: ExcelDocument | None) -> str:
+        """Build a brief spreadsheet overview for the prompt."""
+        if spreadsheet is None:
+            return ""
+
+        lines = ["## Spreadsheet Overview", "Sheets available:"]
+        for sheet in spreadsheet.sheets:
+            lines.append(
+                f"- {sheet.name} ({sheet.row_count} rows x {sheet.column_count} cols)"
+            )
+        lines.append(f"Active sheet: {spreadsheet.active_sheet}")
+        lines.append(
+            "Use `analyze_spreadsheet` to inspect specific sheets, ranges, or columns."
+        )
+        return "\n".join(lines) + "\n"
 
     @staticmethod
     def _truncate_text(text: str, max_len: int = 12000) -> str:

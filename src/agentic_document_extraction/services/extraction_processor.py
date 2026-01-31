@@ -22,6 +22,10 @@ from agentic_document_extraction.config import settings as app_settings
 from agentic_document_extraction.models import ProcessingCategory
 from agentic_document_extraction.output.json_generator import JsonGenerator
 from agentic_document_extraction.output.markdown_generator import MarkdownGenerator
+from agentic_document_extraction.services.excel_extractor import (
+    ExcelExtractionOptions,
+    ExcelExtractor,
+)
 from agentic_document_extraction.services.format_detector import FormatDetector
 from agentic_document_extraction.services.reading_order_detector import (
     ReadingOrderDetector,
@@ -87,6 +91,27 @@ async def _set_progress(progress: Progress | None, message: str) -> None:
     # Progress dependency is only valid inside a Docket worker context.
     with suppress(AssertionError):
         await progress.set_message(message)
+
+
+def _build_spreadsheet_preview(excel_document: Any, max_rows: int = 30) -> str:
+    """Create a compact text preview of spreadsheet contents for the agent."""
+    lines: list[str] = []
+    for sheet in excel_document.sheets:
+        lines.append(f"Sheet: {sheet.name}")
+        for row_counter, row in enumerate(sheet.rows, start=1):
+            if max_rows and row_counter > max_rows:
+                lines.append("... (truncated)")
+                break
+            row_repr = []
+            for idx, cell in enumerate(row):
+                col_letter = chr(ord("A") + idx)
+                value_str = "" if cell.value is None else str(cell.value)
+                row_repr.append(
+                    f"{col_letter}{row_counter}={value_str}({cell.data_type})"
+                )
+            lines.append(" | ".join(row_repr))
+        lines.append("")
+    return "\n".join(lines)
 
 
 # Re-export DocumentProcessingError as ExtractionProcessorError for backward compatibility
@@ -174,6 +199,7 @@ async def process_extraction_job(
             # Extract text based on document type
             layout_regions = None
             ordered_text = None
+            excel_document = None
 
             if format_info.processing_category == ProcessingCategory.TEXT_BASED:
                 # Text-based extraction
@@ -181,6 +207,21 @@ async def process_extraction_job(
                 text_extraction_result = text_extractor.extract_from_path(document_path)
                 text = text_extraction_result.text
                 logger.info("Text extracted", length=len(text))
+            elif (
+                format_info.processing_category == ProcessingCategory.STRUCTURED
+                and app_settings.use_native_spreadsheet_extraction
+            ):
+                excel_extractor = ExcelExtractor()
+                options = ExcelExtractionOptions()
+                excel_document = excel_extractor.extract_from_path(
+                    document_path, options
+                )
+                text = _build_spreadsheet_preview(excel_document)
+                logger.info(
+                    "Spreadsheet extracted natively",
+                    sheets=len(excel_document.sheets),
+                    active_sheet=excel_document.active_sheet,
+                )
             else:
                 # Visual document - use unified OCR + layout extraction pipeline
                 visual_text_extractor = VisualTextExtractor()
@@ -330,6 +371,7 @@ async def process_extraction_job(
                     schema_info=schema_info,
                     format_info=format_info,
                     layout_regions=layout_regions,
+                    spreadsheet=excel_document,
                 )
             else:
                 # Legacy: multi-agent orchestration loop

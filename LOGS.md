@@ -6,6 +6,7 @@ Each log entry lives in `logs/` as its own file. Add new logs there and referenc
 - 2026-01-30 Investigation: Evaluate create_react_agent migration -> logs/2026-01-30-investigation-create-react-agent-migration.md
 - 2026-01-30 Enhancement: Tool Instructions in System Prompt for All Documents -> logs/0054-tool-instructions-system-prompt.md
 - 2026-01-30 Enhancement: Improve Tool Descriptions for Autonomous Selection -> logs/0053-improve-tool-descriptions.md
+- 2026-01-31 Feature: Native Excel Parsing Support -> logs/0057-native-excel-parsing-support.md
 - 2026-01-29 Refactor: Remove InjectedState try/except Pattern -> logs/0052-remove-injectedstate-try-except.md
 - 2026-01-29 Refactor: Agent to Always Provide All Tools -> logs/0051-refactor-agent-always-provide-tools.md
 - 2026-01-29 Feature: AnalyzeMath Tool for LangChain Agent -> logs/0050-implement-analyze-math-tool.md

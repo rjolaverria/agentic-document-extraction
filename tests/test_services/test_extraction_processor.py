@@ -385,6 +385,66 @@ class TestExtractionProcessorTextFormats:
         assert result["extracted_data"]["name"] == "test"
 
 
+class TestExtractionProcessorStructuredFormats:
+    """Tests for structured spreadsheet processing."""
+
+    @patch(
+        "agentic_document_extraction.services.extraction_processor.MarkdownGenerator"
+    )
+    @patch("agentic_document_extraction.services.extraction_processor.ExtractionAgent")
+    @patch("agentic_document_extraction.services.extraction_processor.ExcelExtractor")
+    @patch("agentic_document_extraction.services.extraction_processor.FormatDetector")
+    async def test_xlsx_routes_to_excel_extractor(
+        self,
+        mock_format_detector_class: MagicMock,
+        mock_excel_extractor_class: MagicMock,
+        mock_extraction_agent_class: MagicMock,
+        mock_markdown_gen_class: MagicMock,
+        temp_dir: Path,
+        sample_schema: dict,
+    ) -> None:
+        """Excel files use native extractor when enabled."""
+        test_file = temp_dir / "test.xlsx"
+        test_file.write_bytes(b"dummy")  # Content not read by extractor mock
+
+        schema_file = temp_dir / "schema.json"
+        schema_file.write_text(json.dumps(sample_schema))
+
+        mock_format_detector = MagicMock()
+        mock_format_info = FormatInfo(
+            extension=".xlsx",
+            mime_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            format_family=FormatFamily.SPREADSHEET,
+            processing_category=ProcessingCategory.STRUCTURED,
+            detected_from_content=True,
+        )
+        mock_format_detector.detect_from_path.return_value = mock_format_info
+        mock_format_detector_class.return_value = mock_format_detector
+
+        mock_excel_doc = MagicMock()
+        mock_excel_doc.sheets = []
+        mock_excel_doc.active_sheet = "Sheet1"
+        mock_excel_extractor_class.return_value.extract_from_path.return_value = (
+            mock_excel_doc
+        )
+
+        mock_extraction_agent_class.return_value = create_mock_extraction_agent()
+        mock_markdown_gen_class.return_value = create_mock_markdown_generator()
+
+        result = await process_extraction_job(
+            job_id="test-xlsx-routing",
+            filename="test.xlsx",
+            file_path=str(test_file),
+            schema_path=str(schema_file),
+            progress=None,
+        )
+
+        mock_excel_extractor_class.return_value.extract_from_path.assert_called_once()
+        call_kwargs = mock_extraction_agent_class.return_value.extract.call_args.kwargs
+        assert call_kwargs.get("spreadsheet") is mock_excel_doc
+        assert result["extracted_data"]["name"] == "test"
+
+
 class TestExtractionProcessorToolAgent:
     """Tests for the use_tool_agent=True code path in extraction processor.
 

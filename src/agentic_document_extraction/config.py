@@ -165,6 +165,9 @@ class Settings(BaseSettings):
     use_tool_agent: bool = True
     """Use the single tool-using ExtractionAgent instead of the multi-agent loop."""
 
+    use_native_spreadsheet_extraction: bool = True
+    """Process spreadsheets (.xlsx) with native parsing instead of visual OCR."""
+
     # =========================================================================
     # Job Management Settings
     # =========================================================================
@@ -377,6 +380,7 @@ class Settings(BaseSettings):
             "required_field_coverage": self.required_field_coverage,
             "max_refinement_iterations": self.max_refinement_iterations,
             "use_tool_agent": self.use_tool_agent,
+            "use_native_spreadsheet_extraction": self.use_native_spreadsheet_extraction,
             "job_ttl_hours": self.job_ttl_hours,
             "docket_name": self.docket_name,
             "docket_url": self.docket_url,
