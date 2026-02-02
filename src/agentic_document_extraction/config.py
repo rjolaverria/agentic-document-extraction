@@ -214,6 +214,9 @@ class Settings(BaseSettings):
     docket_enable_internal_instrumentation: bool = False
     """Enable OpenTelemetry spans for Docket's internal Redis polling."""
 
+    docket_worker_concurrency: int = 2
+    """Concurrency for the inline Docket worker started with the API lifespan."""
+
     # =========================================================================
     # PII / Redaction Settings
     # =========================================================================

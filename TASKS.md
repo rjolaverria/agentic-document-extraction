@@ -60,5 +60,5 @@ Each task lives in `tasks/` as its own file. Add new tasks there and reference t
 - [x] Add Unit Tests for Tool-Based Agent -> tasks/0056-unit-tests-tool-based-agent.md
 - [x] Native Excel Parsing Support -> tasks/0057-native-excel-parsing-support.md
 - [x] PII Redaction & Data Retention Controls -> tasks/0058-pii-redaction-and-retention.md
-- [ ] Inline Docket Initialization in Lifespan -> tasks/0059-docket-lifespan-initialization.md
+- [x] Inline Docket Initialization in Lifespan -> tasks/0059-docket-lifespan-initialization.md
 - [ ] Schedule Retention Purge Task -> tasks/0060-schedule-retention-purge.md

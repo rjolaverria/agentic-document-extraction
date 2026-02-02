@@ -1,13 +1,15 @@
 """FastAPI application for agentic document extraction."""
 
+import asyncio
 import inspect
 import json
 import uuid
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any
 
+from docket import Worker
 from fastapi import (
     FastAPI,
     File,
@@ -31,6 +33,10 @@ from agentic_document_extraction.models import (
     UploadResponse,
 )
 from agentic_document_extraction.services.docket_client import build_docket
+from agentic_document_extraction.services.docket_context import (
+    set_current_docket,
+    set_current_worker,
+)
 from agentic_document_extraction.services.docket_jobs import (
     DocketJobStore,
     build_status_snapshot,
@@ -74,15 +80,64 @@ def create_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> Any:
-        docket = build_docket()
-        await docket.__aenter__()
-        docket.register(process_extraction_job)
-        app.state.docket = docket
+        """Start Docket client and inline worker for the API lifespan.
+
+        The inline worker mirrors the prior standalone `docket worker` process so
+        operators only need to run the API server. It registers the same task
+        registry used by the CLI path.
+        """
+
+        docket = None
+        worker = None
+        worker_task: asyncio.Task[None] | None = None
+
         try:
+            docket = build_docket()
+            await docket.__aenter__()
+
+            docket.register(process_extraction_job)
+
+            worker = Worker(
+                docket,
+                name=f"api-inline-worker-{settings.docket_name}",
+                concurrency=settings.docket_worker_concurrency,
+                enable_internal_instrumentation=settings.docket_enable_internal_instrumentation,
+            )
+            await worker.__aenter__()
+
+            # Expose via app state and contextvars for dependencies/utilities
+            app.state.docket = docket
+            app.state.worker = worker
+            set_current_docket(docket)
+            set_current_worker(worker)
+
+            worker_task = asyncio.create_task(worker.run_forever())
+            logger.info(
+                "Inline Docket worker started",
+                docket=settings.docket_name,
+                url=settings.docket_url,
+                concurrency=settings.docket_worker_concurrency,
+            )
+
             yield
         finally:
-            await docket.__aexit__(None, None, None)
-            app.state.docket = None
+            if worker_task is not None:
+                worker_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await worker_task
+
+            if worker is not None:
+                await worker.__aexit__(None, None, None)
+            set_current_worker(None)
+
+            if docket is not None:
+                await docket.__aexit__(None, None, None)
+            set_current_docket(None)
+
+            if hasattr(app.state, "docket"):
+                app.state.docket = None
+            if hasattr(app.state, "worker"):
+                app.state.worker = None
 
     app = FastAPI(
         title="Agentic Document Extraction API",

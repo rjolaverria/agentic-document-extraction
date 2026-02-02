@@ -51,52 +51,25 @@ ADE_DOCKET_URL=redis://localhost:6379/0
 EOF
 ```
 
-### Local Run Order
+### Local Run
 
-Run these in separate terminals in this order so the API and workers share the same Redis backend:
+The API now starts an inline Docket worker during its lifespan. You only need Redis and the API process:
 
 ```bash
-# Terminal 1: start Redis
+# Terminal 1: start Redis (or point ADE_DOCKET_URL at an existing instance)
 docker run --name redis -p 6379:6379 redis
 
-# Terminal 2: start a Docket worker
-uv run docket worker \
-  --tasks agentic_document_extraction.docket_tasks:tasks \
-  --docket agentic-document-extraction \
-  --url redis://localhost:6379/0 \
-  --concurrency 2
-
-# Terminal 3: start the API server
+# Terminal 2: start the API server (inline worker auto-starts)
 uv run uvicorn agentic_document_extraction.api:app --reload
 ```
 
-### Running the Server
-
-```bash
-# Start the development server
-uv run uvicorn agentic_document_extraction.api:app --reload
-
-# Or with custom host/port
-uv run uvicorn agentic_document_extraction.api:app --host 0.0.0.0 --port 8000 --reload
-```
-
-The API will be available at `http://localhost:8000`. Interactive documentation is at `http://localhost:8000/docs`.
-
-### Running the Docket Worker
-
-Docket workers execute extraction jobs. Run a worker in a separate terminal:
-
-```bash
-uv run docket worker \
-  --tasks agentic_document_extraction.docket_tasks:tasks \
-  --docket agentic-document-extraction \
-  --url redis://localhost:6379/0 \
-  --concurrency 2
-```
+The API will be available at `http://localhost:8000`. Interactive docs: `http://localhost:8000/docs`.
 
 Notes:
-- The API process and worker process must point at the same Redis backend.
-- `memory://` is supported for local-only testing but cannot be shared across processes.
+- The inline worker shares the same Docket/Redis backend configured via `ADE_DOCKET_URL`.
+- Concurrency is controlled by `ADE_DOCKET_WORKER_CONCURRENCY` (default: 2).
+- `memory://` works for local/dev single-process runs; use Redis for multi-process or persistence.
+- Set `ADE_DOCKET_ENABLE_INTERNAL_INSTRUMENTATION=true` to emit Docket internal traces if desired.
 
 ### Docket Configuration
 
