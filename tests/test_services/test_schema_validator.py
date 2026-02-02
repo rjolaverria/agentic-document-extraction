@@ -138,6 +138,17 @@ class TestSchemaInfo:
         assert len(result["required_fields"]) == 1
         assert len(result["optional_fields"]) == 2
 
+    def test_schema_info_includes_pii_policy(self) -> None:
+        """FieldInfo to_dict includes pii policy when present."""
+        field = FieldInfo(
+            name="ssn",
+            field_type="string",
+            required=True,
+            pii_policy="mask",
+        )
+        result = field.to_dict()
+        assert result["pii"] == "mask"
+
     def test_schema_info_all_fields_property(self) -> None:
         """Test all_fields property returns combined fields."""
         required = [FieldInfo(name="a", field_type="string", required=True)]
@@ -177,6 +188,34 @@ class TestSchemaValidatorBasicValidation:
         assert len(result.optional_fields) == 1
         assert result.required_fields[0].name == "name"
         assert result.optional_fields[0].name == "age"
+
+    def test_validate_schema_with_pii_policy(self, validator: SchemaValidator) -> None:
+        """Test schema that includes pii policy annotations."""
+        schema: dict[str, Any] = {
+            "type": "object",
+            "properties": {
+                "ssn": {"type": "string", "pii": "mask"},
+                "email": {"type": "string", "pii": "hash"},
+            },
+            "required": ["ssn"],
+        }
+
+        result = validator.validate(schema)
+
+        ssn_field = next(f for f in result.required_fields if f.name == "ssn")
+        email_field = next(f for f in result.optional_fields if f.name == "email")
+        assert ssn_field.pii_policy == "mask"
+        assert email_field.pii_policy == "hash"
+
+    def test_invalid_pii_policy_raises(self, validator: SchemaValidator) -> None:
+        """Invalid pii policy should raise validation error."""
+        schema: dict[str, Any] = {
+            "type": "object",
+            "properties": {"secret": {"type": "string", "pii": "encrypt"}},
+        }
+
+        with pytest.raises(SchemaValidationError):
+            validator.validate(schema)
 
     def test_validate_schema_with_no_required_fields(
         self, validator: SchemaValidator

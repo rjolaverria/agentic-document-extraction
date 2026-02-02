@@ -27,6 +27,7 @@ from agentic_document_extraction.services.excel_extractor import (
     ExcelExtractor,
 )
 from agentic_document_extraction.services.format_detector import FormatDetector
+from agentic_document_extraction.services.pii_redactor import PIIRedactor
 from agentic_document_extraction.services.reading_order_detector import (
     ReadingOrderDetector,
 )
@@ -114,6 +115,26 @@ def _build_spreadsheet_preview(excel_document: Any, max_rows: int = 30) -> str:
     return "\n".join(lines)
 
 
+def _redact_generic(value: Any, redactor: PIIRedactor) -> Any:
+    """Redact PII-like strings in arbitrary structures (used for quality reports)."""
+    if isinstance(value, dict):
+        return {k: _redact_generic(v, redactor) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_redact_generic(v, redactor) for v in value]
+    if isinstance(value, str):
+        return redactor.redact_text(value)
+    return value
+
+
+def _maybe_delete_uploads(file_path: Path, schema_path: Path) -> None:
+    """Delete raw upload and schema files if policy allows."""
+    if not app_settings.should_delete_uploads_on_complete():
+        return
+    for path in (file_path, schema_path):
+        with suppress(FileNotFoundError):
+            path.unlink()
+
+
 # Re-export DocumentProcessingError as ExtractionProcessorError for backward compatibility
 ExtractionProcessorError = DocumentProcessingError
 
@@ -123,7 +144,9 @@ async def process_extraction_job(
     filename: str,
     file_path: str,
     schema_path: str,
+    *,
     progress: Progress | None = _DEFAULT_PROGRESS,
+    redact_output: bool | None = None,
 ) -> dict[str, Any]:
     """Process an extraction job.
 
@@ -476,6 +499,32 @@ async def process_extraction_job(
                         if normalized_value is not None:
                             issue["current_value"] = normalized_value
 
+            # Apply PII redaction if enabled
+            redactor = PIIRedactor()
+            redaction_enabled = app_settings.should_redact_output(redact_output)
+            normalized_data, redacted_markdown, redaction_metrics = (
+                redactor.redact_outputs(
+                    data=normalized_data,
+                    markdown=markdown_summary,
+                    schema_info=schema_info,
+                    redact_output=redaction_enabled,
+                )
+            )
+            markdown_summary = redacted_markdown or markdown_summary
+            quality_report = (
+                _redact_generic(quality_report, redactor)
+                if redaction_enabled
+                else quality_report
+            )
+            logger.info(
+                "Redaction metrics",
+                masked=redaction_metrics.masked,
+                hashed=redaction_metrics.hashed,
+                dropped=redaction_metrics.dropped,
+                detections=redaction_metrics.detections,
+                text_spans_redacted=redaction_metrics.text_spans_redacted,
+            )
+
             await _set_progress(progress, "Extraction completed")
 
             logger.log_extraction_result(
@@ -507,3 +556,5 @@ async def process_extraction_job(
             with suppress(AssertionError):
                 await progress.set_message("Job failed")
         raise
+    finally:
+        _maybe_delete_uploads(Path(file_path), Path(schema_path))

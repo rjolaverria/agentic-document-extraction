@@ -36,6 +36,7 @@ class FieldInfo:
         path: str | None = None,
         nested_fields: list["FieldInfo"] | None = None,
         format_spec: str | None = None,
+        pii_policy: str | None = None,
     ) -> None:
         """Initialize field information.
 
@@ -47,6 +48,7 @@ class FieldInfo:
             path: JSON path to this field (e.g., "address.city").
             nested_fields: For object types, list of nested field info.
             format_spec: Optional JSON Schema format (e.g., "date", "email", "uri").
+            pii_policy: Optional PII policy for this field (allow, mask, hash, drop).
         """
         self.name = name
         self.field_type = field_type
@@ -55,6 +57,7 @@ class FieldInfo:
         self.path = path or name
         self.nested_fields = nested_fields or []
         self.format_spec = format_spec
+        self.pii_policy = pii_policy
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation.
@@ -74,6 +77,8 @@ class FieldInfo:
             result["nested_fields"] = [f.to_dict() for f in self.nested_fields]
         if self.format_spec:
             result["format"] = self.format_spec
+        if self.pii_policy:
+            result["pii"] = self.pii_policy
         return result
 
 
@@ -143,6 +148,7 @@ class SchemaValidator:
         "array",
         "null",
     }
+    SUPPORTED_PII_POLICIES: set[str] = {"allow", "mask", "hash", "drop"}
 
     def __init__(self) -> None:
         """Initialize the schema validator."""
@@ -327,6 +333,16 @@ class SchemaValidator:
             field_type = field_schema.get("type", "any")
             description = field_schema.get("description")
             format_spec = field_schema.get("format")
+            pii_policy = field_schema.get("pii")
+
+            if pii_policy is not None and (
+                not isinstance(pii_policy, str)
+                or pii_policy not in self.SUPPORTED_PII_POLICIES
+            ):
+                raise SchemaValidationError(
+                    f"Invalid pii policy '{pii_policy}' for field {field_path}. "
+                    "Valid options: allow, mask, hash, drop"
+                )
 
             # Handle nested objects
             nested_fields: list[FieldInfo] = []
@@ -357,6 +373,7 @@ class SchemaValidator:
                 path=field_path,
                 nested_fields=nested_fields,
                 format_spec=format_spec,
+                pii_policy=pii_policy,
             )
 
             if is_required:

@@ -137,6 +137,7 @@ Upload a document and JSON schema to start extraction. Returns immediately with 
 - `file` (required): The document file to extract from
 - `schema` (optional): JSON schema as a string
 - `schema_file` (optional): JSON schema as a file upload
+- `redact_output` (optional): `true|false` to apply server-side PII redaction to responses and stored artifacts
 
 One of `schema` or `schema_file` must be provided.
 
@@ -376,6 +377,24 @@ result = asyncio.run(extract_document("document.pdf", schema))
 
 The extraction schema follows [JSON Schema Draft 7](https://json-schema.org/draft-07/json-schema-release-notes.html) specification.
 
+### PII Policies
+
+Fields can opt into deterministic redaction using a `pii` property:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "ssn": { "type": "string", "pii": "mask" },
+    "email": { "type": "string", "pii": "hash" },
+    "notes": { "type": "string" }
+  },
+  "required": ["ssn"]
+}
+```
+
+Supported policies: `allow`, `mask`, `hash`, `drop`. Redaction is automatically enabled when `ADE_ENV=production` or when the request sets `redact_output=true`. The `ADE_DEFAULT_PII_POLICY` setting can enforce a policy for fields without an explicit `pii` flag.
+
 ### Basic Structure
 
 ```json
@@ -522,6 +541,7 @@ All configuration is done via environment variables with the `ADE_` prefix. Crea
 | `ADE_LAYOUTREADER_MODEL` | `hantian/layoutreader` | LayoutReader model for reading order detection |
 | `ADE_MAX_FILE_SIZE_MB` | `10` | Maximum file upload size in MB |
 | `ADE_TEMP_UPLOAD_DIR` | `/tmp/ade_uploads` | Temporary file storage directory |
+| `ADE_ENV` | `development` | Deployment environment (`development`, `staging`, `production`) |
 | `ADE_CHUNK_SIZE` | `4000` | Token chunk size for large documents |
 | `ADE_CHUNK_OVERLAP` | `200` | Token overlap between chunks |
 | `ADE_MIN_OVERALL_CONFIDENCE` | `0.7` | Minimum overall confidence threshold |
@@ -529,6 +549,14 @@ All configuration is done via environment variables with the `ADE_` prefix. Crea
 | `ADE_REQUIRED_FIELD_COVERAGE` | `0.9` | Required field coverage threshold |
 | `ADE_MAX_REFINEMENT_ITERATIONS` | `3` | Max agentic loop iterations (1-10) |
 | `ADE_JOB_TTL_HOURS` | `24` | Job result retention time in hours |
+| `ADE_RETENTION_DAYS` | `7` | Days to retain uploads/artifacts before purge |
+| `ADE_RETENTION_CHECK_INTERVAL_HOURS` | `24` | How often to run retention purge task |
+| `ADE_DEFAULT_PII_POLICY` | *(none)* | Default policy for fields without `pii` flag (`allow`, `mask`, `hash`, `drop`) |
+| `ADE_REDACT_OUTPUT_DEFAULT` | *(auto)* | Apply redaction by default (forced `true` in production) |
+| `ADE_PII_MASK_CHAR` | `*` | Mask character used for PII redaction |
+| `ADE_PII_MASK_KEEP_LAST` | `4` | Number of trailing characters to keep when masking |
+| `ADE_PII_HASH_SALT` | *(none)* | Optional salt used when hashing PII values |
+| `ADE_DELETE_UPLOADS_ON_COMPLETE` | *(auto)* | Delete raw uploads after completion (defaults to true in production) |
 | `ADE_LOG_LEVEL` | `INFO` | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) |
 | `ADE_DEBUG` | `false` | Enable debug mode |
 | `ADE_CORS_ORIGINS` | `*` | Comma-separated CORS origins |

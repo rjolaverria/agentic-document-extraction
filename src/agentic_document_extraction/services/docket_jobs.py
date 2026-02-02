@@ -26,6 +26,7 @@ class JobMetadata:
     schema_path: str
     created_at: datetime
     expires_at: datetime
+    redact_output: bool = False
 
     @classmethod
     def from_redis(cls, data: dict[str, str]) -> JobMetadata:
@@ -35,6 +36,7 @@ class JobMetadata:
             filename=data["filename"],
             file_path=data["file_path"],
             schema_path=data["schema_path"],
+            redact_output=data.get("redact_output", "false") == "true",
             created_at=datetime.fromisoformat(data["created_at"]),
             expires_at=datetime.fromisoformat(data["expires_at"]),
         )
@@ -46,6 +48,7 @@ class JobMetadata:
             "filename": self.filename,
             "file_path": self.file_path,
             "schema_path": self.schema_path,
+            "redact_output": "true" if self.redact_output else "false",
             "created_at": self.created_at.isoformat(),
             "expires_at": self.expires_at.isoformat(),
         }
@@ -79,6 +82,7 @@ class DocketJobStore:
         filename: str,
         file_path: str,
         schema_path: str,
+        redact_output: bool = False,
     ) -> JobMetadata:
         now = datetime.now(UTC)
         expires_at = now + timedelta(seconds=settings.job_ttl_seconds)
@@ -87,6 +91,7 @@ class DocketJobStore:
             filename=filename,
             file_path=file_path,
             schema_path=schema_path,
+            redact_output=redact_output,
             created_at=now,
             expires_at=expires_at,
         )

@@ -102,6 +102,21 @@ def create_mock_extraction_agent():
     return mock_agent
 
 
+def create_redaction_loop_result():
+    """Create a loop result containing PII for redaction tests."""
+    loop_result = _create_mock_loop_result()
+    loop_result.final_result.extracted_data = {
+        "ssn": "123-45-6789",
+        "note": "call 555-123-4567",
+    }
+    loop_result.final_verification.to_dict.return_value = {
+        "issues": [
+            {"field_path": "ssn", "current_value": "123-45-6789"},
+        ]
+    }
+    return loop_result
+
+
 def create_mock_markdown_generator():
     """Create a mock markdown generator."""
     mock_markdown_gen = MagicMock()
@@ -588,3 +603,55 @@ class TestExtractionProcessorToolAgent:
             mock_ld.assert_not_called()
 
         assert result["extracted_data"]["name"] == "test"
+
+    @patch(
+        "agentic_document_extraction.services.extraction_processor.MarkdownGenerator"
+    )
+    @patch("agentic_document_extraction.services.extraction_processor.ExtractionAgent")
+    @patch("agentic_document_extraction.services.extraction_processor.TextExtractor")
+    async def test_redaction_applied_when_flag_enabled(
+        self,
+        mock_text_extractor_class: MagicMock,
+        mock_extraction_agent_class: MagicMock,
+        mock_markdown_gen_class: MagicMock,
+        sample_txt_file: Path,
+        temp_dir: Path,
+    ) -> None:
+        """PII is masked in outputs when redact_output is true."""
+        schema = {
+            "type": "object",
+            "properties": {
+                "ssn": {"type": "string", "pii": "mask"},
+                "note": {"type": "string"},
+            },
+            "required": ["ssn"],
+        }
+        schema_file = temp_dir / "schema.json"
+        schema_file.write_text(json.dumps(schema))
+
+        mock_text_extractor = create_mock_text_extractor()
+        mock_text_extractor_class.return_value = mock_text_extractor
+
+        mock_agent = MagicMock()
+        mock_agent.extract.return_value = create_redaction_loop_result()
+        mock_extraction_agent_class.return_value = mock_agent
+
+        mock_markdown = MagicMock()
+        mock_markdown.markdown = "SSN 123-45-6789"
+        mock_markdown_gen = MagicMock()
+        mock_markdown_gen.generate.return_value = mock_markdown
+        mock_markdown_gen_class.return_value = mock_markdown_gen
+
+        result = await process_extraction_job(
+            job_id="test-redaction",
+            filename="test.txt",
+            file_path=str(sample_txt_file),
+            schema_path=str(schema_file),
+            progress=None,
+            redact_output=True,
+        )
+
+        assert result["extracted_data"]["ssn"].endswith("6789")
+        assert "123-45" not in result["extracted_data"]["ssn"]
+        assert "123-45" not in result["markdown_summary"]
+        assert "555-123" not in result["extracted_data"]["note"]

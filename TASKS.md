@@ -59,5 +59,5 @@ Each task lives in `tasks/` as its own file. Add new tasks there and reference t
 - [x] Evaluate create_react_agent Migration -> tasks/0055-evaluate-create-react-agent.md
 - [x] Add Unit Tests for Tool-Based Agent -> tasks/0056-unit-tests-tool-based-agent.md
 - [x] Native Excel Parsing Support -> tasks/0057-native-excel-parsing-support.md
-- [ ] PII Redaction & Data Retention Controls -> tasks/0058-pii-redaction-and-retention.md
+- [x] PII Redaction & Data Retention Controls -> tasks/0058-pii-redaction-and-retention.md
 - [ ] Inline Docket Initialization in Lifespan -> tasks/0059-docket-lifespan-initialization.md

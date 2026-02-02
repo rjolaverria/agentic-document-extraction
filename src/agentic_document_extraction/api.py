@@ -1,5 +1,6 @@
 """FastAPI application for agentic document extraction."""
 
+import inspect
 import json
 import uuid
 from contextlib import asynccontextmanager
@@ -238,6 +239,12 @@ def create_app() -> FastAPI:
         schema_file: Annotated[
             UploadFile | None, File(description="JSON schema as file upload")
         ] = None,
+        redact_output: Annotated[
+            bool | None,
+            Form(
+                description="Apply server-side PII redaction to outputs and artifacts",
+            ),
+        ] = None,
     ) -> dict[str, Any]:
         """Upload a document and JSON schema to trigger extraction.
 
@@ -390,6 +397,7 @@ def create_app() -> FastAPI:
             filename=file.filename or "unknown",
             file_path=str(temp_filepath),
             schema_path=str(schema_filepath),
+            redact_output=settings.should_redact_output(redact_output),
         )
 
         logger.info(
@@ -400,11 +408,18 @@ def create_app() -> FastAPI:
             request_id=request_id,
         )
 
+        enqueue_kwargs: dict[str, Any] = {}
+        if "redact_output" in inspect.signature(process_extraction_job).parameters:
+            enqueue_kwargs["redact_output"] = settings.should_redact_output(
+                redact_output
+            )
+
         await docket.add(process_extraction_job, key=job_id)(
             job_id,
             file.filename or "unknown",
             str(temp_filepath),
             str(schema_filepath),
+            **enqueue_kwargs,
         )
 
         return {

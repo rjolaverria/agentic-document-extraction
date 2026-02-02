@@ -7,6 +7,7 @@ ADE_ prefix, or via a .env file in the project root.
 Environment Variables:
     ADE_MAX_FILE_SIZE_MB: Maximum file upload size in MB (default: 10)
     ADE_TEMP_UPLOAD_DIR: Directory for temporary file uploads
+    ADE_ENV: Deployment environment (development, staging, production)
     ADE_OPENAI_API_KEY: OpenAI API key (required for LLM features)
     ADE_OPENAI_MODEL: Default OpenAI model for text processing (default: gpt-4o)
     ADE_OPENAI_VLM_MODEL: OpenAI model for vision processing (default: gpt-4o)
@@ -28,6 +29,8 @@ Environment Variables:
     ADE_REQUIRED_FIELD_COVERAGE: Required field coverage threshold (default: 0.9)
     ADE_MAX_REFINEMENT_ITERATIONS: Max agentic loop iterations (default: 3)
     ADE_JOB_TTL_HOURS: Job result retention time in hours (default: 24)
+    ADE_RETENTION_DAYS: Number of days to retain uploads/artifacts/logs (default: 7)
+    ADE_RETENTION_CHECK_INTERVAL_HOURS: Interval in hours between purge passes (default: 24)
     ADE_DOCKET_NAME: Shared Docket name (default: agentic-document-extraction)
     ADE_DOCKET_URL: Redis/memory backend URL (default: redis://localhost:6379/0)
     ADE_DOCKET_RESULT_STORAGE_URL: Optional Redis URL for result storage
@@ -38,6 +41,14 @@ Environment Variables:
     ADE_CORS_ORIGINS: Comma-separated CORS origins (default: *)
     ADE_SERVER_HOST: Server bind host (default: 0.0.0.0)
     ADE_SERVER_PORT: Server bind port (default: 8000)
+
+    # PII / Redaction
+    ADE_DEFAULT_PII_POLICY: Default policy for fields without explicit pii flag (allow, mask, hash, drop)
+    ADE_REDACT_OUTPUT_DEFAULT: Apply output redaction by default (overridden to true in production)
+    ADE_PII_MASK_CHAR: Character to use when masking PII (default: "*")
+    ADE_PII_MASK_KEEP_LAST: Number of trailing characters to keep when masking (default: 4)
+    ADE_PII_HASH_SALT: Optional salt for hashing PII values
+    ADE_DELETE_UPLOADS_ON_COMPLETE: Delete raw uploads once a job completes (defaults to true in production)
 """
 
 import logging
@@ -77,6 +88,13 @@ class Settings(BaseSettings):
 
     temp_upload_dir: str = "/tmp/ade_uploads"
     """Directory for storing temporary uploaded files."""
+
+    # =========================================================================
+    # Environment / Privacy Settings
+    # =========================================================================
+
+    environment: str = "development"
+    """Deployment environment label (development, staging, production)."""
 
     # =========================================================================
     # OpenAI / LLM Settings
@@ -175,6 +193,12 @@ class Settings(BaseSettings):
     job_ttl_hours: int = 24
     """Time-to-live for job results in hours before cleanup."""
 
+    retention_days: int = 7
+    """Number of days to retain uploads, artifacts, and logs before purge."""
+
+    retention_check_interval_hours: int = 24
+    """How often (in hours) to run the retention purge task."""
+
     docket_name: str = "agentic-document-extraction"
     """Shared Docket name for coordinating workers."""
 
@@ -189,6 +213,28 @@ class Settings(BaseSettings):
 
     docket_enable_internal_instrumentation: bool = False
     """Enable OpenTelemetry spans for Docket's internal Redis polling."""
+
+    # =========================================================================
+    # PII / Redaction Settings
+    # =========================================================================
+
+    default_pii_policy: str | None = None
+    """Default PII policy for fields without explicit pii flag (allow/mask/hash/drop)."""
+
+    redact_output_default: bool | None = None
+    """Apply redaction by default (auto-enforced to True in production)."""
+
+    pii_mask_char: str = "*"
+    """Character to use when masking PII values."""
+
+    pii_mask_keep_last: int = 4
+    """Number of trailing characters to preserve when masking strings."""
+
+    pii_hash_salt: str | None = None
+    """Optional salt used when hashing PII values."""
+
+    delete_uploads_on_complete: bool | None = None
+    """Delete raw uploads after processing (defaults to True in production)."""
 
     # =========================================================================
     # Logging Settings
@@ -289,6 +335,42 @@ class Settings(BaseSettings):
             raise ValueError(f"job_ttl_hours must be at least 1, got {v}")
         return v
 
+    @field_validator("retention_days", "retention_check_interval_hours")
+    @classmethod
+    def validate_retention(cls, v: int) -> int:
+        """Validate retention settings are positive integers."""
+        if v < 1:
+            raise ValueError("retention settings must be at least 1")
+        return v
+
+    @field_validator("environment")
+    @classmethod
+    def validate_environment(cls, v: str) -> str:
+        """Validate deployment environment label."""
+        allowed = {"development", "staging", "production"}
+        value = v.lower()
+        if value not in allowed:
+            raise ValueError(
+                f"environment must be one of {', '.join(sorted(allowed))}, got {v}"
+            )
+        return value
+
+    @field_validator("pii_mask_char")
+    @classmethod
+    def validate_mask_char(cls, v: str) -> str:
+        """Ensure mask character is non-empty."""
+        if not v:
+            raise ValueError("pii_mask_char must be a non-empty string")
+        return v
+
+    @field_validator("pii_mask_keep_last")
+    @classmethod
+    def validate_mask_keep_last(cls, v: int) -> int:
+        """Ensure mask keep last is non-negative."""
+        if v < 0:
+            raise ValueError("pii_mask_keep_last must be non-negative")
+        return v
+
     @field_validator("docket_execution_ttl_seconds")
     @classmethod
     def validate_docket_ttl(cls, v: int | None) -> int | None:
@@ -346,6 +428,33 @@ class Settings(BaseSettings):
         level: int = getattr(logging, self.log_level)
         return level
 
+    @property
+    def retention_timedelta(self) -> timedelta:
+        """Get retention window as timedelta."""
+        return timedelta(days=self.retention_days)
+
+    def effective_default_pii_policy(self) -> str | None:
+        """Resolve default PII policy with environment-aware fallback."""
+        if self.default_pii_policy:
+            return self.default_pii_policy
+        if self.environment == "production":
+            return "mask"
+        return None
+
+    def should_redact_output(self, redact_flag: bool | None) -> bool:
+        """Determine whether to apply output redaction for a request/job."""
+        if redact_flag is not None:
+            return redact_flag
+        if self.redact_output_default is not None:
+            return self.redact_output_default
+        return self.environment == "production"
+
+    def should_delete_uploads_on_complete(self) -> bool:
+        """Decide whether to delete raw uploads when a job completes."""
+        if self.delete_uploads_on_complete is not None:
+            return self.delete_uploads_on_complete
+        return self.environment == "production"
+
     def get_openai_api_key(self) -> str:
         """Get the OpenAI API key value.
 
@@ -394,6 +503,11 @@ class Settings(BaseSettings):
             "cors_origins": self.cors_origins,
             "server_host": self.server_host,
             "server_port": self.server_port,
+            "environment": self.environment,
+            "retention_days": self.retention_days,
+            "retention_check_interval_hours": self.retention_check_interval_hours,
+            "default_pii_policy": self.effective_default_pii_policy() or "(none/allow)",
+            "redact_output_default": self.redact_output_default,
         }
         return data
 
@@ -424,6 +538,13 @@ def validate_settings_on_startup(s: Settings) -> None:
         logger.warning(
             "CORS is configured to allow all origins (*). "
             "Consider restricting this in production."
+        )
+
+    # Warn if running in production without redaction
+    if s.environment == "production" and not s.should_redact_output(None):
+        logger.warning(
+            "Redaction is disabled while environment=production. "
+            "Set ADE_REDACT_OUTPUT_DEFAULT=true or pass redact_output=true."
         )
 
     # Log configuration summary (without sensitive values)
