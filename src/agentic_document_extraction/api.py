@@ -1,9 +1,11 @@
 """FastAPI application for agentic document extraction."""
 
-import asyncio
 import inspect
 import json
 import uuid
+import asyncio
+import threading
+from multiprocessing import Process
 from contextlib import asynccontextmanager, suppress
 from datetime import UTC, datetime
 from pathlib import Path
@@ -75,53 +77,115 @@ configure_logging(
 logger = get_logger(__name__)
 
 
+def _run_worker_process() -> None:
+    """Entry point for a dedicated worker process (Redis-backed only)."""
+
+    import asyncio
+
+    from agentic_document_extraction.services.docket_client import build_docket
+    from agentic_document_extraction.services.extraction_processor import (
+        process_extraction_job,
+    )
+
+    async def _run() -> None:
+        async with build_docket() as docket:
+            docket.register(process_extraction_job)
+            from docket import Worker
+
+            async with Worker(
+                docket,
+                name="api-inline-worker-process",
+                concurrency=settings.docket_worker_concurrency,
+                enable_internal_instrumentation=settings.docket_enable_internal_instrumentation,
+            ) as worker:
+                await worker.run_forever()
+
+    asyncio.run(_run())
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> Any:
-        """Start Docket client and inline worker for the API lifespan.
+        """Start Docket client and inline worker for the API lifespan."""
 
-        The inline worker mirrors the prior standalone `docket worker` process so
-        operators only need to run the API server. It registers the same task
-        registry used by the CLI path.
-        """
+        worker_thread: threading.Thread | None = None
+        worker_loop: asyncio.AbstractEventLoop | None = None
+        worker_task: asyncio.Future | None = None
+        worker_process: Process | None = None
 
         async with build_docket() as docket:
             docket.register(process_extraction_job)
 
-            async with Worker(
-                docket,
-                name=f"api-inline-worker-{settings.docket_name}",
-                concurrency=settings.docket_worker_concurrency,
-                enable_internal_instrumentation=settings.docket_enable_internal_instrumentation,
-            ) as worker:
-                # Expose via app state and contextvars for dependencies/utilities
-                app.state.docket = docket
-                app.state.worker = worker
-                set_current_docket(docket)
-                set_current_worker(worker)
+            # Expose docket on API loop for status queries
+            app.state.docket = docket
+            set_current_docket(docket)
 
-                worker_task = asyncio.create_task(worker.run_forever())
-                logger.info(
-                    "Inline Docket worker started",
-                    docket=settings.docket_name,
-                    url=settings.docket_url,
-                    concurrency=settings.docket_worker_concurrency,
+            if settings.docket_url.startswith("memory://"):
+                # Memory backend cannot be shared across processes; use a thread/loop.
+                def _start_worker() -> None:
+                    nonlocal worker_loop, worker_task
+                    worker_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(worker_loop)
+
+                    async def _run_worker() -> None:
+                        async with build_docket() as worker_docket:
+                            # Mirror any tasks already registered on the API docket
+                            for name, func in docket.tasks.items():
+                                worker_docket.register(func, [name])
+                            async with Worker(
+                                worker_docket,
+                                name=f"api-inline-worker-{settings.docket_name}",
+                                concurrency=settings.docket_worker_concurrency,
+                                enable_internal_instrumentation=settings.docket_enable_internal_instrumentation,
+                            ) as worker:
+                                app.state.worker = worker
+                                set_current_worker(worker)
+                                logger.info(
+                                    "Inline Docket worker started",
+                                    docket=settings.docket_name,
+                                    url=settings.docket_url,
+                                    concurrency=settings.docket_worker_concurrency,
+                                )
+                                await worker.run_forever()
+
+                    worker_task = worker_loop.create_task(_run_worker())
+                    try:
+                        worker_loop.run_until_complete(worker_task)
+                    finally:
+                        worker_loop.close()
+
+                worker_thread = threading.Thread(
+                    target=_start_worker, name="ade-inline-worker", daemon=True
                 )
+                worker_thread.start()
+            else:
+                # Redis-backed docket: run worker in a separate process to avoid
+                # blocking the API event loop with CPU-heavy tasks.
+                worker_process = Process(
+                    target=_run_worker_process,
+                    name="ade-inline-worker-process",
+                    daemon=True,
+                )
+                worker_process.start()
 
-                try:
-                    yield
-                finally:
-                    worker_task.cancel()
-                    with suppress(asyncio.CancelledError):
-                        await worker_task
-                    set_current_worker(None)
-                    set_current_docket(None)
-                    if hasattr(app.state, "docket"):
-                        app.state.docket = None
-                    if hasattr(app.state, "worker"):
-                        app.state.worker = None
+            try:
+                yield
+            finally:
+                if worker_task and worker_loop:
+                    worker_loop.call_soon_threadsafe(worker_task.cancel)
+                if worker_thread:
+                    worker_thread.join(timeout=10)
+                if worker_process and worker_process.is_alive():
+                    worker_process.terminate()
+                    worker_process.join(timeout=10)
+                set_current_worker(None)
+                set_current_docket(None)
+                if hasattr(app.state, "docket"):
+                    app.state.docket = None
+                if hasattr(app.state, "worker"):
+                    app.state.worker = None
 
     app = FastAPI(
         title="Agentic Document Extraction API",
