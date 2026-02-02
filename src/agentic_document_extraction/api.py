@@ -87,57 +87,41 @@ def create_app() -> FastAPI:
         registry used by the CLI path.
         """
 
-        docket = None
-        worker = None
-        worker_task: asyncio.Task[None] | None = None
-
-        try:
-            docket = build_docket()
-            await docket.__aenter__()
-
+        async with build_docket() as docket:
             docket.register(process_extraction_job)
 
-            worker = Worker(
+            async with Worker(
                 docket,
                 name=f"api-inline-worker-{settings.docket_name}",
                 concurrency=settings.docket_worker_concurrency,
                 enable_internal_instrumentation=settings.docket_enable_internal_instrumentation,
-            )
-            await worker.__aenter__()
+            ) as worker:
+                # Expose via app state and contextvars for dependencies/utilities
+                app.state.docket = docket
+                app.state.worker = worker
+                set_current_docket(docket)
+                set_current_worker(worker)
 
-            # Expose via app state and contextvars for dependencies/utilities
-            app.state.docket = docket
-            app.state.worker = worker
-            set_current_docket(docket)
-            set_current_worker(worker)
+                worker_task = asyncio.create_task(worker.run_forever())
+                logger.info(
+                    "Inline Docket worker started",
+                    docket=settings.docket_name,
+                    url=settings.docket_url,
+                    concurrency=settings.docket_worker_concurrency,
+                )
 
-            worker_task = asyncio.create_task(worker.run_forever())
-            logger.info(
-                "Inline Docket worker started",
-                docket=settings.docket_name,
-                url=settings.docket_url,
-                concurrency=settings.docket_worker_concurrency,
-            )
-
-            yield
-        finally:
-            if worker_task is not None:
-                worker_task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await worker_task
-
-            if worker is not None:
-                await worker.__aexit__(None, None, None)
-            set_current_worker(None)
-
-            if docket is not None:
-                await docket.__aexit__(None, None, None)
-            set_current_docket(None)
-
-            if hasattr(app.state, "docket"):
-                app.state.docket = None
-            if hasattr(app.state, "worker"):
-                app.state.worker = None
+                try:
+                    yield
+                finally:
+                    worker_task.cancel()
+                    with suppress(asyncio.CancelledError):
+                        await worker_task
+                    set_current_worker(None)
+                    set_current_docket(None)
+                    if hasattr(app.state, "docket"):
+                        app.state.docket = None
+                    if hasattr(app.state, "worker"):
+                        app.state.worker = None
 
     app = FastAPI(
         title="Agentic Document Extraction API",
